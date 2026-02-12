@@ -1,3 +1,7 @@
+document.addEventListener('DOMContentLoaded', () => {
+    document.documentElement.classList.add('ready');
+});
+
 // Элементы меню
 const hamburgerMenu = document.getElementById('hamburgerMenu');
 const dropdownMenu = document.getElementById('dropdownMenu');
