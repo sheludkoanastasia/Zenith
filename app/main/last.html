@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Zenith</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Ysabeau:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="mainPage.css">
+</head>
+<body>
+    <header>
+        <div class="logo">
+            <img src="../../images/logo.svg" alt="Zenith Logo">
+        </div>
+        
+        <div class="nav-center">
+            <a href="#">Студентам</a>
+            <a href="#">Преподавателям</a>
+        </div>
+        
+        <div class="nav-right">
+            <a href="#" class="login-link">Войти</a>
+        </div>
+        
+        <!-- Гамбургер меню с изображением -->
+        <div class="hamburger-menu" id="hamburgerMenu">
+            <img src="../../images/hamburgerMenu.svg" alt="Меню">
+        </div>
+        
+        <!-- Выпадающее меню -->
+        <div class="dropdown-menu" id="dropdownMenu">
+            <a href="#">Студентам</a>
+            <a href="#">Преподавателям</a>
+            <a href="#" class="loginText">Войти</a>
+        </div>
+    </header>
+    
+    <main class="main-container">
+        <img class="main-background" src="../../images/mainBackground.png" alt="Background">
+        <img class="main-glass" src="../../images/mainBackgroundGlassFull.png" alt="Glass effect">
+        <div class="content-overlay">
+            <!-- Левая часть -->
+            <div class="left-section">
+                <div class="text-content">
+                    <h1 class="title">Платформа для создания&nbsp;и&nbsp;прохождения курсов</h1>
+                    <p class="subtitle">
+                        Мы создали стартап для построения и прохождения уникальной программы обучения.<br>
+                        Наш сервис предлагает как готовые решения, так и создание курсов с нуля.<br>
+                        Для получения доступа к готовым программам и их созданию<br>
+                        следует пройти <a href="#auth" class="auth-link">авторизацию</a>
+                    </p>
+                    
+                    <!-- Секция с текстом и кнопкой регистрации -->
+                    <div class="registration-section">
+                        <span class="registration-text">Нет аккаунта?</span>
+                        <button class="registration-button">Зарегистрироваться</button>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Правая часть -->
+            <div class="right-section">
+                <div class="image-container">
+                    <img src="../../images/backgroundDemo.png" alt="Иллюстрация платформы" class="right-image">
+                </div>
+            </div>
+        </div>
+    </main>
+    
+    <main class="next-container"></main>
+
+    <!-- Новый раздел "Студентам" -->
+    <section class="students-section">
+        <div class="students-header">
+            <h2 class="students-title">Студентам</h2>
+            <h3 class="students-subtitle">Почему стоит выбрать нас?</h3>
+        </div>
+        <div class="students-content">
+            <img src="../../images/backgroundStudents.png" alt="Фон для студентов" class="students-background">
+                <div class="students-text-content">
+                    <h2 class="students-main-title">Последовательное изучение материала</h2>
+                        <p class="students-description">Двигайтесь от простого к сложному: освойте теорию,<br>
+                        затем закрепите знания на практике и завершите модуль итоговым тестом.</p>
+                        <p class="students-description">Доступ к следующему блоку откроется только после успешного завершения предыдущего,<br>
+                        что гарантирует прочное усвоение информации.</p>
+                </div>
+            <div class="students-images">
+                <div class="image-frame">
+                    <img src="../../images/glassFrame.png" class="frame">
+                    <img src="../../images/Books.svg" class="icon">
+                    <img src="../../images/backgroundCardsStudents.png" class="iconBackground">
+                        <p class="signFrame">Теория</p>
+                </div>
+                <div class="image-frame">
+                    <img src="../../images/glassFrame.png" class="frame">
+                    <img src="../../images/Pen.svg" class="icon">
+                    <img src="../../images/backgroundCardsStudents.png" class="iconBackground">
+                        <p class="signFrame">Практика</p>
+                </div>
+                <div class="image-frame">
+                    <img src="../../images/glassFrame.png" class="frame">
+                    <img src="../../images/Table-Clock.svg" class="icon">
+                    <img src="../../images/backgroundCardsStudents.png" class="iconBackground">
+                        <p class="signFrame">Тест</p>
+                </div>
+            </div>
+        </div>
+    </section>
+    <section class="students-section-disscution">
+         <div class="discussion-image">
+            <img src="../../images/disscutionImg.svg" >
+        </div>
+            <div class="students-text-content-disscution">
+                    <h2 class="students-disscution-title">Обсуждайте командой</h2>
+                        <p class="students-disscution-description">Не оставайтесь с трудностями один на один:<br>
+                            задавайте вопросы преподавателю и ищите подсказки с другими участниками<br>
+                            в комментариях после каждого задания.</p>
+                        <p class="students-disscution-description">Совместный поиск решений помогает глубже разобраться в теме и увидеть разные<br>
+                            подходы к выполнению задач.</p>
+            </div>
+    </section>
+    <section class="students-section-progress">
+            <div class="students-text-content-progress">
+                    <h2 class="students-progress-title">Отслеживай свой прогресс</h2>
+                        <p class="students-progress-description">Наглядная шкала прогресса покажет, какую часть курса вы уже освоили — от первых
+                            уроков до финального теста.</p>
+                        <p class="students-progress-description">Она помогает видеть свой путь, планировать время и сохранять мотивацию для <br>
+                            успешного завершения обучения.</p>
+            </div>
+            <div class="progress-image">
+                <img src="../../images/progressImg.png" >
+            </div>
+    </section>
+
+    <script src="mainPage.js"></script>
+</body>
+</html>

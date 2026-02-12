@@ -1,0 +1,1812 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Ysabeau', sans-serif;
+    color: #1D1D1D;
+    background-color: white;
+    overflow-x: hidden;
+    min-width: 360px;
+}
+
+header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px 40px;
+    border-bottom: 1px solid #eee;
+    position: relative;
+}
+
+.logo {
+    flex-shrink: 0;
+    flex: 1;
+}
+
+.logo img {
+    width: 60px;
+    height: 20px;
+    display: block;
+}
+
+.nav-center {
+    display: flex;
+    justify-content: center;
+    flex: 2;
+    gap: 40px;
+}
+
+.nav-center a {
+    text-decoration: none;
+    color: #1D1D1D;
+    font-size: 18px;
+    font-weight: 500;
+    transition: color 0.3s ease;
+    white-space: nowrap;
+}
+
+.nav-center a:hover {
+    color: #7651BE;
+}
+
+.nav-right {
+    flex: 1;
+    display: flex;
+    justify-content: flex-end;
+}
+
+.nav-right a {
+    text-decoration: none;
+    color: #1D1D1D;
+    font-size: 18px;
+    font-weight: 500;
+    transition: color 0.3s ease;
+    white-space: nowrap;
+}
+
+.nav-right a:hover {
+    color: #7651BE;
+}
+
+/* Стили для гамбургер-меню с картинкой */
+.hamburger-menu {
+    display: none;
+    cursor: pointer;
+    z-index: 1000;
+    padding: 5px;
+}
+
+.hamburger-menu img {
+    width: 30px;
+    height: 24px;
+    display: block;
+    transition: transform 0.3s ease;
+}
+
+.hamburger-menu.active img {
+    transform: rotate(90deg);
+}
+
+/* Выпадающее меню под хедером */
+.dropdown-menu {
+    position: absolute;
+    top: 100%;
+    right: 20px;
+    width: 200px;
+    background-color: white;
+    box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+    border-radius: 8px;
+    padding: 15px 0;
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(-10px);
+    transition: all 0.3s ease;
+    z-index: 999;
+    border: 1px solid #eee;
+}
+
+.dropdown-menu.active {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0);
+}
+
+.dropdown-menu a {
+    display: block;
+    padding: 12px 20px;
+    text-decoration: none;
+    color: #1D1D1D;
+    font-size: 16px;
+    font-weight: 500;
+    transition: all 0.3s ease;
+    border-bottom: 1px solid #f5f5f5;
+}
+
+.dropdown-menu a:last-child {
+    border-bottom: none;
+}
+
+.dropdown-menu a:hover {
+    background-color: #f9f9f9;
+    color: #5c5c5c;
+}
+
+.dropdown-menu a.loginText {
+    color: #7651BE;
+}
+
+.main-container {
+    position: relative;
+    width: 100%;
+    overflow: hidden;
+    max-height: 89vh;
+}
+
+.next-container {
+    position: relative;
+    width: 100%;
+    overflow: hidden;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    visibility: hidden;
+}
+.main-background {
+    width: 100%;
+    display: block;
+}
+
+.main-glass {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+.content-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+}
+
+/* Левая часть */
+.left-section {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 40px;
+}
+
+.text-content {
+    max-width: auto;
+    text-align: left;
+}
+
+.title {
+    font-size: 37px;
+    font-weight: 400;
+    line-height: 1.2;
+    margin-bottom: 20px;
+    color: #1D1D1D;
+    max-width: 756px;
+}
+
+.subtitle {
+    font-size: 16px;
+    color: #4C4C4C;
+    line-height: 1.6;
+    max-width: 100%;
+    margin-bottom: 25px;
+}
+
+/* Стили для секции с регистрацией */
+.registration-section {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    margin-top: 20px;
+    margin-bottom: 20px;
+}
+
+.registration-text {
+    font-size: 16px;
+    color: #1D1D1D;
+    font-weight: 500;
+}
+
+.registration-button {
+    background-color: #4C4C4C;
+    color: white;
+    border: none;
+    padding: 8px 22px;
+    border-radius: 15px; /* Радиус 15px как просили */
+    font-size: 16px;
+    font-weight: 100;
+    font-family: 'Ysabeau', sans-serif;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    text-decoration: none;
+    display: inline-block;
+}
+
+.registration-button:hover {
+    background-color: #3a3a3a;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.registration-button:active {
+    transform: translateY(0);
+}
+
+.auth-link {
+    font-weight: 600;
+    color: #7651BE;
+    text-decoration: none;
+    transition: opacity 0.3s ease;
+}
+
+.auth-link:hover {
+    opacity: 0.8;
+}
+
+/* Правая часть */
+.right-section {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 40px 0 40px;
+}
+
+.image-container {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
+    max-width: 817px;
+    max-height: 500px;
+}
+
+.right-image {
+    width: 100%;
+    height: auto;
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain; /* Сохраняем пропорции */
+}
+
+/* Новый раздел "Студентам" */
+.students-section {
+    background-color: #fff;
+}
+
+.students-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 120px;
+    margin-bottom: 30px;
+    position: relative;
+    padding-left: 20px;
+    padding-right: 20px;
+}
+
+.students-title {
+    flex: 1;
+    display: flex;
+    justify-content: center;
+    font-size: 18px;
+    font-weight: 500;
+    color: #1D1D1D;
+}
+
+.students-content {
+    width: 100%;
+}
+
+.students-background {
+    width: 100%;
+    max-height: 650px;
+    display: block;
+    object-fit: contain;
+}
+
+.students-content {
+    width: 100%;
+    position: relative;
+}
+
+.students-text-content {
+    position: absolute;
+    top: 60px;
+    text-align: center;
+    left: 50%;
+    transform: translateX(-50%);
+    max-width: 640px;
+}
+
+.students-main-title {
+    font-size: 37px;
+    font-weight: 400;
+    line-height: 1.2;
+    margin-bottom: 20px;
+    color: #1D1D1D;
+}
+
+.students-description {
+    font-size: 16px;
+    color: #4C4C4C;
+    line-height: 1.6;
+    margin-bottom: 25px;
+}
+
+.students-images {
+     position: absolute;
+    top: 290px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 40px;
+}
+
+.image-frame {
+    position: relative;
+    width: 150px;
+    height: 150px;
+}
+
+.frame {
+    width: 100%;
+    height: 100%;
+    display: block;
+}
+
+.icon {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 120px;
+    height: 120px;
+}
+
+.iconBackground{
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 190px;
+    height: 190px;
+    z-index: -1;
+    visibility: hidden;
+}
+
+.signFrame {
+    padding-top: 20px;
+    text-align: center;
+    font-size: 16px;
+    color: #4C4C4C;
+    padding-bottom: 40px;
+}
+
+.students-section-disscution {
+    display: grid;
+    grid-template-columns: auto auto;
+    align-items: center;
+    justify-content: center; /* Центрирование по горизонтали */
+    gap: 60px;
+    padding-bottom: 50px;
+    padding-top: 60px;
+    padding-left: 40px;
+    padding-right: 40px;
+}
+
+.students-text-content-disscution {
+    text-align: right;
+    max-width: 586px;
+}
+
+.discussion-image {
+    position: relative;
+    width: 100%;
+    max-width: 260px;
+}
+
+.discussion-image img {
+    width: 100%;
+    height: auto;
+    display: block;
+    max-width: 100%; /* Важно: ограничивает ширину изображения */
+}
+
+.students-disscution-title {
+    font-size: 37px;
+    font-weight: 400;
+    line-height: 1.2;
+    margin-bottom: 20px;
+    color: #1D1D1D;
+}
+
+.students-disscution-description {
+    font-size: 16px;
+    color: #4C4C4C;
+    line-height: 1.6;
+    margin-bottom: 25px;
+}
+
+.students-section-progress {
+    display: grid;
+    grid-template-columns: auto auto;
+    align-items: center;
+    justify-content: center; /* Центрирование по горизонтали */
+    gap: 40px;
+    padding-bottom: 50px;
+    padding-top: 60px;
+    padding-left: 40px;
+    padding-right: 40px;
+}
+
+.students-text-content-progress {
+    text-align: left;
+    max-width: 536px;
+}
+
+.progress-image {
+    position: relative;
+    width: 100%;
+    max-width: 306px;
+}
+
+.progress-image img {
+    width: 100%;
+    height: auto;
+    display: block;
+    max-width: 100%; /* Важно: ограничивает ширину изображения */
+}
+
+.students-progress-title {
+    font-size: 37px;
+    font-weight: 400;
+    line-height: 1.2;
+    margin-bottom: 20px;
+    color: #1D1D1D;
+}
+
+.students-progress-description {
+    font-size: 16px;
+    color: #4C4C4C;
+    line-height: 1.6;
+    margin-bottom: 25px;
+}
+
+.teachers-header{
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 120px;
+    margin-bottom: 30px;
+    position: relative;
+    padding-left: 20px;
+    padding-right: 20px;
+}
+.teachers-title{
+    flex: 1;
+    display: flex;
+    justify-content: center;
+    font-size: 18px;
+    font-weight: 500;
+    color: #1D1D1D;
+}
+
+.horizontal-line {
+    width: 100%;
+    height: 0.8px;
+    background-color: #E5E5E5;
+    margin-top: 50px; /* Отступ сверху */
+}
+
+.horizontal-line-bottom{
+    width: 100%;
+    height: 0.8px;
+    background-color: #E5E5E5;
+    margin-bottom:50px ;
+}
+
+.teachers-grid-1 {
+    display: grid;
+    grid-template-columns: minmax(500px, 600px) auto minmax(500px, 600px);
+    align-items: stretch;
+    justify-content: center;
+    min-height: 650px;
+    position: relative;
+    width: 100%;
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 0 40px;
+    gap: 0; /* Убираем промежутки между колонками */
+}
+
+.teachers-grid-1-text-content {
+    text-align: left;
+    padding: 40px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    position: relative;
+    border: 0.8px solid #E5E5E5;
+    border-right: none;
+    border-top: none;
+    border-bottom: none;
+    min-height: 650px;
+    box-sizing: border-box;
+    width: 100%;
+}
+
+.teachers-grid-demo {
+    position: relative;
+    padding: 40px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    border: 0.8px solid #E5E5E5;
+    border-left: none;
+    border-top: none;
+    border-bottom: none;
+    min-height: 650px;
+    box-sizing: border-box;
+    width: 100%;
+}
+
+/* Центральная линия */
+.vertical-line {
+    width: 0.8px;
+    background-color: #E5E5E5;
+    align-self: stretch;
+    z-index: 1;
+    margin: 0; /* Убираем все отступы */
+}
+
+/* Контент внутри левого квадрата */
+.teachers-grid-1-text-content > * {
+    max-width: 450px;
+    width: 100%;
+}
+
+/* Для заголовка внутри квадрата */
+.teachers-grid-1-title {
+    font-size: 37px;
+    font-weight: 400;
+    line-height: 1.2;
+    margin-bottom: 40px;
+    color: #1D1D1D;
+    text-align: left; /* Центрируем заголовок */
+}
+
+/* Для описания внутри квадрата */
+.teachers-grid-1-description {
+    font-size: 16px;
+    color: #4C4C4C;
+    line-height: 1.6;
+    padding-bottom: 20px;
+    text-align: left; /* Центрируем текст */
+}
+
+/* Для демо-контента в правом квадрате */
+.teachersFrameBackground {
+    max-width: 100%;
+    max-height: 100%;
+    width: auto;
+    height: auto;
+    display: block;
+}
+
+.teachersFrame {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    max-width: 80%; /* Ограничиваем размер внутри квадрата */
+    max-height: 80%;
+    width: auto;
+    height: auto;
+}
+
+.teachers-grid-2 {
+    display: grid;
+    grid-template-columns: minmax(500px, 600px) auto minmax(500px, 600px);
+    align-items: stretch;
+    justify-content: center;
+    min-height: 650px;
+    position: relative;
+    width: 100%;
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 0 40px;
+    gap: 0; /* Убираем промежутки между колонками */
+}
+
+.teachers-grid-2-text-content {
+    text-align: left;
+    padding: 40px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    position: relative;
+    border: 0.8px solid #E5E5E5;
+    border-left: none;
+    border-top: none;
+    border-bottom: none;
+    min-height: 650px;
+    box-sizing: border-box;
+    width: 100%;
+}
+
+.teachers-grid-demo-2 {
+    position: relative;
+    padding: 40px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    border: 0.8px solid #E5E5E5;
+    border-right: none;
+    border-top: none;
+    border-bottom: none;
+    min-height: 650px;
+    box-sizing: border-box;
+    width: 100%;
+}
+
+/* Центральная линия */
+.vertical-line {
+    width: 0.8px;
+    background-color: #E5E5E5;
+    align-self: stretch;
+    z-index: 1;
+    margin: 0; /* Убираем все отступы */
+}
+
+/* Контент внутри левого квадрата */
+.teachers-grid-2-text-content > * {
+    max-width: 450px;
+    width: 100%;
+}
+
+/* Для заголовка внутри квадрата */
+.teachers-grid-2-title {
+    font-size: 37px;
+    font-weight: 400;
+    line-height: 1.2;
+    margin-bottom: 40px;
+    color: #1D1D1D;
+    text-align: right; /* Центрируем заголовок */
+}
+
+/* Для описания внутри квадрата */
+.teachers-grid-2-description {
+    font-size: 16px;
+    color: #4C4C4C;
+    line-height: 1.6;
+    padding-bottom: 20px;
+    text-align: right; /* Центрируем текст */
+}
+
+.teachers-grid-3 {
+    display: grid;
+    grid-template-columns: minmax(500px, 600px) auto minmax(500px, 600px);
+    align-items: stretch;
+    justify-content: center;
+    min-height: 650px;
+    position: relative;
+    width: 100%;
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 0 40px;
+    gap: 0; /* Убираем промежутки между колонками */
+}
+
+.teachers-grid-3-text-content {
+    text-align: left;
+    padding: 40px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    position: relative;
+    border: 0.8px solid #E5E5E5;
+    border-right: none;
+    border-top: none;
+    border-bottom: none;
+    min-height: 650px;
+    box-sizing: border-box;
+    width: 100%;
+}
+
+.teachers-grid-demo-3 {
+    position: relative;
+    padding: 40px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    border: 0.8px solid #E5E5E5;
+    border-left: none;
+    border-top: none;
+    border-bottom: none;
+    min-height: 650px;
+    box-sizing: border-box;
+    width: 100%;
+}
+
+/* Контент внутри левого квадрата */
+.teachers-grid-3-text-content > * {
+    max-width: 450px;
+    width: 100%;
+}
+
+/* Для заголовка внутри квадрата */
+.teachers-grid-3-title {
+    font-size: 37px;
+    font-weight: 400;
+    line-height: 1.2;
+    margin-bottom: 40px;
+    color: #1D1D1D;
+    text-align: left; /* Центрируем заголовок */
+}
+
+/* Для описания внутри квадрата */
+.teachers-grid-3-description {
+    font-size: 16px;
+    color: #4C4C4C;
+    line-height: 1.6;
+    padding-bottom: 20px;
+    text-align: left; /* Центрируем текст */
+}
+
+footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px 40px;
+    border-bottom: 1px solid #eee;
+    flex-wrap: wrap;
+}
+
+footer p {
+    margin: 0;
+}
+
+.logoUniversity {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-direction: row; /* по умолчанию, текст слева, картинка справа */
+}
+
+.logoUniversity img {
+    width: 260px;
+    height: auto;
+    display: block;
+}
+
+@media (max-width: 1440px) {
+    .left-section {
+        padding-left: 40px;
+    }
+    
+    .right-section {
+        padding-right: 40px;
+    }
+    
+    .title {
+        font-size: 37px;
+    }
+    
+    .subtitle {
+        font-size: 16px;
+    }
+}
+
+@media (max-width: 1366px) {
+    .left-section {
+        padding-left: 40px;
+    }
+    
+    .right-section {
+        padding-right: 40px;
+    }
+    
+    .title {
+        font-size: 29px;
+    }
+    
+    .subtitle {
+        font-size: 13px;
+    }
+    
+    .registration-section {
+        gap: 12px;
+    }
+    
+    .registration-text,
+    .registration-button {
+        font-size: 13px;
+    }
+
+    .students-header {
+        margin-top: 80px;
+    }
+    .students-title {
+        font-size: 13px;
+    }
+
+    .students-main-title {
+        font-size: 27px;
+    }
+
+    .students-description {
+        font-size: 13px;
+    }
+
+    .students-text-content {
+        top: 20px;
+    }
+
+    .students-images {
+        top: 230px;
+    }
+
+    .students-disscution-title {
+        font-size: 27px;
+    }
+
+    .students-disscution-description {
+        font-size: 13px;
+    }
+
+    .students-progress-title {
+        font-size: 27px;
+    }
+
+    .students-progress-description {
+        font-size: 13px;
+    }
+
+    .teachers-grid-1{
+       grid-template-columns: minmax(400px, 500px) auto minmax(400px, 500px); 
+       max-height: 550px;
+       min-height: auto;
+    }
+
+    .teachers-grid-1-text-content {
+    min-height: auto;
+    }
+
+    .teachers-grid-demo {
+        min-height: auto;
+    }
+
+        /* Контент внутри левого квадрата */
+    .teachers-grid-1-text-content > * {
+        max-width: auto;
+        width: 100%;
+    }
+
+    /* Для заголовка внутри квадрата */
+    .teachers-grid-1-title {
+        font-size: 27px;
+        font-weight: 400;
+        line-height: 1.2;
+        margin-bottom: 40px;
+        color: #1D1D1D;
+        text-align: left; /* Центрируем заголовок */
+    }
+
+    /* Для описания внутри квадрата */
+    .teachers-grid-1-description {
+        font-size: 13px;
+        color: #4C4C4C;
+        line-height: 1.6;
+        padding-bottom: 20px;
+        text-align: left; /* Центрируем текст */
+    }
+
+    /* Для демо-контента в правом квадрате */
+    .teachersFrameBackground {
+        max-width: 110%;
+        max-height: 110%;
+    }
+
+    .teachersFrame {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        max-width: 80%; /* Ограничиваем размер внутри квадрата */
+        max-height: 80%;
+        width: auto;
+        height: auto;
+    }
+
+    .teachers-grid-2{
+       grid-template-columns: minmax(400px, 500px) auto minmax(400px, 500px); 
+       max-height: 550px;
+       min-height: auto;
+    }
+
+    .teachers-grid-2-text-content {
+    min-height: auto;
+    }
+
+    .teachers-grid-demo-2 {
+        min-height: auto;
+    }
+
+        /* Контент внутри левого квадрата */
+    .teachers-grid-2-text-content > * {
+        max-width: auto;
+        width: 100%;
+    }
+
+    /* Для заголовка внутри квадрата */
+    .teachers-grid-2-title {
+        font-size: 27px;
+        font-weight: 400;
+        line-height: 1.2;
+        margin-bottom: 40px;
+        color: #1D1D1D;
+    }
+
+    /* Для описания внутри квадрата */
+    .teachers-grid-2-description {
+        font-size: 13px;
+        color: #4C4C4C;
+        line-height: 1.6;
+        padding-bottom: 20px;
+    }
+
+    .teachers-grid-3{
+       grid-template-columns: minmax(400px, 500px) auto minmax(400px, 500px); 
+       max-height: 550px;
+       min-height: auto;
+    }
+
+    .teachers-grid-3-text-content {
+    min-height: auto;
+    }
+
+    .teachers-grid-demo-3 {
+        min-height: auto;
+    }
+
+        /* Контент внутри левого квадрата */
+    .teachers-grid-3-text-content > * {
+        max-width: auto;
+        width: 100%;
+    }
+
+    /* Для заголовка внутри квадрата */
+    .teachers-grid-3-title {
+        font-size: 27px;
+        font-weight: 400;
+        line-height: 1.2;
+        margin-bottom: 40px;
+        color: #1D1D1D;
+        text-align: left; /* Центрируем заголовок */
+    }
+
+    /* Для описания внутри квадрата */
+    .teachers-grid-3-description {
+        font-size: 13px;
+        color: #4C4C4C;
+        line-height: 1.6;
+        padding-bottom: 20px;
+        text-align: left; /* Центрируем текст */
+    }
+}
+
+@media (max-width: 1200px) {
+    .left-section {
+        padding-left: 40px;
+        padding-right: 30px;
+        padding-top: 10px;
+        padding-bottom: 10px;
+    }
+    
+    .right-section {
+        padding-right: 40px;
+        padding-left: 30px;
+    }
+    
+    .title {
+        font-size: 27px;
+    }
+    
+    .subtitle {
+        font-size: 13px;
+    }
+    
+    .registration-section {
+        gap: 10px;
+        margin-top: 20px;
+    }
+    
+    .registration-text,
+    .registration-button {
+        font-size: 13px;
+    }
+    .signFrame {
+        font-size: 13px;
+    }
+}
+
+
+/* Стили для мобильных устройств (992px и меньше) */
+@media (max-width: 992px) {
+    .main-container {
+        height: 50vh;
+        max-height: 50vh;
+    }
+    
+    .next-container {
+        height: 50vh;
+        min-height: 50vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 20px 0;
+        visibility: visible;
+    }
+    
+    .nav-center {
+        gap: 20px;
+    }
+    
+    .content-overlay {
+        display: flex;
+        grid-template-columns: 1fr;
+    }
+    
+    .left-section {
+        width: 100%;
+        height: 100%;
+        padding-left: 40px;
+        padding-right: 40px;
+        justify-content: center;
+        align-items: center;
+        text-align: center;
+    }
+    
+    .title{       
+        max-width: 100%;
+    }
+
+    .text-content {
+        width: 100%;
+        text-align:center;
+    }
+    
+    .right-section {
+        display: flex;
+        width: 100%;
+        height: 100%;
+        align-items: center;
+        justify-content: center;
+        padding-right: 40px;
+        padding-left: 40px;
+    }
+    
+    .image-container {
+        max-width: 569px;
+        max-height: 348px;
+    }
+    
+    /* Адаптация регистрационной секции для мобильных */
+    .registration-section {
+        gap: 8px;
+        margin-top: 15px;
+        justify-content: center;
+    }
+    
+    .registration-button {
+        padding: 8px 16px;
+    }
+    
+    .students-header {
+        margin-top: 50px;
+    }
+    .students-title {
+        font-size: 13px;
+    }
+
+    .students-main-title {
+        font-size: 27px;
+        min-width: 467px;
+    }
+
+    .students-description {
+        font-size: 13px;
+    }
+
+    .students-text-content {
+        top: 15px;
+    }
+
+    .students-images {
+        top: 215px;
+    }
+
+    .image-frame {
+        width: 130px;
+        height: 130px;
+    }
+
+    .icon {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        width: 100px;
+        height: 100px;
+    }
+
+    .students-background {
+        min-height: 476px;;
+    }
+
+    .students-progress-title {
+        font-size: 27px;
+       
+    }
+
+    .teachersFrameBackground {
+        max-width: 100%;
+        max-height: 100%;
+    }
+
+    .teachersFrame {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        max-width: 70%; /* Ограничиваем размер внутри квадрата */
+        max-height: 70%;
+        width: auto;
+        height: auto;
+    }
+
+}
+
+@media (max-width:885px){
+    .teachersFrameBackground {
+        max-width: 100%;
+        max-height: 100%;
+    }
+
+    .teachersFrame {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        max-width: 70%; /* Ограничиваем размер внутри квадрата */
+        max-height: 70%;
+        width: auto;
+        height: auto;
+    }
+    .teachers-grid-1{
+       grid-template-columns: minmax(350px, 450px) auto minmax(350px, 450px); 
+       max-height: 500px;
+       min-height: auto;
+    }
+
+    .teachers-grid-1-text-content {
+    min-height: auto;
+    }
+
+    .teachers-grid-demo {
+        min-height: auto;
+    }
+
+        /* Контент внутри левого квадрата */
+    .teachers-grid-1-text-content > * {
+        max-width: auto;
+        width: 100%;
+    }
+
+    /* Для заголовка внутри квадрата */
+    .teachers-grid-1-title {
+        font-size: 27px;
+        font-weight: 400;
+        line-height: 1.2;
+        margin-bottom: 30px;
+        color: #1D1D1D;
+        text-align: left; /* Центрируем заголовок */
+    }
+
+    /* Для описания внутри квадрата */
+    .teachers-grid-1-description {
+        font-size: 13px;
+        color: #4C4C4C;
+        line-height: 1.6;
+        padding-bottom: 20px;
+        text-align: left; /* Центрируем текст */
+    }
+
+    .teachers-grid-1-text-content {
+        padding: 20px;
+        min-height: auto;
+    }
+
+    .teachers-grid-demo {
+        padding: 20px;
+        min-height: auto;
+    }
+
+    .teachers-grid-2{
+       grid-template-columns: minmax(350px, 450px) auto minmax(350px, 450px); 
+       max-height: 500px;
+       min-height: auto;
+    }
+
+    .teachers-grid-2-text-content {
+    min-height: auto;
+    }
+
+    .teachers-grid-demo-2 {
+        min-height: auto;
+    }
+
+        /* Контент внутри левого квадрата */
+    .teachers-grid-2-text-content > * {
+        max-width: auto;
+        width: 100%;
+    }
+
+    /* Для заголовка внутри квадрата */
+    .teachers-grid-2-title {
+        font-size: 27px;
+        font-weight: 400;
+        line-height: 1.2;
+        margin-bottom: 30px;
+        color: #1D1D1D;
+    }
+
+    /* Для описания внутри квадрата */
+    .teachers-grid-2-description {
+        font-size: 13px;
+        color: #4C4C4C;
+        line-height: 1.6;
+        padding-bottom: 20px;
+    }
+
+    .teachers-grid-2-text-content {
+        padding: 20px;
+        min-height: auto;
+    }
+
+    .teachers-grid-demo-2 {
+        padding: 20px;
+        min-height: auto;
+    }
+
+    .teachers-grid-3{
+       grid-template-columns: minmax(350px, 450px) auto minmax(350px, 450px); 
+       max-height: 500px;
+       min-height: auto;
+    }
+
+    .teachers-grid-3-text-content {
+    min-height: auto;
+    }
+
+    .teachers-grid-demo-3 {
+        min-height: auto;
+    }
+
+        /* Контент внутри левого квадрата */
+    .teachers-grid-3-text-content > * {
+        max-width: auto;
+        width: 100%;
+    }
+
+    /* Для заголовка внутри квадрата */
+    .teachers-grid-3-title {
+        font-size: 27px;
+        font-weight: 400;
+        line-height: 1.2;
+        margin-bottom: 30px;
+        color: #1D1D1D;
+        text-align: left; /* Центрируем заголовок */
+    }
+
+    /* Для описания внутри квадрата */
+    .teachers-grid-3-description {
+        font-size: 13px;
+        color: #4C4C4C;
+        line-height: 1.6;
+        padding-bottom: 20px;
+        text-align: left; /* Центрируем текст */
+    }
+
+    .teachers-grid-3-text-content {
+        padding: 20px;
+        min-height: auto;
+    }
+
+    .teachers-grid-demo-3 {
+        padding: 20px;
+        min-height: auto;
+    }
+}
+
+@media (max-width: 774px) {
+    .teachers-title {
+        font-size: 13px;
+    }
+
+    .teachers-section {
+        height: auto;
+        min-height: auto;
+        margin-bottom: 0;
+        padding-top: 0;
+        padding-bottom: 0;
+    }
+
+    .teachers-grid-1 {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: flex-start;
+        gap: 40px;
+        
+        
+        padding-left: 20px;
+        padding-right: 20px;
+        width: 100%;
+        max-width: 100%;
+        max-height: 600px;
+    }
+    
+    .teachers-grid-1-text-content {
+        text-align: center;
+        max-width: 300px;
+        width: 100%;
+        order: 1;
+        border: none;
+        padding: 0;
+        margin: 0 auto;
+        min-height: auto;
+    }
+    
+    .teachers-grid-1-title,
+    .teachers-grid-1-description {
+        text-align: center;
+        max-width: 300px;
+        width: 100%;
+        margin-left: auto;
+        margin-right: auto;
+    }
+    
+    .teachers-grid-1-title {
+        margin-top: 0;
+        margin-bottom: 20px;
+        padding-top: 0;
+        font-size: 24px;
+        word-wrap: break-word;
+    }
+    
+    .teachers-grid-1-description {
+        margin-top: 0;
+        margin-bottom: 0;
+        padding-top: 0;
+        padding-bottom: 0;
+        word-wrap: break-word;
+    }
+    
+    .teachers-grid-demo {
+        order: 2;
+        max-width: 280px;
+        width: 100%;
+        border: none;
+        padding: 0;
+        margin-bottom: 40px;
+        min-height: 200px;
+    }
+
+    .teachersFrameBackground {
+        max-width: 80%;
+        max-height: 80%;
+        object-fit:contain;
+    }
+
+    .teachersFrame {
+        max-width: 90%;
+        max-height: 90%;
+    }
+
+    .teachers-grid-2 {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: flex-start;
+        gap: 40px;
+        padding-left: 20px;
+        padding-right: 20px;
+        width: 100%;
+        max-width: 100%;
+        max-height: 600px;
+    }
+    
+    .teachers-grid-2-text-content {
+        text-align: center;
+        max-width: 300px;
+        width: 100%;
+        order: 1;
+        border: none;
+        padding: 0;
+        margin: 0 auto;
+        min-height: auto;
+    }
+    
+    .teachers-grid-2-title,
+    .teachers-grid-2-description {
+        text-align: center;
+        max-width: 300px;
+        width: 100%;
+        margin-left: auto;
+        margin-right: auto;
+    }
+    
+    .teachers-grid-2-title {
+        margin-top: 0;
+        margin-bottom: 20px;
+        padding-top: 0;
+        font-size: 24px;
+        word-wrap: break-word;
+    }
+    
+    .teachers-grid-2-description {
+        margin-top: 0;
+        margin-bottom: 0;
+        padding-top: 0;
+        padding-bottom: 0;
+        word-wrap: break-word;
+    }
+    
+    .teachers-grid-demo-2 {
+        order: 2;
+        max-width: 280px;
+        width: 100%;
+        border: none;
+        padding: 0;
+        margin-bottom: 40px;
+        min-height: 200px;
+    }
+
+    .teachers-grid-3 {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: flex-start;
+        gap: 40px;
+        
+        
+        padding-left: 20px;
+        padding-right: 20px;
+        width: 100%;
+        max-width: 100%;
+        max-height: 600px;
+    }
+    
+    .teachers-grid-3-text-content {
+        text-align: center;
+        max-width: 300px;
+        width: 100%;
+        order: 1;
+        border: none;
+        padding: 0;
+        margin: 0 auto;
+        min-height: auto;
+    }
+    
+    .teachers-grid-3-title,
+    .teachers-grid-3-description {
+        text-align: center;
+        max-width: 300px;
+        width: 100%;
+        margin-left: auto;
+        margin-right: auto;
+    }
+    
+    .teachers-grid-3-title {
+        margin-top: 0;
+        margin-bottom: 20px;
+        padding-top: 0;
+        font-size: 24px;
+        word-wrap: break-word;
+    }
+    
+    .teachers-grid-3-description {
+        margin-top: 0;
+        margin-bottom: 0;
+        padding-top: 0;
+        padding-bottom: 0;
+        word-wrap: break-word;
+    }
+    
+    .teachers-grid-demo-3 {
+        order: 2;
+        max-width: 280px;
+        width: 100%;
+        border: none;
+        padding: 0;
+        margin-bottom: 40px;
+        min-height: 200px;
+    }
+
+    .logoUniversity img {
+        width: 200px;
+        height: auto;
+        display: block;
+    }
+
+}
+
+
+/* Стили для маленьких экранов (650px и меньше) 885 и меньше доделать*/
+@media (max-width: 650px) {
+    .next-container {
+        padding: 20px; /* Отступ 20px от main-container */
+        height: auto !important;
+        min-height: auto !important;
+    }
+    
+    .right-section {
+        width: 100%;
+        height: 100%;
+        padding: 0 !important;
+    }
+    
+    .image-container {
+        width: 100%;
+        height: 100%;
+        max-width: none;
+        max-height: none;
+        margin: 0;
+        padding: 0;
+    }
+    
+    .right-image {
+        width: 100% !important;
+        height: 100% !important;
+        object-fit: cover;
+        display: block;
+    }
+
+    .students-main-title {
+        font-size: 24px;
+        max-width: 480px;
+        min-width: 300px;
+    }
+
+    .students-description {
+        font-size: 12px;
+        flex-wrap: wrap;
+        max-width: 450px;
+    }
+
+    .image-frame {
+        width: 100px;
+        height: 100px;
+    }
+
+    .icon {
+        width: 70px;
+        height: 70px;
+    }
+
+    .students-text-content {
+        padding-left: 20px;
+        padding-right: 20px;
+        top: 10px;
+    }
+
+    .students-images {
+        top: 265px;
+        gap: 20px;
+        padding-left: 20px;
+        padding-right: 20px;
+    }
+
+    .students-header {
+        padding-left: 20px;
+        padding-right: 20px;
+    }
+
+    .signFrame {
+        font-size: 12px;
+    }
+
+    .students-background {
+        visibility: hidden;
+    }
+
+    .iconBackground{
+        z-index: -1;
+        width: 130px;
+        height: 130px;
+        visibility: visible;
+    }
+
+    /* Адаптация для students-section-disscution */
+    .students-section-disscution {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+        gap: 30px;
+        padding: 40px 20px;
+    }
+    
+    .students-text-content-disscution {
+        text-align: center;
+        max-width: 300px;
+        order: 1; /* Текст становится первым */
+    }
+    
+    .students-disscution-title,
+    .students-disscution-description {
+        text-align: center;
+    }
+    
+    .discussion-image {
+        order: 2; /* Изображение становится вторым */
+        max-width: 150px; /* Уменьшаем изображение для мобильных */
+    }
+    
+    /* Адаптация для students-section-progress */
+    .students-section-progress {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+        gap: 10px;
+        padding: 40px 20px;
+        margin-top: 40px; /* Отступ между секциями */
+    }
+    
+    .students-text-content-progress {
+        text-align: center;
+        max-width: 300px;
+        order: 1; /* Текст становится первым */
+    }
+    
+    .students-progress-title,
+    .students-progress-description {
+        text-align: center;
+    }
+    
+    .progress-image {
+        order: 2; /* Изображение становится вторым */
+        max-width: 250px; /* Уменьшаем изображение для мобильных */
+    }
+
+}
+
+@media(max-width: 585px){
+    footer {
+        flex-direction: column;
+        align-items: center;  /* центрируем всё */
+        gap: 20px;
+        text-align: center;
+    }
+    
+    .logoUniversity {
+        display: flex;
+        flex-direction: column;  /* текст над логотипом */
+        align-items: center;
+        gap: 10px;
+        width: 100%;
+    }
+    
+    .logoUniversity p {
+        margin: 0;
+        font-size: 14px;
+    }
+    
+    .logoUniversity img {
+        width: 120px;  /* чуть меньше */
+    }
+}
+/* Стили для гамбургер-меню на маленьких экранах (576px и меньше) */
+@media (max-width: 576px) {
+    header {
+        padding: 15px 20px;
+        position: relative;
+        flex-wrap: wrap;
+    }
+    
+    .logo {
+        flex: 0 1 auto;
+        order: 1;
+    }
+    
+    .nav-center, .nav-right {
+        display: none;
+    }
+    
+    .hamburger-menu {
+        display: block;
+        order: 2;
+        margin-left: auto;
+    }
+    
+    /* Стили для выпадающего меню на мобильных */
+    .dropdown-menu {
+        right: 20px;
+        width: calc(100% - 40px);
+        max-width: 250px;
+    }
+    
+    /* Адаптация для очень маленьких экранов */
+    .left-section {
+        padding-left: 20px;
+    }
+    
+    .right-section {
+        padding-left: 40px;
+        padding-right: 40px;
+    }
+    
+    .registration-section {
+        margin-top: 15px;
+    }
+    
+    .registration-button {
+        padding: 8px 16px;
+        font-size: 13px;
+    }
+
+}
+
+@media (max-width:442px) {
+
+    .students-images {
+        gap: 10px;
+    }
+
+    .image-frame {
+        width: 80px;
+        height: 80px;
+    }
+
+    .icon {
+        width: 50px;
+        height: 50px;
+    }
+
+    .iconBackground{
+        width: 110px;
+        height: 110px;
+    }
+}
+
+@media (max-width: 360px) {
+    html, body {
+        overflow-x: auto;
+        min-width: 360px;
+    }
+    
+    .main-container, .content-overlay, header {
+        min-width: 360px;
+    }
+}
