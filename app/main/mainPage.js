@@ -86,11 +86,7 @@ dropdownLinks.forEach(link => {
     link.addEventListener('click', closeMenuOnLinkClick);
 });
 
-// Обработчик для ссылки авторизации в основном тексте
-document.querySelector('.auth-link').addEventListener('click', function(e) {
-    e.preventDefault();
-    alert('Переход к форме авторизации');
-});
+
 
 
 
