@@ -45,6 +45,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // Показываем нужную форму
         formToShow.classList.remove('hidden');
         
+        
         // Анимируем появление
         animateForm(formToShow);
         

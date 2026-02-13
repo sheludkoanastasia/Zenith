@@ -90,11 +90,7 @@ dropdownLinks.forEach(link => {
 
 
 
-// Обработчик для кнопки "Зарегистрироваться"
-registrationButton.addEventListener('click', function(e) {
-    e.preventDefault();
-    alert('Переход к форме регистрации');
-});
+
 
 
 
