@@ -7,15 +7,18 @@ const port = process.env.PORT || 3000;
 const imagesPath = path.join(__dirname, '../images');
 app.use('/images', express.static(imagesPath));
 
-// Подключаем папку с HTML, CSS, JS
-const frontendPath = path.join(__dirname, '../app/main');
-app.use(express.static(frontendPath));
+// Подключаем всю папку app целиком - это самое простое решение!
+const appPath = path.join(__dirname, '../app');
+app.use('/app', express.static(appPath));
 
-// Вместо app.get('*', ...) используем app.use
-app.use((req, res) => {
-    res.sendFile(path.join(frontendPath, 'mainPage.html'));
+// Отдельно обрабатываем корневой маршрут
+app.get('/', (req, res) => {
+    res.sendFile(path.join(appPath, 'main/mainPage.html'));
 });
 
 app.listen(port, () => {
     console.log(`Server running on port ${port}`);
+    console.log(`Main page: http://localhost:${port}/`);
+    console.log(`Main page (direct): http://localhost:${port}/app/main/mainPage.html`);
+    console.log(`Auth page: http://localhost:${port}/app/authorization/auth.html`);
 });
