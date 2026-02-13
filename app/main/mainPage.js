@@ -86,14 +86,6 @@ dropdownLinks.forEach(link => {
     link.addEventListener('click', closeMenuOnLinkClick);
 });
 
-// Обработчик для кнопки "Зарегистрироваться" с принудительным переходом
-if (registrationButton) {
-    registrationButton.addEventListener('click', function(e) {
-        e.preventDefault();
-        window.location.href = '/auth#register';
-    });
-}
-
 
 // Закрытие меню при изменении размера окна на десктоп
 window.addEventListener('resize', function() {
