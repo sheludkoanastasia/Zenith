@@ -4,15 +4,20 @@ document.addEventListener('DOMContentLoaded', () => {
     // ===============================
     const loginForm = document.getElementById('loginForm');
     const registerForm = document.getElementById('registerForm');
+    const register2Form = document.getElementById('register2Form');
     const showRegisterLink = document.getElementById('showRegister');
     const showLoginLink = document.getElementById('showLogin');
+    const showBackLink = document.getElementById('showBack');
+    const registerButton = document.querySelector('#registerForm .auth-button'); // Кнопка "Создать" в первой форме регистрации
     
     // ===============================
     // Функция для определения формы по хэшу
     // ===============================
     function getFormFromHash() {
         const hash = window.location.hash.substring(1);
-        return hash === 'register' ? 'register' : 'login';
+        if (hash === 'register2') return 'register2';
+        if (hash === 'register') return 'register';
+        return 'login';
     }
 
     // ===============================
@@ -30,7 +35,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 y: 0, 
                 duration: 1.2, 
                 ease: 'power2.out',
-                clearProps: 'all' // Очищаем все свойства после анимации
+                clearProps: 'all'
             }
         );
     }
@@ -38,31 +43,46 @@ document.addEventListener('DOMContentLoaded', () => {
     // ===============================
     // Функция для показа формы
     // ===============================
-    function showForm(formToShow, formToHide) {
-        // Скрываем другую форму
-        formToHide.classList.add('hidden');
+    function showForm(formToShow, formToHide1, formToHide2 = null) {
+        // Скрываем другие формы
+        formToHide1.classList.add('hidden');
+        if (formToHide2) formToHide2.classList.add('hidden');
         
         // Показываем нужную форму
         formToShow.classList.remove('hidden');
-        
         
         // Анимируем появление
         animateForm(formToShow);
         
         // Обновляем хэш
-        window.location.hash = formToShow === registerForm ? 'register' : 'login';
+        if (formToShow === register2Form) {
+            window.location.hash = 'register2';
+        } else if (formToShow === registerForm) {
+            window.location.hash = 'register';
+        } else {
+            window.location.hash = 'login';
+        }
     }
 
     // ===============================
     // Инициализация при загрузке
     // ===============================
     
-    // Сначала скрываем обе формы
+    // Сначала скрываем все формы
     loginForm.classList.add('hidden');
     registerForm.classList.add('hidden');
+    register2Form.classList.add('hidden');
     
     // Определяем какую форму показать
-    const initialForm = getFormFromHash() === 'register' ? registerForm : loginForm;
+    const formType = getFormFromHash();
+    let initialForm;
+    if (formType === 'register2') {
+        initialForm = register2Form;
+    } else if (formType === 'register') {
+        initialForm = registerForm;
+    } else {
+        initialForm = loginForm;
+    }
     
     // Показываем нужную форму
     initialForm.classList.remove('hidden');
@@ -107,12 +127,12 @@ document.addEventListener('DOMContentLoaded', () => {
     document.documentElement.classList.add('ready');
     
     // ===============================
-    // Переключение на форму регистрации
+    // Переключение на форму регистрации (первый шаг)
     // ===============================
     if (showRegisterLink) {
         showRegisterLink.addEventListener('click', function(e) {
             e.preventDefault();
-            showForm(registerForm, loginForm);
+            showForm(registerForm, loginForm, register2Form);
         });
     }
     
@@ -122,7 +142,28 @@ document.addEventListener('DOMContentLoaded', () => {
     if (showLoginLink) {
         showLoginLink.addEventListener('click', function(e) {
             e.preventDefault();
-            showForm(loginForm, registerForm);
+            showForm(loginForm, registerForm, register2Form);
+        });
+    }
+    
+    // ===============================
+    // Переключение на вторую форму регистрации (после нажатия "Создать")
+    // ===============================
+    if (registerButton) {
+        registerButton.addEventListener('click', function(e) {
+            e.preventDefault();
+            // Можно добавить валидацию полей здесь
+            showForm(register2Form, registerForm, loginForm);
+        });
+    }
+    
+    // ===============================
+    // Возврат к первой форме регистрации (кнопка "Вернуться")
+    // ===============================
+    if (showBackLink) {
+        showBackLink.addEventListener('click', function(e) {
+            e.preventDefault();
+            showForm(registerForm, register2Form, loginForm);
         });
     }
     
@@ -131,10 +172,13 @@ document.addEventListener('DOMContentLoaded', () => {
     // ===============================
     window.addEventListener('hashchange', function() {
         const formType = getFormFromHash();
-        if (formType === 'register' && loginForm.classList.contains('hidden') === false) {
-            showForm(registerForm, loginForm);
-        } else if (formType === 'login' && registerForm.classList.contains('hidden') === false) {
-            showForm(loginForm, registerForm);
+        
+        if (formType === 'register2' && register2Form.classList.contains('hidden')) {
+            showForm(register2Form, registerForm, loginForm);
+        } else if (formType === 'register' && registerForm.classList.contains('hidden')) {
+            showForm(registerForm, loginForm, register2Form);
+        } else if (formType === 'login' && loginForm.classList.contains('hidden')) {
+            showForm(loginForm, registerForm, register2Form);
         }
     });
     
