@@ -48,6 +48,10 @@ app.get('/app/authorization/auth.html', (req, res) => {
     res.redirect('/auth');
 });
 
+app.get('/auth#register', (req, res) => {
+    res.redirect('/auth#register');
+});
+
 // ============ ЯВНЫЕ МАРШРУТЫ ДЛЯ CSS/JS (НА ВСЯКИЙ СЛУЧАЙ) ============
 
 app.get('/mainPage.css', (req, res) => {
