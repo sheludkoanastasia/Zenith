@@ -3,40 +3,91 @@ const path = require('path');
 const app = express();
 const port = process.env.PORT || 3000;
 
-// Определяем пути относительно текущего файла
-const rootDir = path.join(__dirname, '..'); // поднимаемся на уровень выше из папки server/
+// Корневая папка проекта (там где папки app, images и server)
+const rootDir = path.join(__dirname, '..');
+
+// Пути к вашим папкам
 const appDir = path.join(rootDir, 'app');
 const mainDir = path.join(appDir, 'main');
+const authDir = path.join(appDir, 'authorization');
 const imagesDir = path.join(rootDir, 'images');
 
-// Подключаем статические файлы
+// ============ ВАЖНО: Правильная настройка статических файлов ============
+
+// 1. Для картинок - работают везде по пути /images/
 app.use('/images', express.static(imagesDir));
+
+// 2. Для mainPage.css, mainPage.js - делаем доступными из корня
+app.use(express.static(mainDir)); // Теперь /mainPage.css работает!
+
+// 3. Для доступа ко всем файлам app через /app/
 app.use('/app', express.static(appDir));
-app.use(express.static(mainDir)); // для прямого доступа к mainPage.css, mainPage.js
+
+// 4. Явно указываем пути для подстраховки
+app.use('/app/main', express.static(mainDir));
+app.use('/app/authorization', express.static(authDir));
+
+// ============ HTML СТРАНИЦЫ ============
 
 // Главная страница
 app.get('/', (req, res) => {
     res.sendFile(path.join(mainDir, 'mainPage.html'));
 });
 
-// Для обратной совместимости - редирект со старого пути
+// Страница авторизации (короткая красивая ссылка)
+app.get('/auth', (req, res) => {
+    res.sendFile(path.join(authDir, 'auth.html'));
+});
+
+// Для обратной совместимости
 app.get('/app/main/mainPage.html', (req, res) => {
     res.redirect('/');
 });
 
-// Страница авторизации (если нужен прямоsй доступ)
-app.get('/auth', (req, res) => {
-    res.sendFile(path.join(appDir, 'authorization/auth.html'));
+app.get('/app/authorization/auth.html', (req, res) => {
+    res.redirect('/auth');
 });
 
-// 404 - все что не найдено, отдаем главную (для SPA)
+// ============ ЯВНЫЕ МАРШРУТЫ ДЛЯ CSS/JS (НА ВСЯКИЙ СЛУЧАЙ) ============
+
+app.get('/mainPage.css', (req, res) => {
+    res.sendFile(path.join(mainDir, 'mainPage.css'));
+});
+
+app.get('/mainPage.js', (req, res) => {
+    res.sendFile(path.join(mainDir, 'mainPage.js'));
+});
+
+app.get('/auth.css', (req, res) => {
+    res.sendFile(path.join(authDir, 'auth.css'));
+});
+
+app.get('/auth.js', (req, res) => {
+    res.sendFile(path.join(authDir, 'auth.js'));
+});
+
+// ============ 404 - ВСЕ НА ГЛАВНУЮ ============
+
 app.use((req, res) => {
     res.sendFile(path.join(mainDir, 'mainPage.html'));
 });
 
+// ============ ЗАПУСК ============
+
 app.listen(port, () => {
-    console.log(`🚀 Server is running on port ${port}`);
-    console.log(`📍 Главная страница: http://localhost:${port}/`);
-    console.log(`📍 Авторизация: http://localhost:${port}/auth`);
-    console.log(`📁 App directory: ${appDir}`);
+    console.log('=================================');
+    console.log(`🚀 SERVER RUNNING ON PORT ${port}`);
+    console.log('=================================');
+    console.log(`📁 Root directory: ${rootDir}`);
+    console.log(`📁 Main directory: ${mainDir}`);
+    console.log(`📁 Auth directory: ${authDir}`);
+    console.log('=================================');
+    console.log(`📍 Главная страница: /`);
+    console.log(`📍 Авторизация: /auth`);
+    console.log('=================================');
+    console.log(`✅ mainPage.css доступен по: /mainPage.css`);
+    console.log(`✅ mainPage.js доступен по: /mainPage.js`);
+    console.log(`✅ auth.css доступен по: /auth.css`);
+    console.log(`✅ auth.js доступен по: /auth.js`);
+    console.log('=================================');
 });
