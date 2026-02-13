@@ -3,42 +3,40 @@ const path = require('path');
 const app = express();
 const port = process.env.PORT || 3000;
 
-// В самом начале сервера
-console.log('=== ENVIRONMENT INFO ===');
-console.log('Current directory:', __dirname);
-console.log('Files in current dir:', require('fs').readdirSync(__dirname));
-console.log('Parent directory:', path.join(__dirname, '..'));
-try {
-    console.log('Files in parent dir:', require('fs').readdirSync(path.join(__dirname, '..')));
-} catch(e) {
-    console.log('Cannot read parent dir:', e.message);
-}
-console.log('=======================');
+// Определяем пути относительно текущего файла
+const rootDir = path.join(__dirname, '..'); // поднимаемся на уровень выше из папки server/
+const appDir = path.join(rootDir, 'app');
+const mainDir = path.join(appDir, 'main');
+const imagesDir = path.join(rootDir, 'images');
 
-// Определяем корень проекта
-// Если server.js в папке server/
-const projectRoot = path.join(__dirname, '..');
-// Если server.js в корне:
-// const projectRoot = __dirname;
-
-console.log('Project root:', projectRoot);
-console.log('__dirname:', __dirname);
-
-// Подключаем папки относительно корня проекта
-app.use('/images', express.static(path.join(projectRoot, 'images')));
-app.use('/app', express.static(path.join(projectRoot, 'app')));
+// Подключаем статические файлы
+app.use('/images', express.static(imagesDir));
+app.use('/app', express.static(appDir));
+app.use(express.static(mainDir)); // для прямого доступа к mainPage.css, mainPage.js
 
 // Главная страница
 app.get('/', (req, res) => {
-    res.sendFile(path.join(projectRoot, 'app/main/mainPage.html'));
+    res.sendFile(path.join(mainDir, 'mainPage.html'));
 });
 
-// Обработка прямых ссылок на HTML
-app.get('*.html', (req, res) => {
-    const filePath = path.join(projectRoot, req.path);
-    res.sendFile(filePath);
+// Для обратной совместимости - редирект со старого пути
+app.get('/app/main/mainPage.html', (req, res) => {
+    res.redirect('/');
+});
+
+// Страница авторизации (если нужен прямоsй доступ)
+app.get('/auth', (req, res) => {
+    res.sendFile(path.join(appDir, 'authorization/auth.html'));
+});
+
+// 404 - все что не найдено, отдаем главную (для SPA)
+app.use((req, res) => {
+    res.sendFile(path.join(mainDir, 'mainPage.html'));
 });
 
 app.listen(port, () => {
-    console.log(`Server running on port ${port}`);
+    console.log(`🚀 Server is running on port ${port}`);
+    console.log(`📍 Главная страница: http://localhost:${port}/`);
+    console.log(`📍 Авторизация: http://localhost:${port}/auth`);
+    console.log(`📁 App directory: ${appDir}`);
 });
