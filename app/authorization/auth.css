@@ -12,6 +12,22 @@ body {
     min-width: 360px;
 }
 
+/* Скрываем все формы до полной загрузки */
+.auth-form {
+    opacity: 0;
+    will-change: transform, opacity;
+}
+
+html:not(.ready) .auth-form {
+    opacity: 0 !important;
+    visibility: hidden !important;
+}
+
+html.ready .auth-form {
+    opacity: 1;
+    visibility: visible;
+}
+
 .auth-form {
     opacity: 1 !important;
     visibility: visible !important;
