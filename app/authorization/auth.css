@@ -70,6 +70,10 @@ header {
     background-color: #fff;
 }
 
+.hidden {
+    display: none;
+}
+
 .auth-form {
     width: 100%;
     max-width: 440px;
@@ -87,6 +91,10 @@ header {
 .auth-switch {
     margin-bottom: 20px;
     font-size: 18px;
+    display: flex;           /* Добавить */
+    flex-wrap: wrap;         /* Добавить для переноса на мобильных */
+    gap: 10px;               /* Добавить - расстояние между элементами */
+    align-items: center;     /* Добавить для выравнивания */
 }
 
 .auth-switch-text{
@@ -222,6 +230,41 @@ header {
     height: 100%;
 }
 
+.role-selector {
+    display: flex;
+    gap: 30px;
+    margin-bottom: 25px;
+    font-size: 18px;
+}
+
+.role-option {
+    cursor: pointer;
+    color: #1D1D1D;
+    font-weight: 500;
+    transition: color 0.3s ease;
+    position: relative;
+    padding: 5px 0;
+}
+
+.role-option:hover {
+    color: #7651BE;
+}
+
+.role-option.active {
+    color: #7651BE;
+    font-weight: 600;
+}
+
+.role-option.active::after {
+    content: '';
+    position: absolute;
+    bottom: -2px;
+    left: 0;
+    width: 100%;
+    height: 2px;
+    background-color: #7651BE;
+}
+
 @media(max-width:1740px){
     .auth-visual {
     box-shadow: inset 10px 0 20px rgba(0, 0, 0, 0.1); /* Тень слева, темная у края */
@@ -340,6 +383,10 @@ header {
     font-size: 16px;
 }
 
+.role-selector {
+    font-size: 16px;
+}
+
 .auth-grid {
         grid-template-columns: 1fr 60px; /* Левая часть резиновая, правая фиксированная */
     }
@@ -381,6 +428,10 @@ header {
 }
 
 .forgot-password-link {
+    font-size: 15px;
+}
+
+.role-selector {
     font-size: 15px;
 }
 
