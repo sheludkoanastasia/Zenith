@@ -3,6 +3,18 @@ const path = require('path');
 const app = express();
 const port = process.env.PORT || 3000;
 
+// В самом начале сервера
+console.log('=== ENVIRONMENT INFO ===');
+console.log('Current directory:', __dirname);
+console.log('Files in current dir:', require('fs').readdirSync(__dirname));
+console.log('Parent directory:', path.join(__dirname, '..'));
+try {
+    console.log('Files in parent dir:', require('fs').readdirSync(path.join(__dirname, '..')));
+} catch(e) {
+    console.log('Cannot read parent dir:', e.message);
+}
+console.log('=======================');
+
 // Определяем корень проекта
 // Если server.js в папке server/
 const projectRoot = path.join(__dirname, '..');
