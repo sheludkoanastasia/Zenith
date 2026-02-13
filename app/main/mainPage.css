@@ -851,7 +851,7 @@ footer p {
     }
 
     .students-main-title {
-        font-size: 27px;
+        font-size: 29px;
     }
 
     .students-description {
@@ -867,7 +867,7 @@ footer p {
     }
 
     .students-disscution-title {
-        font-size: 27px;
+        font-size: 29px;
     }
 
     .students-disscution-description {
@@ -875,7 +875,7 @@ footer p {
     }
 
     .students-progress-title {
-        font-size: 27px;
+        font-size: 29px;
     }
 
     .students-progress-description {
@@ -904,7 +904,7 @@ footer p {
 
     /* Для заголовка внутри квадрата */
     .teachers-grid-1-title {
-        font-size: 27px;
+        font-size: 29px;
         font-weight: 400;
         line-height: 1.2;
         margin-bottom: 40px;
@@ -960,7 +960,7 @@ footer p {
 
     /* Для заголовка внутри квадрата */
     .teachers-grid-2-title {
-        font-size: 27px;
+        font-size: 29px;
         font-weight: 400;
         line-height: 1.2;
         margin-bottom: 40px;
@@ -997,7 +997,7 @@ footer p {
 
     /* Для заголовка внутри квадрата */
     .teachers-grid-3-title {
-        font-size: 27px;
+        font-size: 29px;
         font-weight: 400;
         line-height: 1.2;
         margin-bottom: 40px;
@@ -1047,6 +1047,30 @@ footer p {
     }
     .signFrame {
         font-size: 13px;
+    }
+
+    .students-main-title {
+        font-size: 27px;
+    }
+
+    .students-disscution-title {
+        font-size: 27px;
+    }
+
+    .students-progress-title {
+        font-size: 27px;
+    }
+
+    .teachers-grid-1-title {
+        font-size: 27px;
+    }
+
+    .teachers-grid-2-title {
+        font-size: 27px;
+    }
+
+    .teachers-grid-3-title {
+        font-size: 27px;
     }
 }
 
@@ -1471,7 +1495,7 @@ footer p {
         margin-top: 0;
         margin-bottom: 20px;
         padding-top: 0;
-        font-size: 24px;
+        font-size: 27px;
         word-wrap: break-word;
     }
     
@@ -1594,7 +1618,7 @@ footer p {
     }
 
     .students-main-title {
-        font-size: 24px;
+        font-size: 27px;
         max-width: 480px;
         min-width: 300px;
     }

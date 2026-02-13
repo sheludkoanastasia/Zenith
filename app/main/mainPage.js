@@ -92,12 +92,7 @@ document.querySelector('.auth-link').addEventListener('click', function(e) {
     alert('Переход к форме авторизации');
 });
 
-// Обработчик для кнопки "Войти" в выпадающем меню
-document.querySelector('.dropdown-menu .loginText').addEventListener('click', function(e) {
-    e.preventDefault();
-    closeMenuOnLinkClick();
-    alert('Переход к форме авторизации');
-});
+
 
 // Обработчик для кнопки "Зарегистрироваться"
 registrationButton.addEventListener('click', function(e) {
@@ -105,13 +100,7 @@ registrationButton.addEventListener('click', function(e) {
     alert('Переход к форме регистрации');
 });
 
-// Обработчик для кнопки "Войти" в десктопном меню
-if (loginLink) {
-    loginLink.addEventListener('click', function(e) {
-        e.preventDefault();
-        alert('Переход к форме авторизации');
-    });
-}
+
 
 // Закрытие меню при изменении размера окна на десктоп
 window.addEventListener('resize', function() {
