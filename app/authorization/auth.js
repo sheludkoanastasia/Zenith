@@ -1,6 +1,6 @@
 document.addEventListener('DOMContentLoaded', () => {
     // ===============================
-    // Получаем элементы форм
+    // Проверяем, что все элементы загружены
     // ===============================
     const loginForm = document.getElementById('loginForm');
     const registerForm = document.getElementById('registerForm');
@@ -8,7 +8,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const showRegisterLink = document.getElementById('showRegister');
     const showLoginLink = document.getElementById('showLogin');
     const showBackLink = document.getElementById('showBack');
-    const registerButton = document.querySelector('#registerForm .auth-button'); // Кнопка "Создать" в первой форме регистрации
+    const registerButton = document.querySelector('#registerForm .auth-button');
+    
+    // Если элементы не найдены, выходим
+    if (!loginForm || !registerForm || !register2Form) {
+        console.error('Формы не найдены!');
+        return;
+    }
     
     // ===============================
     // Функция для определения формы по хэшу
@@ -24,7 +30,8 @@ document.addEventListener('DOMContentLoaded', () => {
     // Функция для анимации появления формы
     // ===============================
     function animateForm(formElement) {
-        // Простая анимация появления
+        if (!formElement) return;
+        
         gsap.fromTo(formElement, 
             { 
                 opacity: 0, 
@@ -35,7 +42,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 y: 0, 
                 duration: 1.2, 
                 ease: 'power2.out',
-                clearProps: 'all'
+                onComplete: () => {
+                    // Показываем страницу после первой анимации
+                    if (!document.documentElement.classList.contains('ready')) {
+                        document.documentElement.classList.add('ready');
+                    }
+                }
             }
         );
     }
@@ -51,8 +63,13 @@ document.addEventListener('DOMContentLoaded', () => {
         // Показываем нужную форму
         formToShow.classList.remove('hidden');
         
+        // Сбрасываем opacity для анимации
+        gsap.set(formToShow, { opacity: 0, y: 30 });
+        
         // Анимируем появление
-        animateForm(formToShow);
+        setTimeout(() => {
+            animateForm(formToShow);
+        }, 50);
         
         // Обновляем хэш
         if (formToShow === register2Form) {
@@ -73,6 +90,12 @@ document.addEventListener('DOMContentLoaded', () => {
     registerForm.classList.add('hidden');
     register2Form.classList.add('hidden');
     
+    // Устанавливаем начальные стили
+    gsap.set([loginForm, registerForm, register2Form], { 
+        opacity: 0, 
+        y: 30 
+    });
+    
     // Определяем какую форму показать
     const formType = getFormFromHash();
     let initialForm;
@@ -87,7 +110,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Показываем нужную форму
     initialForm.classList.remove('hidden');
     
-    // Анимация всех элементов при загрузке
+    // Анимация хедера
     gsap.from('header', {
         y: -30,
         opacity: 0,
@@ -123,9 +146,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
     
-    // Показываем страницу
-    document.documentElement.classList.add('ready');
-    
     // ===============================
     // Переключение на форму регистрации (первый шаг)
     // ===============================
@@ -147,18 +167,17 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     
     // ===============================
-    // Переключение на вторую форму регистрации (после нажатия "Создать")
+    // Переключение на вторую форму регистрации
     // ===============================
     if (registerButton) {
         registerButton.addEventListener('click', function(e) {
             e.preventDefault();
-            // Можно добавить валидацию полей здесь
             showForm(register2Form, registerForm, loginForm);
         });
     }
     
     // ===============================
-    // Возврат к первой форме регистрации (кнопка "Вернуться")
+    // Возврат к первой форме регистрации
     // ===============================
     if (showBackLink) {
         showBackLink.addEventListener('click', function(e) {
@@ -168,7 +187,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     
     // ===============================
-    // Обработка изменения хэша (кнопки назад/вперед)
+    // Обработка изменения хэша
     // ===============================
     window.addEventListener('hashchange', function() {
         const formType = getFormFromHash();
@@ -197,4 +216,9 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         });
     }
+    
+    // Добавляем класс ready через небольшую задержку
+    setTimeout(() => {
+        document.documentElement.classList.add('ready');
+    }, 100);
 });

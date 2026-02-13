@@ -9,12 +9,25 @@
     <link href="https://fonts.googleapis.com/css2?family=Ysabeau:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/auth.css">
     <style>
-        /* Скрываем до полной загрузки */
+        /* Скрываем всё до полной загрузки */
         html {
             visibility: hidden;
+            opacity: 0;
         }
         
         html.ready {
+            visibility: visible;
+            opacity: 1;
+        }
+        
+        /* Предотвращаем мерцание форм */
+        .auth-form {
+            opacity: 0;
+            visibility: hidden;
+        }
+        
+        .auth-form:not(.hidden) {
+            opacity: 1;
             visibility: visible;
         }
     </style>
