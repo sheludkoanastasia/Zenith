@@ -3,22 +3,30 @@ const path = require('path');
 const app = express();
 const port = process.env.PORT || 3000;
 
-// Подключаем папку с картинками
-const imagesPath = path.join(__dirname, '../images');
-app.use('/images', express.static(imagesPath));
+// Определяем корень проекта
+// Если server.js в папке server/
+const projectRoot = path.join(__dirname, '..');
+// Если server.js в корне:
+// const projectRoot = __dirname;
 
-// Подключаем всю папку app целиком - это самое простое решение!
-const appPath = path.join(__dirname, '../app');
-app.use('/app', express.static(appPath));
+console.log('Project root:', projectRoot);
+console.log('__dirname:', __dirname);
 
-// Отдельно обрабатываем корневой маршрут
+// Подключаем папки относительно корня проекта
+app.use('/images', express.static(path.join(projectRoot, 'images')));
+app.use('/app', express.static(path.join(projectRoot, 'app')));
+
+// Главная страница
 app.get('/', (req, res) => {
-    res.sendFile(path.join(appPath, 'main/mainPage.html'));
+    res.sendFile(path.join(projectRoot, 'app/main/mainPage.html'));
+});
+
+// Обработка прямых ссылок на HTML
+app.get('*.html', (req, res) => {
+    const filePath = path.join(projectRoot, req.path);
+    res.sendFile(filePath);
 });
 
 app.listen(port, () => {
     console.log(`Server running on port ${port}`);
-    console.log(`Main page: http://localhost:${port}/`);
-    console.log(`Main page (direct): http://localhost:${port}/app/main/mainPage.html`);
-    console.log(`Auth page: http://localhost:${port}/app/authorization/auth.html`);
 });
