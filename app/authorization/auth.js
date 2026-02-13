@@ -52,27 +52,50 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // ===============================
-    // Функция для полной анимации страницы
+    // Функция для переключения формы
     // ===============================
-    function animatePage(activeForm) {
-        // Анимация хедера (только при первой загрузке)
-        if (!window.headerAnimated) {
-            gsap.from('header', {
-                y: -30,
-                opacity: 0,
-                duration: 1.6,
-                ease: 'power3.out'
-            });
-            window.headerAnimated = true;
+    function switchForm(formToShow, formToHide, hash) {
+        if (formToHide && formToShow) {
+            formToHide.classList.add('hidden');
+            formToShow.classList.remove('hidden');
+            animateForm(formToShow);
+            
+            // Обновляем хэш в URL без перезагрузки страницы
+            if (hash) {
+                window.location.hash = hash;
+            }
         }
+    }
+
+    // ===============================
+    // Функция для определения активной формы по хэшу
+    // ===============================
+    function getFormFromHash() {
+        const hash = window.location.hash.substring(1); // убираем #
         
-        // Анимация активной формы
-        animateForm(activeForm);
+        if (hash === 'register') {
+            return 'register';
+        } else {
+            return 'login'; // по умолчанию показываем форму входа
+        }
+    }
+
+    // ===============================
+    // Функция для применения формы по хэшу
+    // ===============================
+    function applyFormFromHash() {
+        const formType = getFormFromHash();
+        const loginForm = document.getElementById('loginForm');
+        const registerForm = document.getElementById('registerForm');
         
-        // Анимация правой части (только если она еще не анимирована)
-        if (!window.rightPartAnimated) {
-            animateRightPart();
-            window.rightPartAnimated = true;
+        if (formType === 'register') {
+            registerForm.classList.remove('hidden');
+            loginForm.classList.add('hidden');
+            animateForm(registerForm);
+        } else {
+            loginForm.classList.remove('hidden');
+            registerForm.classList.add('hidden');
+            animateForm(loginForm);
         }
     }
 
@@ -85,11 +108,26 @@ document.addEventListener('DOMContentLoaded', () => {
     const showLoginLink = document.getElementById('showLogin');
     
     // ===============================
-    // Анимация при первой загрузке (форма входа)
+    // Анимация при первой загрузке
     // ===============================
     window.headerAnimated = false;
     window.rightPartAnimated = false;
-    animatePage(loginForm);
+    
+    // Анимируем хедер
+    gsap.from('header', {
+        y: -30,
+        opacity: 0,
+        duration: 1.6,
+        ease: 'power3.out'
+    });
+    window.headerAnimated = true;
+    
+    // Анимируем правую часть
+    animateRightPart();
+    window.rightPartAnimated = true;
+    
+    // Применяем форму на основе хэша
+    applyFormFromHash();
     
     // ===============================
     // Переключение на форму регистрации
@@ -98,17 +136,7 @@ document.addEventListener('DOMContentLoaded', () => {
         showRegisterLink.addEventListener('click', function(e) {
             e.preventDefault();
             console.log('Переключаем на регистрацию');
-            
-            if (loginForm && registerForm) {
-                // Скрываем форму входа
-                loginForm.classList.add('hidden');
-                
-                // Показываем форму регистрации
-                registerForm.classList.remove('hidden');
-                
-                // Анимируем форму регистрации
-                animateForm(registerForm);
-            }
+            switchForm(registerForm, loginForm, 'register');
         });
     }
     
@@ -119,19 +147,16 @@ document.addEventListener('DOMContentLoaded', () => {
         showLoginLink.addEventListener('click', function(e) {
             e.preventDefault();
             console.log('Переключаем на вход');
-            
-            if (loginForm && registerForm) {
-                // Скрываем форму регистрации
-                registerForm.classList.add('hidden');
-                
-                // Показываем форму входа
-                loginForm.classList.remove('hidden');
-                
-                // Анимируем форму входа
-                animateForm(loginForm);
-            }
+            switchForm(loginForm, registerForm, 'login');
         });
     }
+    
+    // ===============================
+    // Слушаем изменение хэша (если пользователь нажимает назад/вперед)
+    // ===============================
+    window.addEventListener('hashchange', function() {
+        applyFormFromHash();
+    });
     
     // ===============================
     // Логика для текстовых кнопок выбора роли
