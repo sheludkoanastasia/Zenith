@@ -12,6 +12,18 @@ body {
     min-width: 360px;
 }
 
+.auth-form {
+    opacity: 1 !important;
+    visibility: visible !important;
+    transition: opacity 0.3s ease;
+}
+
+.auth-form.hidden {
+    display: none !important;
+    opacity: 0 !important;
+    visibility: hidden !important;
+}
+
 header {
     display: flex;
     justify-content: space-between;
@@ -244,6 +256,10 @@ header {
     transition: color 0.3s ease;
     position: relative;
     padding: 5px 0;
+    user-select: none; /* Запрещает выделение текста */
+    -webkit-user-select: none; /* Для Safari */
+    -moz-user-select: none; /* Для Firefox */
+    -ms-user-select: none; /* Для старых браузеров */
 }
 
 .role-option:hover {
