@@ -1,0 +1,369 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Ysabeau', sans-serif;
+    color: #1D1D1D;
+    background-color: white;
+    overflow-x: hidden;
+    min-width: 360px;
+}
+header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px 80px;
+    border-bottom: 1px solid #eee;
+    position: relative;
+}
+
+.logo {
+    flex-shrink: 0;
+    flex: 1;
+}
+
+.logo img {
+    width: 60px;
+    height: 20px;
+    display: block;
+}
+
+.nav-right {
+    flex: 1;
+    display: flex;
+    justify-content: flex-end;
+    align-items: center; 
+    gap:20px;
+}
+
+.nav-right a {
+    text-decoration: none;
+    color: #1D1D1D;
+    font-size: 20px;
+    font-weight: 500;
+    transition: color 0.3s ease;
+    white-space: nowrap;
+    display: flex; 
+    align-items: center;
+}
+
+.nav-right a:hover {
+    color: #7651BE;
+}
+
+.main-container {
+    position: relative;
+    width: 100%;
+    overflow: hidden;
+}
+
+.main-background {
+    width: 100%;
+    display: block;
+}
+
+.coursePanel {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px 80px;
+    border-bottom: 1px solid #eee;
+    position: relative;
+    margin-bottom: 80px;
+}
+
+.courseNavigation {
+    flex: 1;
+    display: flex;
+    justify-content: flex-start;
+    align-items: baseline;
+    gap:80px;
+}
+
+.courseNavigation a {
+    text-decoration: none;
+    color: #1D1D1D;
+    font-size: 22px;
+    font-weight: 400;
+    transition: color 0.3s ease;
+    white-space: nowrap;
+    display: inline-block;
+    line-height: 1.4; /* Фиксированная высота строки */
+}
+
+/* Стиль для поля ввода ссылки */
+.link-input {
+    margin-top: 20px;
+    width: 500px;
+    display: block;
+    margin-left: 80px; /* Чтобы соответствовал отступу firstMessage */
+}
+
+.courseSearching {
+    display: flex;
+    text-decoration: none;
+    color: #1D1D1D;
+    font-size: 18px;
+    font-weight: 500;
+    transition: color 0.3s ease;
+    white-space: nowrap;
+    gap:10px;
+}
+
+.courseSearching {
+    display: flex;
+    align-items: center; /* Выравнивание по вертикали */
+    gap: 15px;
+    font-size: 18px; /* Размер шрифта для всего блока */
+}
+
+.dropdown-menu {
+    position: relative;
+    display: inline-block;
+}
+
+/* Кнопка */
+.dropdown-toggle {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+
+    padding: 8px 14px;
+    border-radius: 15px;
+
+    font-size: 18px;
+    font-weight: 400;
+    color: #1D1D1D;
+    text-decoration: none;
+    white-space: nowrap;
+
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.dropdown-toggle:hover {
+    color: #7651BE;
+}
+
+/* Выпадающее меню */
+.dropdown-content {
+    position: absolute;
+    top: 100%;
+    left: 0;
+
+    min-width: 220px;
+    margin-top: 6px;
+
+    background-color: #ffffff;
+    border: 1px solid #eee;
+    border-radius: 12px;
+
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.08);
+    overflow: hidden;
+    z-index: 1000;
+
+    /* Анимация */
+    opacity: 0;
+    transform: translateY(10px);
+    pointer-events: none;
+    transition: all 0.2s ease;
+}
+
+/* Активное состояние */
+.dropdown-menu.active .dropdown-content {
+    opacity: 1;
+    transform: translateY(0);
+    pointer-events: auto;
+}
+
+/* Элементы списка */
+.dropdown-content a {
+    display: block;
+    padding: 12px 16px;
+
+    font-size: 16px;
+    color: #1D1D1D;
+    text-decoration: none;
+
+    transition: all 0.2s ease;
+}
+
+/* Разделители */
+.dropdown-content a:not(:last-child) {
+    border-bottom: 1px solid #f3f3f3;
+}
+
+/* Hover пунктов */
+.dropdown-content a:hover {
+    background-color: #f8f5ff;
+    color: #7651BE;
+    padding-left: 20px;
+}
+
+.form-input {
+    width: 400px; /* Фиксированная ширина для адекватного вида */
+    padding: 12px 18px;
+    border: 1px solid #4c4c4c;
+    border-radius: 25px;
+    font-family: 'Ysabeau', sans-serif;
+    font-size: 16px; /* Размер текста внутри инпута */
+    color: #4c4c4c;
+    transition: all 0.3s ease;
+    background-color: #fff;
+}
+
+.form-input::placeholder {
+    font-size: 16px;
+    color: #999;
+}
+
+.form-input:focus {
+    outline: none;
+    border-color: #7651BE;
+    box-shadow: 0 0 0 2px rgba(118, 81, 190, 0.1);
+}
+
+.search-img {
+    width: 20px;
+    height: 20px;
+    cursor: pointer;
+    transition: opacity 0.3s ease;
+}
+
+.search-img:hover {
+    opacity: 0.7;
+}
+
+
+
+.firstMessage {
+    font-family: 'Ysabeau', sans-serif;
+    color: #1D1D1D;
+    font-size: 27px;
+    padding-left: 80px;
+    
+}
+
+.profile-section {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+
+    padding: 60px 80px;
+
+    background-image: url("/images/userMainPanel/userMainPanelBackground.png");
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    min-height: 50vh;
+    gap:80px;
+}
+
+/* ЛЕВАЯ ЧАСТЬ */
+
+.profile-left {
+    display: flex;
+    align-items: center;
+    gap: 40px;
+}
+
+.avatar img {
+    width: 200px;
+    height: 200px;
+}
+
+.user-name {
+    font-size: 40px;
+    font-weight: 400;
+    line-height: 1.2;
+}
+
+.user-name span {
+    display: block;
+}
+
+.user-role {
+    margin-top: 15px;
+    font-size: 20px;
+    color: #6b6b6b;
+}
+
+/* ПРАВАЯ ЧАСТЬ */
+
+.profile-right {
+    display: flex;
+    align-items: flex-start;
+    gap: 60px;
+}
+
+.progress-title {
+    margin-top: 34px;
+    font-size: 40px;
+    font-weight: 400;
+    line-height: 1.2;
+    text-align: right;
+}
+
+.progress-title span {
+    display: block;
+}
+
+.progress-frame {
+    position: relative;
+}
+
+.progress-frame img {
+    width: 520px;
+    height: 200px;
+}
+
+/* Контейнер для поля ввода и кнопки */
+.link-container {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    margin-top: 20px;
+    margin-left: 80px;
+}
+
+/* Поле ввода ссылки */
+.link-input {
+    width: 500px;
+    margin: 0; /* Убираем предыдущий margin */
+    display: inline-block;
+}
+
+/* Контейнер для поля ввода и кнопки-изображения */
+.link-container {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    margin-top: 20px;
+    margin-left: 80px;
+}
+
+/* Поле ввода ссылки */
+.link-input {
+    width: 500px;
+    margin: 0;
+    display: inline-block;
+}
+
+/* Изображение-кнопка */
+.link-button-img {
+    width: 68px;
+    height: 54px;
+    cursor: pointer;
+    transition: opacity 0.3s ease;
+}
+
+.link-button-img:hover {
+    opacity: 0.8;
+}
+
+.link-button-img:active {
+    opacity: 0.6;
+}
