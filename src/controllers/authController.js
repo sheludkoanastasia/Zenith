@@ -1,3 +1,10 @@
+console.log('========== ЗАГРУЗКА AUTH CONTROLLER ==========');
+console.log('Модели загружены:', !!db);
+console.log('User модель загружена:', !!db.User);
+console.log('JWT утилиты загружены:', !!generateToken);
+console.log('Обработчик ошибок загружен:', !!handleError);
+console.log('==============================================');
+
 const { validationResult } = require('express-validator');
 const db = require('../models');
 const { generateToken } = require('../utils/jwt');
@@ -124,36 +131,53 @@ module.exports = {
     }
   },
 
-  // Добавьте этот метод после check
   checkEmail: async (req, res) => {
-      try {
-          const { email } = req.body;
-          console.log('Проверка email:', email);
-          
-          if (!email) {
-              return res.status(400).json({
-                  success: false,
-                  message: 'Email не предоставлен'
-              });
-          }
-          
-          const user = await db.User.findOne({ 
-              where: { email },
-              attributes: ['id']
-          });
-          
-          console.log('Результат поиска:', user ? 'найден' : 'не найден');
-          
-          res.json({
-              success: true,
-              exists: !!user
-          });
-      } catch (error) {
-          console.error('Ошибка при проверке email:', error);
-          res.status(500).json({
-              success: false,
-              message: 'Ошибка сервера'
-          });
-      }
+  try {
+    console.log('========== ПОЛУЧЕН ЗАПРОС /api/auth/check-email ==========');
+    console.log('Тело запроса:', req.body);
+    
+    const { email } = req.body;
+    console.log('Email для проверки:', email);
+    
+    if (!email) {
+      console.log('Ошибка: Email не предоставлен');
+      return res.status(400).json({
+        success: false,
+        message: 'Email не предоставлен'
+      });
+    }
+    
+    console.log('Попытка подключения к БД...');
+    console.log('Параметры подключения:', {
+      DB_NAME: process.env.DB_NAME,
+      DB_USER: process.env.DB_USER,
+      DB_HOST: process.env.DB_HOST,
+      DB_PORT: process.env.DB_PORT
+    });
+    
+    const user = await db.User.findOne({ 
+      where: { email },
+      attributes: ['id']
+    });
+    
+    console.log('Результат поиска в БД:', user ? 'пользователь НАЙДЕН' : 'пользователь НЕ НАЙДЕН');
+    
+    res.json({
+      success: true,
+      exists: !!user
+    });
+    
+  } catch (error) {
+    console.error('========== ОШИБКА В checkEmail ==========');
+    console.error('Тип ошибки:', error.name);
+    console.error('Сообщение:', error.message);
+    console.error('Полный стек:', error.stack);
+    console.error('=========================================');
+    
+    res.status(500).json({
+      success: false,
+      message: 'Ошибка сервера'
+    });
   }
+}
 };
