@@ -8,25 +8,36 @@ const authRoutes = require('./routes/authRoutes');
 const userRoutes = require('./routes/userRoutes');
 const apiRoutes = require('./routes/apiRoutes');
 
+// ИМПОРТ МОДЕЛЕЙ БАЗЫ ДАННЫХ - ЭТО НУЖНО ДОБАВИТЬ!
+const db = require('./models');
+
 // Middleware
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Статические файлы - они должны быть ПЕРВЫМИ
+// Статические файлы
 app.use('/public', express.static(path.join(__dirname, '../public')));
 app.use('/images', express.static(path.join(__dirname, '../public/images')));
 
-// ВАЖНО: API маршруты должны быть перед HTML маршрутами
+// API маршруты
 app.use('/api', apiRoutes);
 
-// HTML маршруты - в правильном порядке
-app.use('/auth', authRoutes);  // Страница авторизации
-app.use('/user', userRoutes);  // Страница пользователя
-app.use('/', indexRoutes);     // Главная страница (должна быть ПОСЛЕДНЕЙ среди HTML)
+// HTML маршруты
+app.use('/auth', authRoutes);
+app.use('/', indexRoutes);
+app.use('/user', userRoutes);
 
-// 404 - В САМОМ КОНЦЕ, если ни один маршрут не подошел
+// СИНХРОНИЗАЦИЯ БАЗЫ ДАННЫХ - ТЕПЕРЬ db ОПРЕДЕЛЕН!
+db.sequelize.sync({ alter: true })
+  .then(() => {
+    console.log('✅ База данных синхронизирована');
+  })
+  .catch(err => {
+    console.error('❌ Ошибка синхронизации БД:', err);
+  });
+
+// 404
 app.use((req, res) => {
-    // Если запрос начинается с /api, возвращаем JSON, иначе HTML
     if (req.path.startsWith('/api')) {
         res.status(404).json({ 
             success: false, 
@@ -36,9 +47,5 @@ app.use((req, res) => {
         res.sendFile(path.join(__dirname, '../public/views/mainPage.html'));
     }
 });
-
-db.sequelize.sync({ alter: true })
-  .then(() => console.log('✅ База данных синхронизирована'))
-  .catch(err => console.error('❌ Ошибка синхронизации:', err));
 
 module.exports = app;
