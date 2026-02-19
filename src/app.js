@@ -37,4 +37,8 @@ app.use((req, res) => {
     }
 });
 
+db.sequelize.sync({ alter: true })
+  .then(() => console.log('✅ База данных синхронизирована'))
+  .catch(err => console.error('❌ Ошибка синхронизации:', err));
+
 module.exports = app;
