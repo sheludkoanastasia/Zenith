@@ -1,9 +1,9 @@
-require('dotenv').config(); // Добавить эту строку в самом верху!
+require('dotenv').config();
 
 module.exports = {
   development: {
     username: process.env.DB_USER || 'postgres',
-    password: process.env.DB_PASSWORD, // Теперь читает из .env
+    password: process.env.DB_PASSWORD,
     database: process.env.DB_NAME || 'zenith_db',
     host: process.env.DB_HOST || 'localhost',
     dialect: 'postgres',
@@ -21,6 +21,13 @@ module.exports = {
     password: process.env.DB_PASSWORD,
     database: process.env.DB_NAME,
     host: process.env.DB_HOST,
-    dialect: 'postgres'
+    dialect: 'postgres',
+    port: process.env.DB_PORT || 5432,
+    dialectOptions: {
+      ssl: {
+        require: true,
+        rejectUnauthorized: false // Важно для Render!
+      }
+    }
   }
 };
