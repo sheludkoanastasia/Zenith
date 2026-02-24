@@ -18,8 +18,7 @@ const validateRegistration = [
     .matches(/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/)
     .withMessage('Пароль должен содержать хотя бы один специальный символ')
     .matches(/^[A-Za-z\d!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]+$/)
-    .withMessage('Пароль может содержать только латинские буквы, цифры и специальные символы ' +
-             '(!@#$%^&*()_+-=[]{};\':"\\|,.<>/?). Использование эмодзи и других символов запрещено'),
+    .withMessage('Пароль может содержать только латинские буквы, цифры и специальные символы'),
 
   body('role')
     .optional()
@@ -27,27 +26,35 @@ const validateRegistration = [
     .withMessage('Роль должна быть student или teacher'),
 
   body('firstName')
-    .optional()
+    .notEmpty().withMessage('Имя обязательно для заполнения')
     .trim()
-    .isLength({ min: 2 })
-    .withMessage('Имя должно быть минимум 2 символа')
+    .isLength({ min: 2, max: 20 })
+    .withMessage('Имя должно быть от 2 до 20 символов')
     .matches(/^[А-Яа-яЁёA-Za-z\s-]+$/)
     .withMessage('Имя может содержать только буквы, пробелы и дефисы'),
 
   body('lastName')
-    .optional()
+    .notEmpty().withMessage('Фамилия обязательна для заполнения')
     .trim()
-    .isLength({ min: 2 })
-    .withMessage('Фамилия должна быть минимум 2 символа')
+    .isLength({ min: 2, max: 30 })
+    .withMessage('Фамилия должна быть от 2 до 30 символов')
     .matches(/^[А-Яа-яЁёA-Za-z\s-]+$/)
     .withMessage('Фамилия может содержать только буквы, пробелы и дефисы'),
 
   body('patronymic')
     .optional()
     .trim()
-    .matches(/^[А-Яа-яЁёA-Za-z\s-]*$/)
-    .withMessage('Отчество может содержать только буквы, пробелы и дефисы')
-
+    .custom((value) => {
+      if (value && value.length > 0) {
+        if (value.length < 2 || value.length > 30) {
+          throw new Error('Отчество должно быть от 2 до 30 символов');
+        }
+        if (!/^[А-Яа-яЁёA-Za-z\s-]*$/.test(value)) {
+          throw new Error('Отчество может содержать только буквы, пробелы и дефисы');
+        }
+      }
+      return true;
+    })
 ];
 
 const validateLogin = [

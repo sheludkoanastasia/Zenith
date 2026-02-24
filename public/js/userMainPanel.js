@@ -5,13 +5,11 @@ document.addEventListener("DOMContentLoaded", async function () {
     const token = localStorage.getItem('token');
     
     if (!token) {
-        // Если нет токена - перенаправляем на страницу входа
         window.location.href = '/auth';
         return;
     }
     
     try {
-        // Проверяем валидность токена на сервере
         const response = await fetch('/api/auth/check', {
             method: 'GET',
             headers: {
@@ -22,13 +20,18 @@ document.addEventListener("DOMContentLoaded", async function () {
         const data = await response.json();
         
         if (!data.success) {
-            // Токен невалидный - удаляем и перенаправляем
             localStorage.removeItem('token');
             window.location.href = '/auth';
             return;
         }
         
-        // Токен валидный - показываем данные пользователя
+        // ВАЖНО: Если пользователь - преподаватель, перенаправляем на страницу преподавателя
+        if (data.user.role === 'teacher') {
+            window.location.href = '/teacher';
+            return;
+        }
+        
+        // Если студент - показываем его данные
         displayUserInfo(data.user);
         
     } catch (error) {
@@ -42,20 +45,15 @@ document.addEventListener("DOMContentLoaded", async function () {
     // ОТОБРАЖЕНИЕ ИНФОРМАЦИИ О ПОЛЬЗОВАТЕЛЕ
     // ===============================
     function displayUserInfo(user) {
-        const userNameElement = document.querySelector('.user-name');
+        document.getElementById('userLastName').textContent = user.lastName || '';
+        document.getElementById('userFirstName').textContent = user.firstName || '';
+        document.getElementById('userPatronymic').textContent = user.patronymic || '';
+        
         const userRoleElement = document.querySelector('.user-role');
-        
-        if (userNameElement) {
-            userNameElement.innerHTML = `
-                ${user.lastName || ''} ${user.firstName || ''}<br>
-                <span>${user.patronymic || ''}</span>
-            `;
-        }
-        
         if (userRoleElement) {
             const roleText = user.role === 'teacher' ? 'Преподаватель' : 'Студент';
             userRoleElement.textContent = roleText;
-        }
+    }
     }
     
     // ===============================
@@ -154,7 +152,7 @@ document.addEventListener("DOMContentLoaded", async function () {
             }
         } else if (section === "Все курсы") {
             if (firstMessage) {
-                firstMessage.textContent = "Здесь будут отображаться все доступные курсы";
+                firstMessage.textContent = "Раздел находится в доработке";
                 firstMessage.style.display = "block";
             }
         } else if (section === "Подключиться по ссылке") {

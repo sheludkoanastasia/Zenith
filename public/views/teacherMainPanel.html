@@ -1,0 +1,84 @@
+<!-- public/views/teacherMainPanel.html -->
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Zenith - Панель преподавателя</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Ysabeau:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/public/css/teacherMainPanel.css">
+    <style>
+        html {
+            visibility: hidden;
+        }
+        
+        html.ready {
+            visibility: visible;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="logo">
+            <img src="/images/userMainPanel/logo.svg" alt="Zenith Logo">
+        </div>
+
+        <div class="nav-right">
+            <a href="#">
+                <img src="/images/userMainPanel/notification.svg" alt="Уведомления">
+            </a>
+            <a href="#">
+                <img src="/images/userMainPanel/setting.svg" alt="Настройки">
+            </a>
+            <a href="/">Выйти</a>
+        </div>
+    </header>
+
+    <main class="profile-section">
+        <div class="profile-left">
+            <div class="avatar">
+                <img src="/images/userMainPanel/user.svg" alt="Аватар">
+            </div>
+
+            <div class="user-info">
+                <h1 class="user-name">
+                    <span class="name-line">
+                        <span id="userLastName"></span> <span id="userFirstName"></span>
+                    </span>
+                    <span class="patronymic-line" id="userPatronymic"></span>
+                </h1>
+                <div class="user-role" id="userRole">Преподаватель</div>
+            </div>
+        </div>
+    </main>
+
+    <div class="coursePanel">
+        <div class="courseNavigation">
+            <a href="#" class="active" id="myCoursesLink">Мои курсы</a>
+            <a href="#" id="createCourseLink">Создать курс</a> 
+        </div>
+
+        <div class="courseSearching">
+            <div class="dropdown-menu" id="dropdownMenu">
+                <div class="dropdown-toggle">Фильтры</div>
+                <div class="dropdown-content">
+                    <a href="#">По алфавиту</a>
+                    <a href="#">Сначала новые</a>
+                    <a href="#">Сначала старые</a>
+                </div>
+            </div>
+            <input type="text" id="main-search" name="search" class="form-input" placeholder="Найдите курс">
+            <img class="search-img" src="/images/userMainPanel/search.svg">
+        </div>
+    </div>
+
+    <div class="courses">
+        <span class="firstMessage" id="firstMessage">У вас пока нет созданных курсов. Создайте свой первый курс!</span>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    <script src="/public/js/teacherMainPanel.js"></script>
+</body>
+</html>

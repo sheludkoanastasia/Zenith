@@ -44,7 +44,12 @@ document.addEventListener('DOMContentLoaded', () => {
             const data = await response.json();
             
             if (data.success) {
-                window.location.href = '/user';
+                // Токен валидный - перенаправляем на соответствующую панель
+                if (data.user && data.user.role === 'teacher') {
+                    window.location.href = '/teacher';
+                } else {
+                    window.location.href = '/user';
+                }
             } else {
                 localStorage.removeItem('token');
             }
@@ -273,7 +278,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // ===============================
-    // Проверка email при потере фокуса (ДОБАВИТЬ ЭТОТ БЛОК)
+    // Проверка email при потере фокуса 
     // ===============================
     const regEmailInput = document.getElementById('reg-email');
     if (regEmailInput) {
@@ -421,23 +426,46 @@ document.addEventListener('DOMContentLoaded', () => {
     // Обработчик регистрации (шаг 2)
     // ===============================
     if (register2Button) {
-        register2Button.addEventListener('click', async function(e) {
-            e.preventDefault();
-            
-            const email = localStorage.getItem('tempEmail');
-            const password = localStorage.getItem('tempPassword');
-            const role = localStorage.getItem('tempRole');
-            
-            const firstName = document.getElementById('reg-name').value.trim();
-            const lastName = document.getElementById('reg-surname').value.trim();
-            const patronymic = document.getElementById('reg-surname2').value.trim();
-            
-            if (!firstName || !lastName) {
-                if (!firstName) highlightField('reg-name');
-                if (!lastName) highlightField('reg-surname');
-                showNotification('Пожалуйста, укажите имя и фамилию', 'warning');
-                return;
-            }
+    register2Button.addEventListener('click', async function(e) {
+        e.preventDefault();
+        
+        const email = localStorage.getItem('tempEmail');
+        const password = localStorage.getItem('tempPassword');
+        const role = localStorage.getItem('tempRole');
+        
+        const firstName = document.getElementById('reg-name').value.trim();
+        const lastName = document.getElementById('reg-surname').value.trim();
+        const patronymic = document.getElementById('reg-surname2').value.trim();
+        
+        // Проверка на пустые поля
+        if (!firstName || !lastName) {
+            if (!firstName) highlightField('reg-name');
+            if (!lastName) highlightField('reg-surname');
+            showNotification('Пожалуйста, укажите имя и фамилию', 'warning');
+            return;
+        }
+        
+        // ========== НОВАЯ ПРОВЕРКА ДЛИНЫ ==========
+        // Проверка имени (2-20 символов)
+        if (firstName.length < 2 || firstName.length > 20) {
+            highlightField('reg-name');
+            showNotification('Имя должно быть от 2 до 20 символов', 'warning');
+            return;
+        }
+        
+        // Проверка фамилии (2-30 символов)
+        if (lastName.length < 2 || lastName.length > 30) {
+            highlightField('reg-surname');
+            showNotification('Фамилия должна быть от 2 до 30 символов', 'warning');
+            return;
+        }
+        
+        // Проверка отчества (если введено, то 2-30 символов)
+        if (patronymic && (patronymic.length < 2 || patronymic.length > 30)) {
+            highlightField('reg-surname2');
+            showNotification('Отчество должно быть от 2 до 30 символов', 'warning');
+            return;
+        }
             
             setLoading(register2Button, true);
             
@@ -474,7 +502,12 @@ document.addEventListener('DOMContentLoaded', () => {
                     localStorage.removeItem('tempPassword');
                     localStorage.removeItem('tempRole');
                     
-                    window.location.href = '/user';
+                    // ПЕРЕНАПРАВЛЕНИЕ В ЗАВИСИМОСТИ ОТ РОЛИ
+                    if (data.user && data.user.role === 'teacher') {
+                        window.location.href = '/teacher'; // для преподавателей
+                    } else {
+                        window.location.href = '/user'; // для студентов
+                    }
                 } else {
                     setLoading(register2Button, false);
                     const errorMessage = data.errors ? 
@@ -530,7 +563,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 
                 if (data.success) {
                     localStorage.setItem('token', data.token);
-                    window.location.href = '/user';
+                    
+                    // ПЕРЕНАПРАВЛЕНИЕ В ЗАВИСИМОСТИ ОТ РОЛИ
+                    if (data.user && data.user.role === 'teacher') {
+                        window.location.href = '/teacher'; // для преподавателей
+                    } else {
+                        window.location.href = '/user'; // для студентов
+                    }
                 } else {
                     setLoading(loginButton, false);
                     showNotification(data.message || 'Неверный email или пароль', 'error');

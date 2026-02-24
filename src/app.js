@@ -1,3 +1,4 @@
+// src/app.js
 const express = require('express');
 const path = require('path');
 const app = express();
@@ -5,10 +6,10 @@ const app = express();
 // Импорт маршрутов
 const indexRoutes = require('./routes/index');
 const authRoutes = require('./routes/authRoutes');
-const userRoutes = require('./routes/userRoutes');
+const userRoutes = require('./routes/userRoutes');      // для студентов
+const teacherRoutes = require('./routes/teacherRoutes'); // для преподавателей
 const apiRoutes = require('./routes/apiRoutes');
 
-// ИМПОРТ МОДЕЛЕЙ БАЗЫ ДАННЫХ - ЭТО НУЖНО ДОБАВИТЬ!
 const db = require('./models');
 
 // Middleware
@@ -25,9 +26,10 @@ app.use('/api', apiRoutes);
 // HTML маршруты
 app.use('/auth', authRoutes);
 app.use('/', indexRoutes);
-app.use('/user', userRoutes);
+app.use('/user', userRoutes);       // студенческая панель
+app.use('/teacher', teacherRoutes); // преподавательская панель
 
-// СИНХРОНИЗАЦИЯ БАЗЫ ДАННЫХ - ТЕПЕРЬ db ОПРЕДЕЛЕН!
+// Синхронизация базы данных
 db.sequelize.sync({ alter: true })
   .then(() => {
     console.log('✅ База данных синхронизирована');
