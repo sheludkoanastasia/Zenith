@@ -1,4 +1,5 @@
 document.addEventListener('DOMContentLoaded', () => {
+    addStylesForMainPage();
     document.documentElement.classList.add('ready');
 });
 
@@ -8,6 +9,141 @@ const dropdownMenu = document.getElementById('dropdownMenu');
 const loginLink = document.querySelector('.login-link');
 const registrationButton = document.querySelector('.registration-button');
 
+function addStylesForMainPage() {
+    if (!document.getElementById('main-page-styles')) {
+        const style = document.createElement('style');
+        style.id = 'main-page-styles';
+        style.textContent = `
+            .error-toast {
+                position: fixed;
+                top: 100px;
+                right: 30px;
+                min-width: 320px;
+                max-width: 400px;
+                background: rgba(255, 255, 255, 0.98);
+                backdrop-filter: blur(10px);
+                border-radius: 16px;
+                padding: 16px 20px;
+                box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15), 0 6px 12px rgba(0, 0, 0, 0.1);
+                display: flex;
+                align-items: flex-start;
+                gap: 12px;
+                z-index: 9999;
+                border: 1px solid rgba(255, 255, 255, 0.3);
+                animation: slideInRight 0.4s cubic-bezier(0.68, -0.55, 0.27, 1.55);
+            }
+            
+            .error-toast.error {
+                border-left: 6px solid #FF3B3B;
+                background: linear-gradient(135deg, rgba(255, 59, 59, 0.05) 0%, rgba(255, 255, 255, 0.98) 100%);
+            }
+            
+            .error-toast.warning {
+                border-left: 6px solid #FFB800;
+                background: linear-gradient(135deg, rgba(255, 184, 0, 0.05) 0%, rgba(255, 255, 255, 0.98) 100%);
+            }
+            
+            .error-content {
+                flex: 1;
+            }
+            
+            .error-title {
+                font-weight: 600;
+                font-size: 16px;
+                color: #1D1D1D;
+                margin-bottom: 4px;
+            }
+            
+            .error-message {
+                font-size: 14px;
+                color: #4C4C4C;
+                line-height: 1.5;
+            }
+            
+            .error-close {
+                width: 24px;
+                height: 24px;
+                border-radius: 50%;
+                background: rgba(0, 0, 0, 0.05);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                cursor: pointer;
+                font-size: 18px;
+                color: #666;
+                transition: all 0.2s ease;
+                flex-shrink: 0;
+            }
+            
+            .error-close:hover {
+                background: rgba(0, 0, 0, 0.1);
+                transform: scale(1.1);
+            }
+            
+            @keyframes slideInRight {
+                from {
+                    opacity: 0;
+                    transform: translateX(100px);
+                }
+                to {
+                    opacity: 1;
+                    transform: translateX(0);
+                }
+            }
+            
+            @keyframes slideOutRight {
+                from {
+                    opacity: 1;
+                    transform: translateX(0);
+                }
+                to {
+                    opacity: 0;
+                    transform: translateX(100px);
+                }
+            }
+            
+            .error-toast.hiding {
+                animation: slideOutRight 0.3s ease forwards;
+            }
+        `;
+        document.head.appendChild(style);
+    }
+}
+
+// Функция для показа уведомлений (скопирована из auth.js)
+function showNotification(message, type = 'error') {
+    const oldToasts = document.querySelectorAll('.error-toast');
+    oldToasts.forEach(toast => {
+        toast.classList.add('hiding');
+        setTimeout(() => toast.remove(), 300);
+    });
+    
+    const toast = document.createElement('div');
+    toast.className = `error-toast ${type}`;
+    
+    toast.innerHTML = `
+        <div class="error-content">
+            <div class="error-title">${type === 'error' ? 'Ошибка' : 'Внимание'}</div>
+            <div class="error-message">${message}</div>
+        </div>
+        <div class="error-close">✕</div>
+    `;
+    
+    document.body.appendChild(toast);
+    
+    const closeBtn = toast.querySelector('.error-close');
+    closeBtn.addEventListener('click', () => {
+        toast.classList.add('hiding');
+        setTimeout(() => toast.remove(), 300);
+    });
+    
+    setTimeout(() => {
+        if (toast.parentNode) {
+            toast.classList.add('hiding');
+            setTimeout(() => toast.remove(), 300);
+        }
+    }, 5000);
+}
 
 // Функция для плавной прокрутки
 function smoothScrollToSection(sectionSelector) {
@@ -90,6 +226,17 @@ dropdownLinks.forEach(link => {
 if (registrationButton) {
     registrationButton.addEventListener('click', function(e) {
         e.preventDefault();
+        
+        // Проверяем, авторизован ли пользователь
+        const token = localStorage.getItem('token');
+        
+        if (token) {
+            // Если авторизован - показываем уведомление
+            showNotification('Чтобы создать новый аккаунт, сначала выйдите из текущего', 'warning');
+            return; // Не переходим на страницу регистрации
+        }
+        
+        // Если не авторизован - переходим на страницу регистрации
         window.location.href = '/auth#register';
     });
 }
@@ -167,7 +314,6 @@ document.addEventListener('keydown', function(e) {
     }
 });
 
-// mainPage.js - Добавьте этот код в конец файла
 
 // Анимации с GSAP
 document.addEventListener('DOMContentLoaded', () => {
