@@ -32,7 +32,7 @@
             <a href="#">
                 <img src="/images/userMainPanel/setting.svg" alt="Настройки">
             </a>
-            <a href="/">Выйти</a>
+            <a href="/">Выйти из аккаунта</a>
         </div>
     </header>
 
@@ -60,7 +60,7 @@
             <a href="#" id="createCourseLink">Создать курс</a> 
         </div>
 
-        <div class="courseSearching">
+        <div class="courseSearching" id="courseSearching">
             <div class="dropdown-menu" id="dropdownMenu">
                 <div class="dropdown-toggle">Фильтры</div>
                 <div class="dropdown-content">
@@ -76,6 +76,15 @@
 
     <div class="courses">
         <span class="firstMessage" id="firstMessage">У вас пока нет созданных курсов. Создайте свой первый курс!</span>
+
+        <!-- Общий контейнер для карточки и текста -->
+        <div class="create-course-container" id="createCourseContainer">
+            <div class="create-course-card" id="createCourseButton">
+                <img src="/images/teacherMainPanel/addCourseCard.png" class="course-card-bg" alt="Card background">
+                <img src="/images/teacherMainPanel/plus.svg" class="plus-icon" alt="Plus icon">
+            </div>
+            <div class="create-course-text">Создать курс</div>
+        </div>
     </div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>

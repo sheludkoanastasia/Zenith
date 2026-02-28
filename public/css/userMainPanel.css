@@ -26,8 +26,8 @@ header {
 }
 
 .logo img {
-    width: 60px;
-    height: 20px;
+    width: 75px;
+    height: 25px;
     display: block;
 }
 
@@ -48,6 +48,47 @@ header {
     white-space: nowrap;
     display: flex; 
     align-items: center;
+}
+
+.nav-right a img {
+    width: 28px;  
+    height: auto; 
+    transition: transform 0.2s ease; 
+    display: block; 
+}
+
+.nav-right a:last-child {
+    margin-left: 20px; /* Добавляет отступ слева для последней ссылки */
+}
+
+/* Анимация для колокольчика (уведомления) */
+@keyframes bellRing {
+    0% { transform: rotate(0deg); }
+    10% { transform: rotate(15deg); }
+    20% { transform: rotate(-15deg); }
+    30% { transform: rotate(12deg); }
+    40% { transform: rotate(-12deg); }
+    50% { transform: rotate(6deg); }
+    60% { transform: rotate(-6deg); }
+    70% { transform: rotate(3deg); }
+    80% { transform: rotate(-3deg); }
+    90% { transform: rotate(1deg); }
+    100% { transform: rotate(0deg); }
+}
+
+/* Анимация для шестеренки (настройки) */
+@keyframes gearSpin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(180deg); }
+}
+
+/* Применение анимаций к иконкам */
+.nav-right a:first-child:hover img {
+    animation: bellRing 0.6s ease-in-out forwards;
+}
+
+.nav-right a:nth-child(2):hover img {
+    animation: gearSpin 0.9s ease-in-out forwards;
 }
 
 .nav-right a:hover {

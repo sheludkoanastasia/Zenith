@@ -142,23 +142,26 @@ document.addEventListener("DOMContentLoaded", async function () {
     
     function showContent(section) {
         const firstMessage = document.querySelector(".firstMessage");
-        
+        const courseSearching = document.getElementById('courseSearching');
         clearExtraContent();
         
         if (section === "Мои курсы") {
             if (firstMessage) {
                 firstMessage.textContent = "Еще ничего не добавлено. Стоит пройти свой первый курс !";
                 firstMessage.style.display = "block";
+                courseSearching.style.display ="flex";
             }
         } else if (section === "Все курсы") {
             if (firstMessage) {
                 firstMessage.textContent = "Раздел находится в доработке";
                 firstMessage.style.display = "block";
+                courseSearching.style.display ="none";
             }
         } else if (section === "Подключиться по ссылке") {
             if (firstMessage) {
                 firstMessage.textContent = "Введите ссылку для подключения к курсу";
                 firstMessage.style.display = "block";
+                courseSearching.style.display ="none";
             }
             
             const linkContainer = createLinkInputWithButton();
@@ -182,4 +185,52 @@ document.addEventListener("DOMContentLoaded", async function () {
         updateActiveLink(myCoursesLink);
         showContent("Мои курсы");
     }
+
+    // Анимации плавного появления
+    gsap.set('body', { opacity: 0 });
+
+    gsap.to('body', {
+        opacity: 1,
+        duration: 0.8,
+        ease: 'power3.out'
+    });
+
+    gsap.from('header', {
+        y: -30,
+        opacity: 0,
+        duration: 0.8,
+        delay: 0.2,
+        ease: 'power3.out'
+    });
+
+    gsap.from('.profile-section', {
+        y: 30,
+        opacity: 0,
+        duration: 0.8,
+        delay: 0.3,
+        ease: 'power3.out'
+    });
+
+    gsap.from('.coursePanel', {
+        y: 30,
+        opacity: 0,
+        duration: 0.8,
+        delay: 0.3,
+        ease: 'power3.out',
+        clearProps: 'all' // Очищаем все свойства GSAP после анимации
+    });
+
+    gsap.from('.firstMessage', {
+        y: 30,
+        opacity: 0,
+        duration: 0.8,
+        delay: 0.3,
+        ease: 'power3.out'
+    });
+
+    // Показываем страницу
+    setTimeout(() => {
+        document.documentElement.classList.add('ready');
+    }, 100);
+
 });

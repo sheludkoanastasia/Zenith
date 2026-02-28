@@ -28,8 +28,8 @@ header {
 }
 
 .logo img {
-    width: 60px;
-    height: 20px;
+    width: 75px;
+    height: 25px;
     display: block;
 }
 
@@ -38,7 +38,7 @@ header {
     display: flex;
     justify-content: flex-end;
     align-items: center;
-    gap: 20px;
+    gap: 30px;
 }
 
 .nav-right a {
@@ -50,6 +50,47 @@ header {
     white-space: nowrap;
     display: flex;
     align-items: center;
+}
+
+.nav-right a img {
+    width: 28px;  
+    height: auto; 
+    transition: transform 0.2s ease; 
+    display: block; 
+}
+
+.nav-right a:last-child {
+    margin-left: 20px; /* Добавляет отступ слева для последней ссылки */
+}
+
+/* Анимация для колокольчика (уведомления) */
+@keyframes bellRing {
+    0% { transform: rotate(0deg); }
+    10% { transform: rotate(15deg); }
+    20% { transform: rotate(-15deg); }
+    30% { transform: rotate(12deg); }
+    40% { transform: rotate(-12deg); }
+    50% { transform: rotate(6deg); }
+    60% { transform: rotate(-6deg); }
+    70% { transform: rotate(3deg); }
+    80% { transform: rotate(-3deg); }
+    90% { transform: rotate(1deg); }
+    100% { transform: rotate(0deg); }
+}
+
+/* Анимация для шестеренки (настройки) */
+@keyframes gearSpin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(180deg); }
+}
+
+/* Применение анимаций к иконкам */
+.nav-right a:first-child:hover img {
+    animation: bellRing 0.6s ease-in-out forwards;
+}
+
+.nav-right a:nth-child(2):hover img {
+    animation: gearSpin 0.9s ease-in-out forwards;
 }
 
 .nav-right a:hover {
@@ -137,6 +178,7 @@ header {
     display: flex;
     align-items: center;
     gap: 15px;
+    transition: color 0.3s ease;
 }
 
 .dropdown-menu {
@@ -245,12 +287,8 @@ header {
     width: 20px;
     height: 20px;
     cursor: pointer;
-    transition: opacity 0.3s ease;
 }
 
-.search-img:hover {
-    opacity: 0.7;
-}
 
 /* Контент курсов */
 .courses {
@@ -264,6 +302,65 @@ header {
     margin-bottom: 30px;
     display: block;
 }
+
+/* Контейнер для карточки создания курса и текста */
+.create-course-container {
+    display: none; /* По умолчанию скрыт */
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px; /* Расстояние между карточкой и текстом */
+    width: fit-content; /* Контейнер занимает ширину по содержимому */
+}
+
+/* Стили для карточки создания курса */
+.create-course-card {
+    width: 300px;
+    position: relative;
+    border-radius: 25px;
+    cursor: pointer;
+    overflow: hidden;
+    transition: transform 0.3s ease;
+    aspect-ratio: auto;
+}
+
+.create-course-card:hover {
+    transform: translateY(-5px);
+}
+
+.course-card-bg {
+    width: 100%;
+    height: auto;
+    display: block;
+    border-radius: 25px;
+    z-index: 1;
+}
+
+.plus-icon {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 16%;
+    height: auto;
+    max-width: 48px;
+    min-width: 32px;
+    z-index: 2;
+    transition: transform 0.3s ease;
+}
+
+.create-course-card:hover .plus-icon {
+    transform: translate(-50%, -50%) scale(1.1);
+}
+
+/* Стили для текста под карточкой создания курса */
+.create-course-text {
+    text-align: center;
+    font-size: 18px;
+    font-weight: 400;
+    color: #1D1D1D;
+    width: 100%;
+}
+
 
 /* Адаптация */
 @media (max-width: 1200px) {
