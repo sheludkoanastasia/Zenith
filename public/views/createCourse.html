@@ -1,0 +1,78 @@
+<!-- public/views/createCourse.html -->
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Zenith - Создание курса</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Ysabeau:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/public/css/createCourse.css">
+    <style>
+        html {
+            visibility: hidden;
+        }
+        
+        html.ready {
+            visibility: visible;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="logo">
+            <img src="/images/userMainPanel/logo.svg" alt="Zenith Logo">
+        </div>
+
+        <div class="nav-right">
+            <a href="/teacher" class="back-to-profile">Вернуться к профилю</a>
+        </div>
+    </header>
+
+    <main class="course-creation-container">
+        <!-- Основной блок с информацией о курсе -->
+        <div class="course-info-grid">
+            <!-- Левая колонка - изображение курса -->
+            <div class="course-image-column">
+                <div class="course-image-upload" id="courseImageUpload">
+                    <img src="/images/teacherMainPanel/plus.svg" alt="Загрузить изображение" class="upload-placeholder">
+                    <input type="file" id="courseImageInput" accept="image/*" style="display: none;">
+                </div>
+            </div>
+
+            <!-- Правая колонка - информация о курсе -->
+            <div class="course-details-column">
+                <h1 class="course-title">
+                    <input type="text" id="courseTitle" class="course-title-input" placeholder="Напишите название курса">
+                </h1>
+                
+                <div class="course-teacher" id="courseTeacher">
+                    Преподаватель: <span id="teacherName"></span>
+                </div>
+                
+                <div class="course-students-count" id="courseStudentsCount">
+                    Количество студентов: <span id="countStudents"></span>
+                </div>
+
+                <button class="save-changes-btn" id="saveCourseBtn">Сохранить изменения</button>
+            </div>
+        </div>
+
+        <!-- Навигация по разделам -->
+        <div class="course-sections-nav">
+            <a href="#" class="active" id="courseBlocksLink">Содержание курса</a>
+            <a href="#" id="courseStudentsLink">Составление заданий</a>
+            <a href="#" id="courseConnectionLink">Подключение к курсу</a>
+        </div>
+
+        <!-- Контейнер для контента разделов -->
+        <div class="sections-content" id="sectionsContent">
+            <!-- Контент будет подгружаться динамически -->
+        </div>
+    </main>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    <script src="/public/js/createCourse.js"></script>
+</body>
+</html>

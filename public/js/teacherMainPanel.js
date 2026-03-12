@@ -132,7 +132,14 @@ document.addEventListener("DOMContentLoaded", async function () {
         });
     }
     
-
+        // Добавляем обработчик для карточки создания курса
+    const createCourseButton = document.getElementById('createCourseButton');
+    if (createCourseButton) {
+        createCourseButton.addEventListener('click', function(e) {
+            e.preventDefault();
+            window.location.href = '/teacher/create-course';
+        });
+    }
 
 // Анимации плавного появления
 gsap.set('body', { opacity: 0 });
