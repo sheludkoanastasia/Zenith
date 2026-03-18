@@ -303,16 +303,105 @@ header {
     display: block;
 }
 
-/* Контейнер для карточки создания курса и текста */
+/* Стили для карточек курсов */
+.course-card-container {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+    width: fit-content;
+    cursor: pointer;
+    transition: transform 0.3s ease;
+}
+
+.course-card-container:hover {
+    transform: translateY(-5px);
+}
+
+.course-card {
+    width: 300px;
+    height: 200px; /* Фиксированная высота, как у блоков */
+    position: relative;
+    border-radius: 25px;
+    overflow: hidden;
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15), 0 2px 4px rgba(0, 0, 0, 0.05);
+    
+    transition: all 0.3s ease;
+}
+
+.course-card:hover {
+    box-shadow: 0 15px 35px rgba(118, 81, 190, 0.25), 0 5px 10px rgba(118, 81, 190, 0.1);
+}
+
+.course-image-wrapper {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: #f5f5f5; /* Светлый фон, если изображение не загрузится */
+}
+
+/* Изображение курса, загруженное пользователем */
+.course-cover-image {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover; /* Растягиваем на всю область */
+    display: block;
+}
+
+/* Если изображение не загружено, показываем плейсхолдер */
+.course-image-wrapper:not(:has(img[src]))::after {
+    content: 'Нет изображения';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    color: #A6A6A6;
+    font-size: 14px;
+    font-weight: 300;
+}
+
+/* Название курса под карточкой */
+.course-card-title {
+    text-align: center;
+    font-size: 18px;
+    font-weight: 400;
+    color: #1D1D1D;
+    width: 100%;
+    word-break: break-word;
+    padding: 0 10px;
+}
+
+/* Обновляем стили для контейнера курсов */
+.courses {
+    padding: 20px 80px;
+    min-height: 280px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 83px;
+    align-items: flex-start;
+}
+
+/* Контейнер создания курса - показываем только в соответствующем разделе */
 .create-course-container {
     display: none; /* По умолчанию скрыт */
     flex-direction: column;
     align-items: flex-start;
-    gap: 12px; /* Расстояние между карточкой и текстом */
-    width: fit-content; /* Контейнер занимает ширину по содержимому */
+    gap: 12px;
+    width: fit-content;
 }
 
-/* Стили для карточки создания курса */
+/* Когда активен раздел "Создать курс", показываем контейнер */
+#createCourseLink.active ~ .coursePanel ~ .courses .create-course-container,
+.courseNavigation a.active + * + .courses .create-course-container {
+    display: flex !important;
+}
+
 .create-course-card {
     width: 300px;
     position: relative;
@@ -320,7 +409,7 @@ header {
     cursor: pointer;
     overflow: hidden;
     transition: transform 0.3s ease;
-    aspect-ratio: auto;
+    aspect-ratio: 300/200;
 }
 
 .create-course-card:hover {
@@ -329,10 +418,8 @@ header {
 
 .course-card-bg {
     width: 100%;
-    height: auto;
+    height: 100%;
     display: block;
-    border-radius: 25px;
-    z-index: 1;
 }
 
 .plus-icon {
@@ -352,13 +439,50 @@ header {
     transform: translate(-50%, -50%) scale(1.1);
 }
 
-/* Стили для текста под карточкой создания курса */
 .create-course-text {
     text-align: center;
     font-size: 18px;
     font-weight: 400;
     color: #1D1D1D;
     width: 100%;
+}
+
+/* Адаптация для мобильных */
+@media (max-width: 1200px) {
+    .courses {
+        padding-left: 40px;
+        padding-right: 40px;
+    }
+}
+
+@media (max-width: 768px) {
+    .courses {
+        padding: 20px 40px;
+        gap: 20px;
+        justify-content: center;
+    }
+    
+    .course-card,
+    .create-course-card {
+        width: 280px;
+    }
+}
+
+@media (max-width: 576px) {
+    .courses {
+        padding: 20px 20px;
+        gap: 15px;
+    }
+    
+    .course-card,
+    .create-course-card {
+        width: 260px;
+    }
+    
+    .course-card-title,
+    .create-course-text {
+        font-size: 16px;
+    }
 }
 
 

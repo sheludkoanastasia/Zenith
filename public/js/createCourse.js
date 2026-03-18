@@ -10,6 +10,220 @@ document.addEventListener("DOMContentLoaded", async function () {
         return;
     }
     
+    let currentUser = null;
+    let currentCourseId = null;
+    let currentCoverImage = null;
+    
+    // Хранилище данных курса
+    let courseData = {
+        themes: []
+    };
+    
+    // ===============================
+    // СОХРАНЕНИЕ И ВОССТАНОВЛЕНИЕ ДАННЫХ (ЧЕРНОВИК)
+    // ===============================
+    const STORAGE_KEY = 'course_draft';
+    
+    // Сохранение черновика
+    function saveDraft() {
+        // Сохраняем только для новых курсов
+        if (currentCourseId) return;
+        
+        const title = document.getElementById('courseTitle')?.value.trim() || '';
+        
+        // Собираем актуальные данные из DOM
+        collectDataFromDOM();
+        
+        const draftData = {
+            title: title,
+            cover_image: currentCoverImage,
+            themes: courseData.themes
+        };
+        
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(draftData));
+    }
+    
+    // Очистка черновика
+    function clearDraft() {
+        localStorage.removeItem(STORAGE_KEY);
+    }
+    
+    // Автосохранение (без уведомлений)
+    let autoSaveTimeout;
+    function scheduleAutoSave() {
+        if (autoSaveTimeout) {
+            clearTimeout(autoSaveTimeout);
+        }
+        
+        autoSaveTimeout = setTimeout(() => {
+            saveDraft();
+        }, 1000);
+    }
+    
+    // ===============================
+    // ЗАГРУЗКА ИЗОБРАЖЕНИЯ КУРСА (ОБЪЯВЛЯЕМ РАНЬШЕ)
+    // ===============================
+    const imageUpload = document.getElementById('courseImageUpload');
+    const imageInput = document.getElementById('courseImageInput');
+    const placeholderImg = imageUpload?.querySelector('.upload-placeholder');
+
+    const blocksLink = document.getElementById('courseBlocksLink');
+    const studentsLink = document.getElementById('courseStudentsLink');
+    const connectionLink = document.getElementById('courseConnectionLink');
+    const sectionsContent = document.getElementById('sectionsContent');
+    
+    function displayCourseImage(imageUrl) {
+    if (!imageUpload) return;
+    
+    const oldPreview = imageUpload.querySelector('.image-preview');
+    if (oldPreview) oldPreview.remove();
+    
+    const oldOverlay = imageUpload.querySelector('.image-overlay');
+    if (oldOverlay) oldOverlay.remove();
+    
+    const preview = document.createElement('img');
+    preview.src = imageUrl;
+    preview.className = 'image-preview';
+    preview.alt = 'Course preview';
+    preview.style.objectFit = 'cover';
+    preview.style.width = '100%';
+    preview.style.height = '100%';
+    preview.style.position = 'absolute';
+    preview.style.top = '0';
+    preview.style.left = '0';
+    preview.style.zIndex = '1'; // Явно указываем z-index
+    
+    const overlay = document.createElement('div');
+    overlay.className = 'image-overlay';
+    overlay.innerHTML = `
+        <img src="/images/teacherMainPanel/edit.svg" alt="Edit" class="edit-icon">
+    `;
+    
+    overlay.style.position = 'absolute';
+    overlay.style.top = '0';
+    overlay.style.left = '0';
+    overlay.style.width = '100%';
+    overlay.style.height = '100%';
+    overlay.style.backdropFilter = 'blur(3px)';
+    overlay.style.display = 'flex';
+    overlay.style.alignItems = 'center';
+    overlay.style.justifyContent = 'center';
+    overlay.style.opacity = '0';
+    overlay.style.transition = 'opacity 0.3s ease';
+    overlay.style.cursor = 'pointer';
+    overlay.style.borderRadius = 'inherit';
+    overlay.style.zIndex = '2'; // <-- ВАЖНО: z-index выше чем у preview
+    overlay.style.pointerEvents = 'none'; // Добавляем для корректной работы
+    
+    // Стили для иконки
+    const editIcon = overlay.querySelector('.edit-icon');
+    if (editIcon) {
+        editIcon.style.width = '40px';
+        editIcon.style.height = '40px';
+        editIcon.style.opacity = '0.9';
+        editIcon.style.transition = 'transform 0.2s ease';
+        editIcon.style.position = 'relative';
+        editIcon.style.zIndex = '3'; // Иконка поверх всего
+        editIcon.style.pointerEvents = 'auto'; // Иконка должна быть кликабельной
+    }
+    
+    imageUpload.appendChild(preview);
+    imageUpload.appendChild(overlay);
+    imageUpload.style.position = 'relative';
+    
+    // Исправляем обработчики событий
+    imageUpload.addEventListener('mouseenter', () => {
+        overlay.style.opacity = '1';
+        overlay.style.pointerEvents = 'auto';
+    });
+    
+    imageUpload.addEventListener('mouseleave', () => {
+        overlay.style.opacity = '0';
+        overlay.style.pointerEvents = 'none';
+    });
+    
+    overlay.addEventListener('click', (e) => {
+        e.stopPropagation();
+        imageInput.click();
+    });
+    
+    if (placeholderImg) {
+        placeholderImg.style.display = 'none';
+    }
+    
+    currentCoverImage = imageUrl;
+    scheduleAutoSave();
+}
+    
+    // Загрузка черновика (ИСПРАВЛЕНО - убрали вызов loadDataToDOM)
+    function loadDraft() {
+        if (currentCourseId) return;
+        
+        const savedDraft = localStorage.getItem(STORAGE_KEY);
+        if (!savedDraft) return;
+        
+        try {
+            const draftData = JSON.parse(savedDraft);
+            
+            // Загружаем название
+            const titleInput = document.getElementById('courseTitle');
+            if (titleInput && draftData.title) {
+                titleInput.value = draftData.title;
+            }
+            
+            // Загружаем изображение
+            if (draftData.cover_image) {
+                currentCoverImage = draftData.cover_image;
+                displayCourseImage(draftData.cover_image);
+            }
+            
+            // Загружаем темы
+            if (draftData.themes && draftData.themes.length > 0) {
+                courseData.themes = draftData.themes;
+            }
+            
+        } catch (error) {
+            console.error('Ошибка загрузки черновика:', error);
+            localStorage.removeItem(STORAGE_KEY);
+        }
+    }
+    
+    // ===============================
+    // ЗАГРУЗКА КУРСА ДЛЯ РЕДАКТИРОВАНИЯ
+    // ===============================
+    async function loadCourseForEditing(courseId) {
+        try {
+            const response = await fetch(`/api/courses/${courseId}`, {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                const course = data.course;
+                
+                const titleInput = document.getElementById('courseTitle');
+                if (titleInput) {
+                    titleInput.value = course.title;
+                }
+                
+                if (course.cover_image) {
+                    currentCoverImage = course.cover_image;
+                    displayCourseImage(course.cover_image);
+                }
+                
+                // Сохраняем темы в хранилище
+                if (course.themes && course.themes.length > 0) {
+                    courseData.themes = JSON.parse(JSON.stringify(course.themes));
+                }
+            }
+        } catch (error) {
+            showNotification('Не удалось загрузить курс для редактирования', 'warning');
+        }
+    }
+    
     try {
         const response = await fetch('/api/auth/check', {
             method: 'GET',
@@ -26,20 +240,155 @@ document.addEventListener("DOMContentLoaded", async function () {
             return;
         }
         
-        // Проверяем, что пользователь - преподаватель
         if (data.user.role !== 'teacher') {
             window.location.href = '/user';
             return;
         }
         
-        // Отображаем информацию о преподавателе
+        currentUser = data.user;
         displayTeacherInfo(data.user);
+        
+        const urlParams = new URLSearchParams(window.location.search);
+        const courseId = urlParams.get('id');
+        
+        if (courseId) {
+            currentCourseId = courseId;
+            await loadCourseForEditing(courseId);
+        } else {
+            // Загружаем черновик для нового курса
+            loadDraft();
+        }
+        
+        // ИСПРАВЛЕНИЕ: добавляем задержку для отображения данных после загрузки черновика
+        setTimeout(() => {
+            if (blocksLink && blocksLink.classList.contains('active')) {
+                loadDataToDOM();
+            }
+        }, 200);
         
     } catch (error) {
         console.error('Ошибка проверки авторизации:', error);
         localStorage.removeItem('token');
         window.location.href = '/auth';
         return;
+    }
+    
+    // ===============================
+    // ЗАГРУЗКА КУРСА ДЛЯ РЕДАКТИРОВАНИЯ
+    // ===============================
+    async function loadCourseForEditing(courseId) {
+        try {
+            const response = await fetch(`/api/courses/${courseId}`, {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                const course = data.course;
+                
+                const titleInput = document.getElementById('courseTitle');
+                if (titleInput) {
+                    titleInput.value = course.title;
+                }
+                
+                if (course.cover_image) {
+                    currentCoverImage = course.cover_image;
+                    displayCourseImage(course.cover_image);
+                }
+                
+                // Сохраняем темы в хранилище
+                if (course.themes && course.themes.length > 0) {
+                    courseData.themes = JSON.parse(JSON.stringify(course.themes));
+                }
+            }
+        } catch (error) {
+            showNotification('Не удалось загрузить курс для редактирования', 'warning');
+        }
+    }
+    
+    // ===============================
+    // ФУНКЦИИ ДЛЯ РАБОТЫ С ХРАНИЛИЩЕМ ДАННЫХ
+    // ===============================
+    
+    // Сбор данных из DOM в хранилище
+    function collectDataFromDOM() {
+        const themesContainer = document.getElementById('themesContainer');
+        if (!themesContainer) {
+            return;
+        }
+        
+        const themes = [];
+        const themeWrappers = document.querySelectorAll('#themesContainer .theme-wrapper');
+        
+        if (themeWrappers.length === 0) {
+            return;
+        }
+        
+        themeWrappers.forEach((themeWrapper, themeIndex) => {
+            const themeInput = themeWrapper.querySelector('.course-theme-input');
+            const themeTitle = themeInput?.value.trim() || `Тема ${themeIndex + 1}`;
+            
+            const blocks = [];
+            const blockElements = themeWrapper.querySelectorAll('.blocks-container .form-block');
+            
+            blockElements.forEach((blockEl, blockIndex) => {
+                const titleEl = blockEl.querySelector('.block-title');
+                const descEl = blockEl.querySelector('.block-description');
+                
+                const blockTitle = titleEl?.innerText.trim() || '';
+                const blockDescription = descEl?.innerText.trim() || '';
+                
+                blocks.push({
+                    title: blockTitle,
+                    description: blockDescription,
+                    order_index: blockIndex
+                });
+            });
+            
+            themes.push({
+                title: themeTitle,
+                order_index: themeIndex,
+                blocks: blocks
+            });
+        });
+        
+        courseData.themes = JSON.parse(JSON.stringify(themes));
+    }
+    
+    // Загрузка данных из хранилища в DOM
+    function loadDataToDOM() {
+        const themesContainer = document.getElementById('themesContainer');
+        if (!themesContainer) return;
+        
+        themesContainer.innerHTML = '';
+        
+        if (!courseData.themes || courseData.themes.length === 0) {
+            addNewTheme();
+            return;
+        }
+        
+        const themesToLoad = JSON.parse(JSON.stringify(courseData.themes));
+        
+        themesToLoad.forEach(theme => {
+            const themeWrapper = createTheme(theme.title);
+            const blocksContainer = themeWrapper.querySelector('.blocks-container');
+            
+            const plusBlock = blocksContainer.querySelector('.plus-block');
+            if (plusBlock) plusBlock.remove();
+            
+            if (theme.blocks && theme.blocks.length > 0) {
+                theme.blocks.forEach(block => {
+                    const formBlock = createFormBlock(block.title, block.description);
+                    blocksContainer.appendChild(formBlock);
+                });
+            }
+            
+            blocksContainer.appendChild(createPlusBlock());
+            themesContainer.appendChild(themeWrapper);
+        });
     }
     
     // ===============================
@@ -67,16 +416,12 @@ document.addEventListener("DOMContentLoaded", async function () {
     }
     
     // ===============================
-    // ЗАГРУЗКА ИЗОБРАЖЕНИЯ КУРСА
+    // ЗАГРУЗКА ИЗОБРАЖЕНИЯ КУРСА (ОБРАБОТЧИКИ)
     // ===============================
-    const imageUpload = document.getElementById('courseImageUpload');
-    const imageInput = document.getElementById('courseImageInput');
-    const placeholderImg = imageUpload?.querySelector('.upload-placeholder');
-    
     if (imageUpload && imageInput) {
         imageUpload.addEventListener('click', () => imageInput.click());
         
-        imageInput.addEventListener('change', function(e) {
+        imageInput.addEventListener('change', async function(e) {
             const file = e.target.files[0];
             if (file) {
                 if (!file.type.startsWith('image/')) {
@@ -91,32 +436,44 @@ document.addEventListener("DOMContentLoaded", async function () {
                 
                 const reader = new FileReader();
                 reader.onload = function(event) {
-                    const oldPreview = imageUpload.querySelector('.image-preview');
-                    if (oldPreview) oldPreview.remove();
-                    
-                    const preview = document.createElement('img');
-                    preview.src = event.target.result;
-                    preview.className = 'image-preview';
-                    preview.alt = 'Course preview';
-                    
-                    if (placeholderImg) {
-                        placeholderImg.style.display = 'none';
-                    }
-                    
-                    imageUpload.appendChild(preview);
+                    displayCourseImage(event.target.result);
                 };
                 reader.readAsDataURL(file);
+                
+                await uploadImageToServer(file);
             }
         });
+    }
+    
+    async function uploadImageToServer(file) {
+        const formData = new FormData();
+        formData.append('image', file);
+        
+        try {
+            const response = await fetch('/api/courses/upload-image', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                },
+                body: formData
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                currentCoverImage = data.imageUrl;
+                showNotification('Изображение загружено', 'success');
+            } else {
+                showNotification('Ошибка при загрузке изображения', 'error');
+            }
+        } catch (error) {
+            showNotification('Не удалось загрузить изображение', 'error');
+        }
     }
     
     // ===============================
     // НАВИГАЦИЯ ПО РАЗДЕЛАМ
     // ===============================
-    const blocksLink = document.getElementById('courseBlocksLink');
-    const studentsLink = document.getElementById('courseStudentsLink');
-    const connectionLink = document.getElementById('courseConnectionLink');
-    const sectionsContent = document.getElementById('sectionsContent');
     
     function updateActiveLink(activeLink) {
         [blocksLink, studentsLink, connectionLink].forEach(link => {
@@ -124,19 +481,22 @@ document.addEventListener("DOMContentLoaded", async function () {
         });
     }
     
-    function loadSectionContent(section) {
+    function switchSection(section) {
+        if (blocksLink && blocksLink.classList.contains('active')) {
+            collectDataFromDOM();
+            scheduleAutoSave();
+        }
+        
+        renderSection(section);
+    }
+    
+    function renderSection(section) {
         if (!sectionsContent) return;
         
         if (section === 'blocks') {
-            // Создаем контейнер для всех тем
             sectionsContent.innerHTML = `
-                <div class="blocks-section">
-                    <!-- Контейнер для всех тем курса -->
-                    <div class="themes-container" id="themesContainer">
-                        <!-- Первая тема будет добавлена сюда через JS -->
-                    </div>
-                    
-                    <!-- КНОПКА ДОБАВЛЕНИЯ НОВОЙ ТЕМЫ -->
+                <div class="blocks-section" style="opacity: 0;">
+                    <div class="themes-container" id="themesContainer"></div>
                     <button class="add-theme-btn" id="addThemeBtn">
                         <img src="/images/teacherMainPanel/plus.svg" alt="Plus" class="btn-plus-icon">
                         Добавить еще тему
@@ -144,10 +504,18 @@ document.addEventListener("DOMContentLoaded", async function () {
                 </div>
             `;
             
-            // Добавляем первую тему по умолчанию
-            addNewTheme();
+            const blocksSection = sectionsContent.querySelector('.blocks-section');
             
-            // Обработчик для кнопки "Добавить еще тему"
+            loadDataToDOM();
+            
+            setTimeout(() => {
+                gsap.to(blocksSection, {
+                    opacity: 1,
+                    duration: 0.3,
+                    ease: "power2.out"
+                });
+            }, 50);
+            
             const addThemeBtn = document.getElementById('addThemeBtn');
             if (addThemeBtn) {
                 addThemeBtn.addEventListener('click', function() {
@@ -174,7 +542,7 @@ document.addEventListener("DOMContentLoaded", async function () {
                         <input type="text" 
                                class="form-input connection-input" 
                                id="courseLinkInput"
-                               value="https://zenith.edu/course/123456"
+                               value="${currentCourseId ? `https://zenith.edu/join/${currentCourseId}` : 'Сначала сохраните курс'}"
                                readonly>
                         
                         <div class="connection-buttons">
@@ -189,7 +557,6 @@ document.addEventListener("DOMContentLoaded", async function () {
                 </div>
             `;
 
-            // Добавляем обработчики для кнопок
             const refreshBtn = document.getElementById('refreshLinkBtn');
             const copyBtn = document.getElementById('copyLinkBtn');
             const linkInput = document.getElementById('courseLinkInput');
@@ -227,11 +594,6 @@ document.addEventListener("DOMContentLoaded", async function () {
     // ФУНКЦИИ ДЛЯ РАБОТЫ С ТЕМАМИ И БЛОКАМИ
     // ===============================
     
-    /**
-     * Создает DOM элемент для темы
-     * @param {string} themeTitle - Заголовок темы (по умолчанию пустой)
-     * @returns {HTMLElement} - обертка темы (theme-wrapper)
-     */
     function createTheme(themeTitle = '') {
         const themeWrapper = document.createElement('div');
         themeWrapper.className = 'theme-wrapper';
@@ -257,19 +619,16 @@ document.addEventListener("DOMContentLoaded", async function () {
         const toggleBtn = themeWrapper.querySelector('.toggle-theme-btn');
         const chevronIcon = themeWrapper.querySelector('.chevron-icon');
         const blocksContainer = themeWrapper.querySelector('.blocks-container');
+        const themeInput = themeWrapper.querySelector('.course-theme-input');
         
-        // Тема изначально открыта
         let isThemeOpen = true;
         
-        // Устанавливаем начальное положение иконки (вниз)
         gsap.set(chevronIcon, { rotation: 180 });
         
-        // Обработчик для сворачивания/разворачивания темы
         toggleBtn.addEventListener('click', function(e) {
             e.stopPropagation();
             
             if (isThemeOpen) {
-                // Сворачиваем тему
                 gsap.to(blocksContainer, {
                     height: 0,
                     opacity: 0,
@@ -280,7 +639,6 @@ document.addEventListener("DOMContentLoaded", async function () {
                     }
                 });
                 
-                // Поворачиваем иконку на 180 градусов (вверх)
                 gsap.to(chevronIcon, {
                     rotation: 0,
                     duration: 0.2,
@@ -288,10 +646,8 @@ document.addEventListener("DOMContentLoaded", async function () {
                 });
                 
             } else {
-                // Разворачиваем тему
                 blocksContainer.style.display = 'flex';
                 
-                // Получаем полную высоту контейнера
                 blocksContainer.style.height = 'auto';
                 const autoHeight = blocksContainer.offsetHeight;
                 blocksContainer.style.height = '0';
@@ -306,7 +662,6 @@ document.addEventListener("DOMContentLoaded", async function () {
                     }
                 });
                 
-                // Поворачиваем иконку обратно на 0 градусов (вниз)
                 gsap.to(chevronIcon, {
                     rotation: 180,
                     duration: 0.2,
@@ -317,7 +672,11 @@ document.addEventListener("DOMContentLoaded", async function () {
             isThemeOpen = !isThemeOpen;
         });
         
-        // Обработчик для кнопки удаления темы
+        themeInput.addEventListener('input', function() {
+            collectDataFromDOM();
+            scheduleAutoSave();
+        });
+        
         deleteBtn.addEventListener('click', function(e) {
             e.stopPropagation();
             
@@ -329,36 +688,33 @@ document.addEventListener("DOMContentLoaded", async function () {
                 return;
             }
             
-            // Показываем диалог подтверждения
             showConfirmDialog(
                 'Удаление темы',
                 'Вы действительно хотите удалить эту тему?',
                 function() {
                     themeWrapper.remove();
+                    collectDataFromDOM();
+                    scheduleAutoSave();
                     showNotification('Тема успешно удалена', 'success');
                 }
             );
         });
         
-        // Добавляем первый блок
         blocksContainer.appendChild(createPlusBlock());
         
         return themeWrapper;
     }
     
-    /**
-     * Добавляет новую тему в контейнер themesContainer
-     * @param {string} themeTitle - Заголовок темы
-     */
     function addNewTheme(themeTitle = '') {
         const themesContainer = document.getElementById('themesContainer');
         if (!themesContainer) return;
         
         const newTheme = createTheme(themeTitle);
         themesContainer.appendChild(newTheme);
+        collectDataFromDOM();
+        scheduleAutoSave();
     }
     
-    // Создание блока с плюсом
     function createPlusBlock() {
         const block = document.createElement('div');
         block.className = 'course-block plus-block';
@@ -371,15 +727,12 @@ document.addEventListener("DOMContentLoaded", async function () {
             const blocksContainer = this.closest('.blocks-container');
             if (!blocksContainer) return;
             
-            // Получаем индекс текущего блока
             const blocks = Array.from(blocksContainer.children);
             const currentIndex = blocks.indexOf(this);
             
-            // Заменяем текущий плюс-блок на блок с формой
             const formBlock = createFormBlock();
             blocksContainer.replaceChild(formBlock, this);
             
-            // Создаем новый плюс-блок и вставляем после блока с формой
             const newPlusBlock = createPlusBlock();
             if (blocks[currentIndex + 1]) {
                 blocksContainer.insertBefore(newPlusBlock, blocks[currentIndex + 1]);
@@ -387,7 +740,9 @@ document.addEventListener("DOMContentLoaded", async function () {
                 blocksContainer.appendChild(newPlusBlock);
             }
             
-            // Прокручиваем к новому блоку с формой
+            collectDataFromDOM();
+            scheduleAutoSave();
+            
             setTimeout(() => {
                 formBlock.scrollIntoView({ behavior: 'smooth', block: 'center' });
             }, 100);
@@ -396,96 +751,179 @@ document.addEventListener("DOMContentLoaded", async function () {
         return block;
     }
     
-    // Создание блока с формой (название и описание)
-    function createFormBlock() {
-        const block = document.createElement('div');
-        block.className = 'course-block form-block';
-        block.innerHTML = `
-            <img src="/images/teacherMainPanel/addCourseCard.png" alt="Block background" class="block-bg">
-            <div class="block-content">
-                <div class="block-title" contenteditable="true" data-placeholder="Название блока"></div>
-                <div class="block-description" contenteditable="true" data-placeholder="Описание блока"></div>
-            </div>
-            <div class="delete-block" title="Удалить блок">×</div>
-        `;
-        
-        // Предотвращаем всплытие клика при редактировании
-        const title = block.querySelector('.block-title');
-        const description = block.querySelector('.block-description');
-        const deleteBtn = block.querySelector('.delete-block');
-        
-        [title, description].forEach(el => {
-            el.addEventListener('click', (e) => e.stopPropagation());
-        });
-        
-        // Обработчик удаления блока
-        deleteBtn.addEventListener('click', function(e) {
-            e.stopPropagation();
-            
-            const blocksContainer = block.closest('.blocks-container');
-            if (!blocksContainer) return;
-            
-            const blocks = Array.from(blocksContainer.children);
-            const currentIndex = blocks.indexOf(block);
-            
-            // Проверяем, есть ли другие блоки
-            if (blocks.length === 1) {
-                showNotification('Нельзя удалить единственный блок. Добавьте новый или оставьте этот.', 'warning');
-                return;
-            }
-            
-            // Удаляем блок
-            block.remove();
-            
-            // Проверяем, остался ли в контейнере плюс-блок
-            const remainingBlocks = Array.from(blocksContainer.children);
-            const hasPlusBlock = remainingBlocks.some(b => b.classList.contains('plus-block'));
-            
-            // Если нет плюс-блока, добавляем его в конец
-            if (!hasPlusBlock) {
-                const newPlusBlock = createPlusBlock();
-                blocksContainer.appendChild(newPlusBlock);
-            }
-            
-        });
-        
-        // Добавляем обработчики для плейсхолдеров
-        setupContentEditablePlaceholders(block);
-        
-        return block;
+    function createFormBlock(title = '', description = '') {
+    const block = document.createElement('div');
+    block.className = 'course-block form-block';
+    block.innerHTML = `
+        <img src="/images/teacherMainPanel/addCourseCard.png" alt="Block background" class="block-bg">
+        <div class="block-content">
+            <div class="block-title" data-placeholder="Название блока">${title}</div>
+            <div class="block-description" data-placeholder="Описание блока">${description}</div>
+        </div>
+        <div class="delete-block" title="Удалить блок">×</div>
+    `;
+    
+    const titleEl = block.querySelector('.block-title');
+    const descriptionEl = block.querySelector('.block-description');
+    const deleteBtn = block.querySelector('.delete-block');
+    
+    titleEl.contentEditable = true;
+    descriptionEl.contentEditable = true;
+    
+    titleEl.style.pointerEvents = 'auto';
+    descriptionEl.style.pointerEvents = 'auto';
+    
+    // Функция для установки класса placeholder
+    function setPlaceholderClass(element) {
+        if (element.innerText.trim() === '') {
+            element.classList.add('empty');
+        } else {
+            element.classList.remove('empty');
+        }
     }
-
-    // Функция для обработки плейсхолдеров в contenteditable
-    function setupContentEditablePlaceholders(block) {
-        const title = block.querySelector('.block-title');
-        const description = block.querySelector('.block-description');
+    
+    // Устанавливаем классы сразу после создания
+    setPlaceholderClass(titleEl);
+    setPlaceholderClass(descriptionEl);
+    
+    const saveChanges = () => {
+        collectDataFromDOM();
+        scheduleAutoSave();
+    };
+    
+    [titleEl, descriptionEl].forEach(el => {
+        el.addEventListener('click', (e) => {
+            e.stopPropagation();
+        });
         
-        if (title) {
-            title.addEventListener('focus', function() {
-                if (this.innerText === '' || this.innerText === 'Название блока') {
-                    this.innerText = '';
+        el.addEventListener('input', () => {
+            saveChanges();
+            setPlaceholderClass(el);
+        });
+        
+        el.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                if (el === titleEl) {
+                    descriptionEl.focus();
                 }
-            });
-            
-            title.addEventListener('blur', function() {
-                if (this.innerText.trim() === '') {
-                    this.innerText = '';
-                }
-            });
+            }
+        });
+        
+        el.addEventListener('paste', (e) => {
+            e.preventDefault();
+            const text = e.clipboardData.getData('text/plain');
+            document.execCommand('insertText', false, text);
+            saveChanges();
+            setPlaceholderClass(el);
+        });
+        
+        el.addEventListener('focus', function() {
+            if (this.innerText === '') {
+                this.classList.add('editing');
+            }
+        });
+        
+        el.addEventListener('blur', function() {
+            this.classList.remove('editing');
+            setPlaceholderClass(this);
+            saveChanges();
+        });
+    });
+    
+    deleteBtn.addEventListener('click', function(e) {
+        e.stopPropagation();
+        
+        const blocksContainer = block.closest('.blocks-container');
+        if (!blocksContainer) return;
+        
+        const blocks = Array.from(blocksContainer.children);
+        
+        if (blocks.length === 1) {
+            showNotification('Нельзя удалить единственный блок. Добавьте новый или оставьте этот.', 'warning');
+            return;
         }
         
-        if (description) {
-            description.addEventListener('focus', function() {
-                if (this.innerText === '' || this.innerText === 'Описание блока') {
-                    this.innerText = '';
-                }
+        block.remove();
+        
+        const remainingBlocks = Array.from(blocksContainer.children);
+        const hasPlusBlock = remainingBlocks.some(b => b.classList.contains('plus-block'));
+        
+        if (!hasPlusBlock) {
+            const newPlusBlock = createPlusBlock();
+            blocksContainer.appendChild(newPlusBlock);
+        }
+        
+        collectDataFromDOM();
+        scheduleAutoSave();
+    });
+    
+    return block;
+}
+    
+    // ===============================
+    // СОХРАНЕНИЕ КУРСА
+    // ===============================
+    const saveBtn = document.getElementById('saveCourseBtn');
+    if (saveBtn) {
+        saveBtn.addEventListener('click', async () => {
+            await saveCourse();
+        });
+    }
+    
+    async function saveCourse() {
+        const title = document.getElementById('courseTitle')?.value.trim();
+        
+        if (!title) {
+            showNotification('Введите название курса', 'warning');
+            return;
+        }
+        
+        collectDataFromDOM();
+        
+        const url = currentCourseId ? `/api/courses/${currentCourseId}` : '/api/courses';
+        const method = currentCourseId ? 'PUT' : 'POST';
+        
+        setLoading(saveBtn, true);
+        
+        try {
+            const response = await fetch(url, {
+                method: method,
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    title: title,
+                    cover_image: currentCoverImage,
+                    themes: courseData.themes
+                })
             });
             
-            description.addEventListener('blur', function() {
-                if (this.innerText.trim() === '') {
-                    this.innerText = '';
+            const data = await response.json();
+            
+            setLoading(saveBtn, false);
+            
+            if (data.success) {
+                showNotification('Курс успешно сохранен', 'success');
+                
+                if (!currentCourseId && data.course) {
+                    currentCourseId = data.course.id;
+                    
+                    const linkInput = document.getElementById('courseLinkInput');
+                    if (linkInput) {
+                        linkInput.value = `https://zenith.edu/join/${currentCourseId}`;
+                    }
+                    
+                    // Очищаем черновик после успешного сохранения
+                    clearDraft();
                 }
-            });
+            } else {
+                showNotification(data.message || 'Ошибка при сохранении курса', 'error');
+            }
+        } catch (error) {
+            setLoading(saveBtn, false);
+            showNotification('Не удалось сохранить курс', 'error');
         }
     }
     
@@ -496,7 +934,7 @@ document.addEventListener("DOMContentLoaded", async function () {
         blocksLink.addEventListener('click', function(e) {
             e.preventDefault();
             updateActiveLink(this);
-            loadSectionContent('blocks');
+            switchSection('blocks');
         });
     }
     
@@ -504,7 +942,7 @@ document.addEventListener("DOMContentLoaded", async function () {
         studentsLink.addEventListener('click', function(e) {
             e.preventDefault();
             updateActiveLink(this);
-            loadSectionContent('students');
+            switchSection('students');
         });
     }
     
@@ -512,23 +950,24 @@ document.addEventListener("DOMContentLoaded", async function () {
         connectionLink.addEventListener('click', function(e) {
             e.preventDefault();
             updateActiveLink(this);
-            loadSectionContent('connection');
+            switchSection('connection');
         });
     }
     
-    // Загружаем раздел "Блоки курса" по умолчанию
     if (blocksLink) {
         blocksLink.classList.add('active');
-        loadSectionContent('blocks');
+        setTimeout(() => {
+            renderSection('blocks');
+        }, 100);
     }
     
     // ===============================
-    // СОХРАНЕНИЕ ИЗМЕНЕНИЙ КУРСА
+    // ОТСЛЕЖИВАНИЕ ИЗМЕНЕНИЙ В НАЗВАНИИ КУРСА
     // ===============================
-    const saveBtn = document.getElementById('saveCourseBtn');
-    if (saveBtn) {
-        saveBtn.addEventListener('click', () => {
-            showNotification('Изменения сохранены', 'success');
+    const titleInput = document.getElementById('courseTitle');
+    if (titleInput) {
+        titleInput.addEventListener('input', () => {
+            scheduleAutoSave();
         });
     }
     
@@ -548,7 +987,7 @@ document.addEventListener("DOMContentLoaded", async function () {
         toast.className = `creation-toast ${type}`;
         toast.innerHTML = `
             <div class="toast-content">
-                <div class="toast-title">${type === 'success' ? 'Успешно' : 'Внимание'}</div>
+                <div class="toast-title">${type === 'success' ? 'Успешно' : 'Ошибка'}</div>
                 <div class="toast-message">${message}</div>
             </div>
             <div class="toast-close">✕</div>
@@ -567,6 +1006,16 @@ document.addEventListener("DOMContentLoaded", async function () {
                 setTimeout(() => toast.remove(), 300);
             }
         }, 3000);
+    }
+    
+    function setLoading(button, isLoading) {
+        if (isLoading) {
+            button.classList.add('loading');
+            button.disabled = true;
+        } else {
+            button.classList.remove('loading');
+            button.disabled = false;
+        }
     }
     
     function addNotificationStyles() {
@@ -594,6 +1043,7 @@ document.addEventListener("DOMContentLoaded", async function () {
                 animation: slideInRight 0.4s ease;
             }
             .creation-toast.success { border-left: 6px solid #4CAF50; }
+            .creation-toast.error { border-left: 6px solid #FF3B3B; }
             .creation-toast.warning { border-left: 6px solid #FFB800; }
             .toast-content { flex: 1; }
             .toast-title {
@@ -625,6 +1075,30 @@ document.addEventListener("DOMContentLoaded", async function () {
                 background: rgba(0, 0, 0, 0.1);
                 transform: scale(1.1);
             }
+            .auth-button.loading {
+                position: relative;
+                color: transparent !important;
+                pointer-events: none;
+                background-color: #4CAF50 !important;
+                opacity: 0.8;
+            }
+            .auth-button.loading::after {
+                content: '';
+                position: absolute;
+                top: 50%;
+                left: 50%;
+                width: 24px;
+                height: 24px;
+                margin: -12px 0 0 -12px;
+                border: 3px solid rgba(255, 255, 255, 0.5);
+                border-top: 3px solid #FFFFFF;
+                border-radius: 50%;
+                animation: spin 1s linear infinite;
+            }
+            @keyframes spin {
+                0% { transform: rotate(0deg); }
+                100% { transform: rotate(360deg); }
+            }
             @keyframes slideInRight {
                 from { opacity: 0; transform: translateX(100px); }
                 to { opacity: 1; transform: translateX(0); }
@@ -646,17 +1120,14 @@ document.addEventListener("DOMContentLoaded", async function () {
     function showConfirmDialog(title, message, onConfirm) {
         addConfirmStyles();
         
-        // Удаляем предыдущий диалог, если есть
         const oldDialog = document.querySelector('.confirm-dialog-overlay');
         if (oldDialog) {
             oldDialog.remove();
         }
         
-        // Создаем оверлей
         const overlay = document.createElement('div');
         overlay.className = 'confirm-dialog-overlay';
         
-        // Создаем диалог
         const dialog = document.createElement('div');
         dialog.className = 'confirm-dialog';
         
@@ -674,7 +1145,6 @@ document.addEventListener("DOMContentLoaded", async function () {
         overlay.appendChild(dialog);
         document.body.appendChild(overlay);
         
-        // Анимация появления
         gsap.fromTo(overlay, 
             { opacity: 0 },
             { opacity: 1, duration: 0.3, ease: "power2.out" }
@@ -685,7 +1155,6 @@ document.addEventListener("DOMContentLoaded", async function () {
             { scale: 1, opacity: 1, duration: 0.4, ease: "backOut" }
         );
         
-        // Обработчики кнопок
         const cancelBtn = dialog.querySelector('.confirm-dialog-btn-cancel');
         const confirmBtn = dialog.querySelector('.confirm-dialog-btn-confirm');
         
@@ -700,14 +1169,12 @@ document.addEventListener("DOMContentLoaded", async function () {
             closeConfirmDialog(overlay);
         });
         
-        // Закрытие по клику на оверлей
         overlay.addEventListener('click', (e) => {
             if (e.target === overlay) {
                 closeConfirmDialog(overlay);
             }
         });
         
-        // Закрытие по Escape
         const escHandler = (e) => {
             if (e.key === 'Escape') {
                 closeConfirmDialog(overlay);
@@ -867,21 +1334,6 @@ document.addEventListener("DOMContentLoaded", async function () {
     gsap.from('header', { y: -30, opacity: 0, duration: 0.8, delay: 0.2, ease: 'power3.out' });
     gsap.from('.course-info-grid', { y: 30, opacity: 0, duration: 0.8, delay: 0.3, ease: 'power3.out' });
     gsap.from('.course-sections-nav', { y: 30, opacity: 0, duration: 0.8, delay: 0.4, ease: 'power3.out' });
-
-    // Анимируем все элементы, которые уже есть в DOM
-    setTimeout(() => {
-        gsap.from('.theme-header', { y: 30, opacity: 0, duration: 0.8, delay: 0.4, ease: 'power3.out' });
-        gsap.from('.blocks-container', { y: 30, opacity: 0, duration: 0.8, delay: 0.4, ease: 'power3.out' });
-        
-        // Анимируем кнопку
-        const addThemeBtn = document.getElementById('addThemeBtn');
-        if (addThemeBtn) {
-            gsap.fromTo(addThemeBtn, 
-                { y: 30, opacity: 0 }, 
-                { y: 0, opacity: 1, duration: 0.1, delay: 0.4, ease: 'power3.out' }
-            );
-        }
-    }, 200);
 
     setTimeout(() => {
         document.documentElement.classList.add('ready');

@@ -1,4 +1,3 @@
-// src/app.js
 const express = require('express');
 const path = require('path');
 const app = express();
@@ -6,9 +5,10 @@ const app = express();
 // Импорт маршрутов
 const indexRoutes = require('./routes/index');
 const authRoutes = require('./routes/authRoutes');
-const userRoutes = require('./routes/userRoutes');      // для студентов
-const teacherRoutes = require('./routes/teacherRoutes'); // для преподавателей
+const userRoutes = require('./routes/userRoutes');
+const teacherRoutes = require('./routes/teacherRoutes');
 const apiRoutes = require('./routes/apiRoutes');
+const courseRoutes = require('./routes/courseRoutes'); // <-- ДОБАВЛЯЕМ
 
 const db = require('./models');
 
@@ -22,12 +22,13 @@ app.use('/images', express.static(path.join(__dirname, '../public/images')));
 
 // API маршруты
 app.use('/api', apiRoutes);
+app.use('/api/courses', courseRoutes); // <-- ДОБАВЛЯЕМ
 
 // HTML маршруты
 app.use('/auth', authRoutes);
 app.use('/', indexRoutes);
-app.use('/user', userRoutes);       // студенческая панель
-app.use('/teacher', teacherRoutes); // преподавательская панель
+app.use('/user', userRoutes);
+app.use('/teacher', teacherRoutes);
 
 // Синхронизация базы данных
 db.sequelize.sync({ alter: true })
