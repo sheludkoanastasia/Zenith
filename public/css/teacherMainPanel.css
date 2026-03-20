@@ -283,10 +283,37 @@ header {
     box-shadow: 0 0 0 2px rgba(118, 81, 190, 0.1);
 }
 
+/* Контейнер для поиска */
+.courseSearching {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    transition: color 0.3s ease;
+}
+
+/* Стили для сообщения "ничего не найдено" */
+.firstMessage {
+    font-size: 27px;
+    color: #1D1D1D;
+    margin-bottom: 30px;
+    display: block;
+    transition: opacity 0.3s ease;
+}
+
 .search-img {
     width: 20px;
     height: 20px;
     cursor: pointer;
+    transition: transform 0.2s ease, opacity 0.2s ease;
+}
+
+.search-img:hover {
+    transform: scale(1.1);
+    opacity: 0.8;
+}
+
+.search-img:active {
+    transform: scale(0.95);
 }
 
 
@@ -296,51 +323,37 @@ header {
     min-height: 280px;
 }
 
-.firstMessage {
-    font-size: 27px;
-    color: #1D1D1D;
-    margin-bottom: 30px;
-    display: block;
-}
+
 
 /* Стили для карточек курсов */
+/* Стили для карточек курсов - базовые */
 .course-card-container {
     display: flex;
     flex-direction: column;
     align-items: flex-start;
     gap: 12px;
     width: fit-content;
-    cursor: pointer;
     transition: transform 0.3s ease;
-}
-
-.course-card-container:hover {
-    transform: translateY(-5px);
 }
 
 .course-card {
     width: 300px;
-    height: 200px; /* Фиксированная высота, как у блоков */
+    height: 200px;
     position: relative;
     border-radius: 25px;
     overflow: hidden;
     box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15), 0 2px 4px rgba(0, 0, 0, 0.05);
-    
     transition: all 0.3s ease;
-}
-
-.course-card:hover {
-    box-shadow: 0 15px 35px rgba(118, 81, 190, 0.25), 0 5px 10px rgba(118, 81, 190, 0.1);
 }
 
 .course-image-wrapper {
     position: relative;
     width: 100%;
     height: 100%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background-color: #f5f5f5; /* Светлый фон, если изображение не загрузится */
+    background-color: #f5f5f5;
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
 }
 
 /* Изображение курса, загруженное пользователем */
@@ -350,8 +363,9 @@ header {
     left: 0;
     width: 100%;
     height: 100%;
-    object-fit: cover; /* Растягиваем на всю область */
+    object-fit: cover;
     display: block;
+    z-index: 2;
 }
 
 /* Если изображение не загружено, показываем плейсхолдер */
@@ -364,6 +378,7 @@ header {
     color: #A6A6A6;
     font-size: 14px;
     font-weight: 300;
+    z-index: 1;
 }
 
 /* Название курса под карточкой */
@@ -445,6 +460,151 @@ header {
     font-weight: 400;
     color: #1D1D1D;
     width: 100%;
+}
+
+/* ===== СТИЛИ ДЛЯ РАЗНЫХ РЕЖИМОВ ===== */
+
+/* Общие стили для карточек */
+.course-card-container {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+    width: fit-content;
+    transition: transform 0.3s ease;
+}
+
+.course-card {
+    width: 300px;
+    height: 200px;
+    position: relative;
+    border-radius: 25px;
+    overflow: hidden;
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15), 0 2px 4px rgba(0, 0, 0, 0.05);
+    transition: all 0.3s ease;
+}
+
+.course-image-wrapper {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    background-color: #f5f5f5;
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    transition: filter 0.3s ease;
+}
+
+/* Изображение курса, загруженное пользователем */
+.course-cover-image {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+    z-index: 2;
+    transition: filter 0.3s ease;
+}
+
+/* Если изображение не загружено, показываем плейсхолдер */
+.course-image-wrapper:not(:has(img[src]))::after {
+    content: 'Нет изображения';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    color: #A6A6A6;
+    font-size: 14px;
+    font-weight: 300;
+    z-index: 1;
+}
+
+/* Режим просмотра (Мои курсы) */
+.course-card-container.view-mode {
+    cursor: pointer;
+}
+
+.course-card-container.view-mode:hover {
+    transform: translateY(-5px);
+}
+
+.course-card-container.view-mode:hover .course-card {
+    box-shadow: 0 15px 35px rgba(118, 81, 190, 0.25), 0 5px 10px rgba(118, 81, 190, 0.1);
+}
+
+/* Режим редактирования */
+.course-card-container.edit-mode {
+    cursor: default;
+    position: relative;
+    transition: transform 0.3s ease;
+}
+
+.course-card-container.edit-mode:hover {
+    transform: translateY(-5px);
+}
+
+.course-card-container.edit-mode:hover .course-card {
+    box-shadow: 0 15px 35px rgba(118, 81, 190, 0.25), 0 5px 10px rgba(118, 81, 190, 0.1);
+}
+
+/* Блюр для изображения при наведении в режиме редактирования */
+.course-card-container.edit-mode:hover .course-image-wrapper {
+    filter: blur(1px);
+}
+
+.course-card-container.edit-mode:hover .course-cover-image {
+    filter: blur(1px);
+}
+
+/* Если нет изображения, блюрим фон */
+.course-card-container.edit-mode:hover .course-image-wrapper:not(:has(img[src])) {
+    filter: blur(1px);
+}
+
+.course-card-container.edit-mode .course-card {
+    position: relative;
+    overflow: hidden;
+}
+
+/* Скрываем overlay по умолчанию */
+.course-card-container .edit-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    z-index: 10;
+    pointer-events: none;
+    border-radius: 25px;
+}
+
+/* Показываем overlay только при наведении на карточку в режиме редактирования */
+.course-card-container.edit-mode:hover .edit-overlay {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+/* Стили для иконки редактирования - без блюра */
+.course-card-container .edit-icon-overlay {
+    width: 60px;
+    height: 60px;
+    cursor: pointer;
+    transition: transform 0.2s ease;
+    z-index: 11;
+    filter: none !important; /* Гарантируем отсутствие блюра */
+    backdrop-filter: none !important; /* Гарантируем отсутствие блюра */
+    -webkit-backdrop-filter: none !important; /* Гарантируем отсутствие блюра */
+}
+
+.course-card-container .edit-icon-overlay:hover {
+    transform: scale(1.1);
 }
 
 /* Адаптация для мобильных */

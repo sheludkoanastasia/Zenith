@@ -491,104 +491,124 @@ document.addEventListener("DOMContentLoaded", async function () {
     }
     
     function renderSection(section) {
-        if (!sectionsContent) return;
+    if (!sectionsContent) return;
+    
+    if (section === 'blocks') {
+        sectionsContent.innerHTML = `
+            <div class="blocks-section" style="opacity: 0;">
+                <div class="themes-container" id="themesContainer"></div>
+                <button class="add-theme-btn" id="addThemeBtn">
+                    <img src="/images/teacherMainPanel/plus.svg" alt="Plus" class="btn-plus-icon">
+                    Добавить еще тему
+                </button>
+            </div>
+        `;
         
-        if (section === 'blocks') {
-            sectionsContent.innerHTML = `
-                <div class="blocks-section" style="opacity: 0;">
-                    <div class="themes-container" id="themesContainer"></div>
-                    <button class="add-theme-btn" id="addThemeBtn">
-                        <img src="/images/teacherMainPanel/plus.svg" alt="Plus" class="btn-plus-icon">
-                        Добавить еще тему
-                    </button>
-                </div>
-            `;
-            
-            const blocksSection = sectionsContent.querySelector('.blocks-section');
-            
-            loadDataToDOM();
-            
-            setTimeout(() => {
-                gsap.to(blocksSection, {
-                    opacity: 1,
-                    duration: 0.3,
-                    ease: "power2.out"
-                });
-            }, 50);
-            
-            const addThemeBtn = document.getElementById('addThemeBtn');
-            if (addThemeBtn) {
-                addThemeBtn.addEventListener('click', function() {
-                    addNewTheme();
-                });
-            }
-            
-        } else if (section === 'students') {
-            sectionsContent.innerHTML = `
-                <div class="students-section">
-                    <h2 class="students-title">Студенты курса</h2>
-                    <p class="students-description">Список студентов, подключенных к курсу</p>
-                    <div class="students-list">
-                        <p class="empty-state">Пока нет студентов</p>
-                    </div>
-                </div>
-            `;
-        } else if (section === 'connection') {
-            sectionsContent.innerHTML = `
-                <div class="connection-section">
-                    <p class="connection-description">По этой ссылке студенты смогут подключиться к курсу</p>
+        const blocksSection = sectionsContent.querySelector('.blocks-section');
+        
+        loadDataToDOM();
+        
+        setTimeout(() => {
+            gsap.to(blocksSection, {
+                opacity: 1,
+                duration: 0.3,
+                ease: "power2.out"
+            });
+        }, 50);
+        
+        const addThemeBtn = document.getElementById('addThemeBtn');
+        if (addThemeBtn) {
+            addThemeBtn.addEventListener('click', function() {
+                addNewTheme();
+            });
+        }
+        
+    } else if (section === 'students') {
+        // Раздел "Составление заданий" - просто кнопка
+        sectionsContent.innerHTML = `
+            <div class="tasks-section" style="opacity: 0;">
+                <button class="tasks-btn" id="goToTasksBtn">Перейти к конструктору</button>
+            </div>
+        `;
+        
+        const tasksSection = sectionsContent.querySelector('.tasks-section');
+        
+        setTimeout(() => {
+            gsap.to(tasksSection, {
+                opacity: 1,
+                duration: 0.3,
+                ease: "power2.out"
+            });
+        }, 50);
+        
+        const goToTasksBtn = document.getElementById('goToTasksBtn');
+        if (goToTasksBtn) {
+            goToTasksBtn.addEventListener('click', function(e) {
+                e.preventDefault();
+                // Добавляем CSS-анимацию нажатия
+                this.classList.add('btn-clicked');
+                setTimeout(() => {
+                    this.classList.remove('btn-clicked');
+                }, 300);
+            });
+        }
+        
+    } else if (section === 'connection') {
+        sectionsContent.innerHTML = `
+            <div class="connection-section">
+                <p class="connection-description">По этой ссылке студенты смогут подключиться к курсу</p>
+                
+                <div class="connection-link-container">
+                    <input type="text" 
+                           class="form-input connection-input" 
+                           id="courseLinkInput"
+                           value="${currentCourseId ? `https://zenith.edu/join/${currentCourseId}` : 'Сначала сохраните курс'}"
+                           readonly>
                     
-                    <div class="connection-link-container">
-                        <input type="text" 
-                               class="form-input connection-input" 
-                               id="courseLinkInput"
-                               value="${currentCourseId ? `https://zenith.edu/join/${currentCourseId}` : 'Сначала сохраните курс'}"
-                               readonly>
-                        
-                        <div class="connection-buttons">
-                            <button class="connection-btn" id="refreshLinkBtn" title="Обновить ссылку">
-                                <img src="/images/teacherMainPanel/refresh.svg" alt="Refresh">
-                            </button>
-                            <button class="connection-btn" id="copyLinkBtn" title="Копировать ссылку">
-                                <img src="/images/teacherMainPanel/copy.svg" alt="Copy">
-                            </button>
-                        </div>
+                    <div class="connection-buttons">
+                        <button class="connection-btn" id="refreshLinkBtn" title="Обновить ссылку">
+                            <img src="/images/teacherMainPanel/refresh.svg" alt="Refresh">
+                        </button>
+                        <button class="connection-btn" id="copyLinkBtn" title="Копировать ссылку">
+                            <img src="/images/teacherMainPanel/copy.svg" alt="Copy">
+                        </button>
                     </div>
                 </div>
-            `;
+            </div>
+        `;
 
-            const refreshBtn = document.getElementById('refreshLinkBtn');
-            const copyBtn = document.getElementById('copyLinkBtn');
-            const linkInput = document.getElementById('courseLinkInput');
+        const refreshBtn = document.getElementById('refreshLinkBtn');
+        const copyBtn = document.getElementById('copyLinkBtn');
+        const linkInput = document.getElementById('courseLinkInput');
 
-            if (refreshBtn) {
-                refreshBtn.addEventListener('click', () => {
-                    showNotification('Ссылка обновлена', 'success');
+        if (refreshBtn) {
+            refreshBtn.addEventListener('click', () => {
+                showNotification('Ссылка обновлена', 'success');
+                
+                linkInput.classList.add('focus-effect');
+                setTimeout(() => {
+                    linkInput.classList.remove('focus-effect');
+                }, 2000);
+            });
+        }
+
+        if (copyBtn) {
+            copyBtn.addEventListener('click', async () => {
+                try {
+                    await navigator.clipboard.writeText(linkInput.value);
+                    showNotification('Ссылка скопирована', 'success');
                     
                     linkInput.classList.add('focus-effect');
                     setTimeout(() => {
                         linkInput.classList.remove('focus-effect');
                     }, 2000);
-                });
-            }
-
-            if (copyBtn) {
-                copyBtn.addEventListener('click', async () => {
-                    try {
-                        await navigator.clipboard.writeText(linkInput.value);
-                        showNotification('Ссылка скопирована', 'success');
-                        
-                        linkInput.classList.add('focus-effect');
-                        setTimeout(() => {
-                            linkInput.classList.remove('focus-effect');
-                        }, 2000);
-                    } catch (err) {
-                        showNotification('Ошибка при копировании', 'warning');
-                    }
-                });
-            }
+                } catch (err) {
+                    showNotification('Ошибка при копировании', 'warning');
+                }
+            });
         }
     }
+}
     
     // ===============================
     // ФУНКЦИИ ДЛЯ РАБОТЫ С ТЕМАМИ И БЛОКАМИ

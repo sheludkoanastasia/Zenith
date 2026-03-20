@@ -85,21 +85,18 @@ document.addEventListener("DOMContentLoaded", async function () {
         const createCourseContainer = document.getElementById('createCourseContainer');
         
         // Удаляем все существующие карточки курсов
-        const existingCards = coursesContainer.querySelectorAll('.course-card-container');
+        const existingCards = coursesContainer.querySelectorAll('.course-card-container:not(#createCourseContainer)');
         existingCards.forEach(card => card.remove());
         
-        // Определяем текущий активный раздел
-        const isMyCoursesActive = document.getElementById('myCoursesLink').classList.contains('active');
-        const isCreateCourseActive = document.getElementById('createCourseLink').classList.contains('active');
-        
         if (courses.length === 0) {
-            if (isMyCoursesActive) {
+            if (firstMessage) {
                 firstMessage.style.display = 'block';
                 firstMessage.textContent = 'У вас пока нет созданных курсов. Создайте свой первый курс!';
             }
-            // В разделе "Создать курс" сообщение не показываем
         } else {
-            firstMessage.style.display = 'none';
+            if (firstMessage) {
+                firstMessage.style.display = 'none';
+            }
             
             // Сортируем курсы по дате создания (новые сверху)
             const sortedCourses = [...courses].sort((a, b) => 
@@ -115,7 +112,7 @@ document.addEventListener("DOMContentLoaded", async function () {
         
         // Управляем отображением контейнера создания курса
         if (createCourseContainer) {
-            createCourseContainer.style.display = isCreateCourseActive ? 'flex' : 'none';
+            createCourseContainer.style.display = 'none';
         }
     }
     
@@ -131,15 +128,9 @@ document.addEventListener("DOMContentLoaded", async function () {
         const card = document.createElement('div');
         card.className = 'course-card';
         
-        // Контейнер для изображения с фоном
+        // Контейнер для изображения
         const imageWrapper = document.createElement('div');
         imageWrapper.className = 'course-image-wrapper';
-        
-        // Фоновое изображение (myCourseCard.svg) - теперь это будет фон
-        const bgImg = document.createElement('img');
-        bgImg.src = '/images/teacherMainPanel/myCourseCard.svg';
-        bgImg.className = 'course-card-bg';
-        bgImg.alt = 'Course card background';
         
         // Изображение курса (загруженное пользователем)
         if (course.cover_image) {
@@ -151,26 +142,37 @@ document.addEventListener("DOMContentLoaded", async function () {
             // Обработчик ошибки загрузки изображения
             courseImg.onerror = function() {
                 this.style.display = 'none';
+                // Показываем заглушку или фон
+                imageWrapper.style.backgroundImage = 'url("/images/teacherMainPanel/myCourseCard.svg")';
+                imageWrapper.style.backgroundSize = 'cover';
             };
             
             imageWrapper.appendChild(courseImg);
+        } else {
+            // Если нет изображения, показываем фоновое
+            imageWrapper.style.backgroundImage = 'url("/images/teacherMainPanel/myCourseCard.svg")';
+            imageWrapper.style.backgroundSize = 'cover';
         }
         
-        imageWrapper.appendChild(bgImg);
+        // Создаем overlay для иконки редактирования
+        const editOverlay = document.createElement('div');
+        editOverlay.className = 'edit-overlay';
+        
+        const editIcon = document.createElement('img');
+        editIcon.src = '/images/teacherMainPanel/edit.svg';
+        editIcon.className = 'edit-icon-overlay';
+        editIcon.alt = 'Редактировать';
+        
+        editOverlay.appendChild(editIcon);
         card.appendChild(imageWrapper);
+        card.appendChild(editOverlay);
+        cardContainer.appendChild(card);
         
         // Название курса
         const title = document.createElement('div');
         title.className = 'course-card-title';
         title.textContent = course.title || 'Без названия';
-        
-        cardContainer.appendChild(card);
         cardContainer.appendChild(title);
-        
-        // Добавляем обработчик клика для открытия курса
-        cardContainer.addEventListener('click', () => {
-            window.location.href = `/teacher/create-course?id=${course.id}`;
-        });
         
         return cardContainer;
     }
@@ -222,21 +224,69 @@ document.addEventListener("DOMContentLoaded", async function () {
     // ПОИСК КУРСОВ
     // ===============================
     const searchInput = document.getElementById('main-search');
-    if (searchInput) {
-        let searchTimeout;
+    const searchButton = document.querySelector('.search-img');
+
+    function performSearch() {
+        const query = searchInput.value.toLowerCase().trim();
+        filterCourses(query);
+    }
+
+    function resetSearch() {
+        // Показываем все курсы
+        const courseCards = document.querySelectorAll('.course-card-container');
+        courseCards.forEach(card => {
+            if (card.id !== 'createCourseContainer') {
+                card.style.display = 'flex';
+            }
+        });
         
+        // Скрываем сообщение о поиске
+        const firstMessage = document.getElementById('firstMessage');
+        if (firstMessage) {
+            const coursesCount = document.querySelectorAll('.course-card-container:not(#createCourseContainer)').length;
+            if (coursesCount === 0) {
+                firstMessage.textContent = 'У вас пока нет созданных курсов. Создайте свой первый курс!';
+                firstMessage.style.display = 'block';
+            } else {
+                firstMessage.style.display = 'none';
+            }
+        }
+    }
+
+    if (searchInput) {
+        // Отслеживаем изменения в поле ввода
         searchInput.addEventListener('input', function(e) {
-            clearTimeout(searchTimeout);
-            const query = e.target.value.toLowerCase().trim();
+            const query = e.target.value.trim();
             
-            searchTimeout = setTimeout(() => {
-                filterCourses(query);
-            }, 300);
+            // Если поле пустое - показываем все курсы
+            if (query === '') {
+                resetSearch();
+            }
+        });
+        
+        // Поиск при нажатии Enter
+        searchInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                performSearch();
+            }
         });
     }
-    
+
+    if (searchButton) {
+        // Поиск при клике на кнопку
+        searchButton.addEventListener('click', function(e) {
+            e.preventDefault();
+            performSearch();
+        });
+        
+        // Добавляем стиль курсора для кнопки
+        searchButton.style.cursor = 'pointer';
+    }
+
     function filterCourses(query) {
         const courseCards = document.querySelectorAll('.course-card-container');
+        let visibleCount = 0;
         
         courseCards.forEach(card => {
             // Пропускаем контейнер создания курса
@@ -246,10 +296,25 @@ document.addEventListener("DOMContentLoaded", async function () {
             
             if (title.includes(query) || query === '') {
                 card.style.display = 'flex';
+                visibleCount++;
             } else {
                 card.style.display = 'none';
             }
         });
+        
+        // Показываем сообщение, если ничего не найдено
+        const firstMessage = document.getElementById('firstMessage');
+        if (firstMessage) {
+            if (query !== '' && visibleCount === 0) {
+                firstMessage.textContent = 'По вашему запросу ничего не найдено';
+                firstMessage.style.display = 'block';
+            } else if (visibleCount === 0) {
+                firstMessage.textContent = 'У вас пока нет созданных курсов. Создайте свой первый курс!';
+                firstMessage.style.display = 'block';
+            } else {
+                firstMessage.style.display = 'none';
+            }
+        }
     }
     
     // ===============================
@@ -263,12 +328,6 @@ document.addEventListener("DOMContentLoaded", async function () {
             
             // Закрываем дропдаун
             dropdown.classList.remove('active');
-            
-            // Обновляем текст кнопки
-            const toggle = dropdown.querySelector('.dropdown-toggle');
-            if (toggle) {
-                toggle.textContent = sortType;
-            }
             
             // Сортируем курсы
             sortCourses(sortType);
@@ -295,7 +354,6 @@ document.addEventListener("DOMContentLoaded", async function () {
                 break;
             case 'Сначала новые':
                 sortedCards.sort((a, b) => {
-                    // Предполагаем, что ID содержит временную метку или сортируем по data-атрибуту
                     const dateA = a.dataset.courseId || '';
                     const dateB = b.dataset.courseId || '';
                     return dateB.localeCompare(dateA);
@@ -316,17 +374,19 @@ document.addEventListener("DOMContentLoaded", async function () {
         });
     }
     
+
     // ===============================
     // НАВИГАЦИЯ ПО РАЗДЕЛАМ
     // ===============================
     const myCoursesLink = document.getElementById('myCoursesLink');
+    const editCourseLink = document.getElementById('editCourseLink');
     const createCourseLink = document.getElementById('createCourseLink');
     const firstMessage = document.getElementById('firstMessage');
     const courseSearching = document.getElementById('courseSearching');
     const createCourseContainer = document.getElementById('createCourseContainer');
 
     function updateActiveLink(activeLink) {
-        [myCoursesLink, createCourseLink].forEach(link => {
+        [myCoursesLink, editCourseLink, createCourseLink].forEach(link => {
             if (link === activeLink) {
                 link.classList.add('active');
             } else {
@@ -334,21 +394,35 @@ document.addEventListener("DOMContentLoaded", async function () {
             }
         });
     }
-    
+
     function showContent(section) {
         const courseCards = document.querySelectorAll('.course-card-container');
-        const createCourseContainer = document.getElementById('createCourseContainer');
-        const courseSearching = document.getElementById('courseSearching');
-        const firstMessage = document.getElementById('firstMessage');
         
         if (section === "Мои курсы") {
-            // Показываем все карточки курсов
+            // Показываем все карточки курсов в режиме просмотра
             courseCards.forEach(card => {
                 card.style.display = 'flex';
+                card.classList.remove('edit-mode');
+                card.classList.add('view-mode');
+                
+                // Убираем обработчик клика на иконку редактирования и скрываем overlay
+                const editOverlay = card.querySelector('.edit-overlay');
+                if (editOverlay) {
+                    editOverlay.style.pointerEvents = 'none';
+                    editOverlay.style.opacity = '0'; // Принудительно скрываем overlay
+                }
+                
+                // Добавляем обработчик клика на карточку для перехода
+                card.style.cursor = 'pointer';
+                card.onclick = function() {
+                    showNotification('Редактирование курса будет доступно в разделе "Редактировать курс"', 'warning');
+                };
             });
             
             // Показываем поиск
-            courseSearching.style.display = 'flex';
+            if (courseSearching) {
+                courseSearching.style.display = 'flex';
+            }
             
             // Скрываем контейнер создания курса
             if (createCourseContainer) {
@@ -357,10 +431,92 @@ document.addEventListener("DOMContentLoaded", async function () {
             
             // Если нет курсов, показываем сообщение
             if (courseCards.length === 0) {
-                firstMessage.textContent = "У вас пока нет созданных курсов. Создайте свой первый курс!";
-                firstMessage.style.display = "block";
+                if (firstMessage) {
+                    firstMessage.textContent = "У вас пока нет созданных курсов. Создайте свой первый курс!";
+                    firstMessage.style.display = "block";
+                }
             } else {
-                firstMessage.style.display = "none";
+                if (firstMessage) {
+                    firstMessage.style.display = "none";
+                }
+            }
+            
+        } else if (section === "Редактировать курс") {
+            // Показываем все карточки курсов в режиме редактирования
+            courseCards.forEach(card => {
+                card.style.display = 'flex';
+                card.classList.remove('view-mode');
+                card.classList.add('edit-mode');
+                
+                // Убираем стандартный клик на карточку
+                card.style.cursor = 'default';
+                card.onclick = null;
+                
+                // Настраиваем overlay для показа только при наведении
+                const editOverlay = card.querySelector('.edit-overlay');
+                if (editOverlay) {
+                    // Убеждаемся, что overlay скрыт по умолчанию
+                    editOverlay.style.opacity = '0';
+                    editOverlay.style.pointerEvents = 'none';
+                    
+                    // Находим или создаем иконку
+                    let editIcon = editOverlay.querySelector('.edit-icon-overlay');
+                    if (!editIcon) {
+                        editIcon = document.createElement('img');
+                        editIcon.src = '/images/teacherMainPanel/edit.svg';
+                        editIcon.className = 'edit-icon-overlay';
+                        editIcon.alt = 'Редактировать';
+                        editOverlay.appendChild(editIcon);
+                    }
+                    
+                    // Удаляем старый обработчик, если есть
+                    const newEditIcon = editIcon.cloneNode(true);
+                    editIcon.parentNode.replaceChild(newEditIcon, editIcon);
+                    
+                    // Добавляем обработчик на иконку
+                    newEditIcon.addEventListener('click', function(e) {
+                        e.stopPropagation();
+                        const courseId = card.dataset.courseId;
+                        window.location.href = `/teacher/create-course?id=${courseId}`;
+                    });
+                    
+                    // Добавляем обработчик наведения на карточку
+                    card.addEventListener('mouseenter', function() {
+                        if (card.classList.contains('edit-mode')) {
+                            editOverlay.style.opacity = '1';
+                            editOverlay.style.pointerEvents = 'auto';
+                        }
+                    });
+                    
+                    card.addEventListener('mouseleave', function() {
+                        if (card.classList.contains('edit-mode')) {
+                            editOverlay.style.opacity = '0';
+                            editOverlay.style.pointerEvents = 'none';
+                        }
+                    });
+                }
+            });
+            
+            // Показываем поиск
+            if (courseSearching) {
+                courseSearching.style.display = 'flex';
+            }
+            
+            // Скрываем контейнер создания курса
+            if (createCourseContainer) {
+                createCourseContainer.style.display = 'none';
+            }
+            
+            // Если нет курсов, показываем сообщение
+            if (courseCards.length === 0) {
+                if (firstMessage) {
+                    firstMessage.textContent = "У вас пока нет созданных курсов для редактирования";
+                    firstMessage.style.display = "block";
+                }
+            } else {
+                if (firstMessage) {
+                    firstMessage.style.display = "none";
+                }
             }
             
         } else if (section === "Создать курс") {
@@ -370,10 +526,14 @@ document.addEventListener("DOMContentLoaded", async function () {
             });
             
             // Скрываем поиск
-            courseSearching.style.display = 'none';
+            if (courseSearching) {
+                courseSearching.style.display = 'none';
+            }
             
             // Скрываем сообщение
-            firstMessage.style.display = 'none';
+            if (firstMessage) {
+                firstMessage.style.display = 'none';
+            }
             
             // Показываем контейнер создания курса
             if (createCourseContainer) {
@@ -381,7 +541,8 @@ document.addEventListener("DOMContentLoaded", async function () {
             }
         }
     }
-    
+
+    // Добавляем обработчики навигации
     if (myCoursesLink) {
         myCoursesLink.addEventListener("click", function(e) {
             e.preventDefault();
@@ -389,7 +550,15 @@ document.addEventListener("DOMContentLoaded", async function () {
             showContent("Мои курсы");
         });
     }
-    
+
+    if (editCourseLink) {
+        editCourseLink.addEventListener("click", function(e) {
+            e.preventDefault();
+            updateActiveLink(this);
+            showContent("Редактировать курс");
+        });
+    }
+
     if (createCourseLink) {
         createCourseLink.addEventListener("click", function(e) {
             e.preventDefault();
@@ -397,7 +566,7 @@ document.addEventListener("DOMContentLoaded", async function () {
             showContent("Создать курс");
         });
     }
-    
+
     // Добавляем обработчик для карточки создания курса
     const createCourseButton = document.getElementById('createCourseButton');
     if (createCourseButton) {
@@ -492,7 +661,7 @@ document.addEventListener("DOMContentLoaded", async function () {
         toast.className = `teacher-toast ${type}`;
         toast.innerHTML = `
             <div class="toast-content">
-                <div class="toast-title">${type === 'success' ? 'Успешно' : 'Ошибка'}</div>
+                <div class="toast-title">${type === 'success' ? 'Успешно' : type === 'warning' ? 'Внимание' : 'Ошибка'}</div>
                 <div class="toast-message">${message}</div>
             </div>
             <div class="toast-close">✕</div>
@@ -512,19 +681,26 @@ document.addEventListener("DOMContentLoaded", async function () {
                 setTimeout(() => toast.remove(), 300);
             }
         }, 3000);
+    }
 
-        // После загрузки курсов проверяем активный раздел
-        const activeLink = document.querySelector('.courseNavigation a.active');
-        if (activeLink) {
-            showContent(activeLink.textContent);
-        } else {
-            // По умолчанию активируем "Мои курсы"
+    // ===============================
+    // ИНИЦИАЛИЗАЦИЯ АКТИВНОГО РАЗДЕЛА
+    // ===============================
+    // После загрузки курсов проверяем активный раздел и применяем стили
+    const activeLink = document.querySelector('.courseNavigation a.active');
+    if (activeLink) {
+        showContent(activeLink.textContent);
+    } else {
+        // По умолчанию активируем "Мои курсы"
+        if (myCoursesLink) {
             myCoursesLink.classList.add('active');
             showContent("Мои курсы");
         }
     }
 
-    // Анимации плавного появления
+    // ===============================
+    // АНИМАЦИИ GSAP
+    // ===============================
     gsap.set('body', { opacity: 0 });
 
     gsap.to('body', {
