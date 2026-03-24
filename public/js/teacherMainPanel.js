@@ -73,48 +73,58 @@ document.addEventListener("DOMContentLoaded", async function () {
         }
     }
     
-    // ===============================
-    // ОТОБРАЖЕНИЕ КУРСОВ
-    // ===============================
     function displayCourses(courses) {
-        const coursesContainer = document.querySelector('.courses');
-        if (!coursesContainer) return;
-        
-        // Очищаем контейнер, но сохраняем firstMessage и createCourseContainer
-        const firstMessage = document.getElementById('firstMessage');
-        const createCourseContainer = document.getElementById('createCourseContainer');
-        
-        // Удаляем все существующие карточки курсов
-        const existingCards = coursesContainer.querySelectorAll('.course-card-container:not(#createCourseContainer)');
-        existingCards.forEach(card => card.remove());
-        
-        if (courses.length === 0) {
-            if (firstMessage) {
-                firstMessage.style.display = 'block';
-                firstMessage.textContent = 'У вас пока нет созданных курсов. Создайте свой первый курс!';
-            }
-        } else {
-            if (firstMessage) {
-                firstMessage.style.display = 'none';
-            }
-            
-            // Сортируем курсы по дате создания (новые сверху)
-            const sortedCourses = [...courses].sort((a, b) => 
-                new Date(b.created_at) - new Date(a.created_at)
-            );
-            
-            // Создаем карточки для каждого курса
-            sortedCourses.forEach(course => {
-                const courseCard = createCourseCard(course);
-                coursesContainer.appendChild(courseCard);
-            });
+    const coursesContainer = document.querySelector('.courses');
+    if (!coursesContainer) return;
+    
+    // Очищаем контейнер, но сохраняем firstMessage и createCourseContainer
+    const firstMessage = document.getElementById('firstMessage');
+    const createCourseContainer = document.getElementById('createCourseContainer');
+    
+    // Удаляем все существующие карточки курсов
+    const existingCards = coursesContainer.querySelectorAll('.course-card-container:not(#createCourseContainer)');
+    existingCards.forEach(card => card.remove());
+    
+    if (courses.length === 0) {
+        if (firstMessage) {
+            firstMessage.style.display = 'block';
+            firstMessage.textContent = 'У вас пока нет созданных курсов. Создайте свой первый курс!';
+        }
+    } else {
+        if (firstMessage) {
+            firstMessage.style.display = 'none';
         }
         
-        // Управляем отображением контейнера создания курса
-        if (createCourseContainer) {
-            createCourseContainer.style.display = 'none';
-        }
+        // Сортируем курсы по дате создания (новые сверху)
+        const sortedCourses = [...courses].sort((a, b) => 
+            new Date(b.created_at) - new Date(a.created_at)
+        );
+        
+        // Создаем карточки для каждого курса
+        sortedCourses.forEach(course => {
+            const courseCard = createCourseCard(course);
+            // Скрываем каждую карточку перед добавлением
+            courseCard.style.opacity = '0';
+            courseCard.style.transform = 'translateY(30px)';
+            coursesContainer.appendChild(courseCard);
+        });
+        
+        // Анимация карточек после создания
+        gsap.to('.course-card-container', {
+            y: 0,
+            opacity: 1,
+            duration: 0.6,
+            delay: 0.1,
+            ease: 'power2.out',
+            clearProps: 'all'
+        });
     }
+    
+    // Управляем отображением контейнера создания курса
+    if (createCourseContainer) {
+        createCourseContainer.style.display = 'none';
+    }
+}
     
     // ===============================
     // СОЗДАНИЕ КАРТОЧКИ КУРСА
