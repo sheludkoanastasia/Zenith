@@ -61,7 +61,7 @@ document.addEventListener("DOMContentLoaded", async function () {
     }
     
     // ===============================
-    // ЗАГРУЗКА ИЗОБРАЖЕНИЯ КУРСА (ОБЪЯВЛЯЕМ РАНЬШЕ)
+    // ЗАГРУЗКА ИЗОБРАЖЕНИЯ КУРСА
     // ===============================
     const imageUpload = document.getElementById('courseImageUpload');
     const imageInput = document.getElementById('courseImageInput');
@@ -73,89 +73,87 @@ document.addEventListener("DOMContentLoaded", async function () {
     const sectionsContent = document.getElementById('sectionsContent');
     
     function displayCourseImage(imageUrl) {
-    if (!imageUpload) return;
-    
-    const oldPreview = imageUpload.querySelector('.image-preview');
-    if (oldPreview) oldPreview.remove();
-    
-    const oldOverlay = imageUpload.querySelector('.image-overlay');
-    if (oldOverlay) oldOverlay.remove();
-    
-    const preview = document.createElement('img');
-    preview.src = imageUrl;
-    preview.className = 'image-preview';
-    preview.alt = 'Course preview';
-    preview.style.objectFit = 'cover';
-    preview.style.width = '100%';
-    preview.style.height = '100%';
-    preview.style.position = 'absolute';
-    preview.style.top = '0';
-    preview.style.left = '0';
-    preview.style.zIndex = '1'; // Явно указываем z-index
-    
-    const overlay = document.createElement('div');
-    overlay.className = 'image-overlay';
-    overlay.innerHTML = `
-        <img src="/images/teacherMainPanel/edit.svg" alt="Edit" class="edit-icon">
-    `;
-    
-    overlay.style.position = 'absolute';
-    overlay.style.top = '0';
-    overlay.style.left = '0';
-    overlay.style.width = '100%';
-    overlay.style.height = '100%';
-    overlay.style.backdropFilter = 'blur(3px)';
-    overlay.style.display = 'flex';
-    overlay.style.alignItems = 'center';
-    overlay.style.justifyContent = 'center';
-    overlay.style.opacity = '0';
-    overlay.style.transition = 'opacity 0.3s ease';
-    overlay.style.cursor = 'pointer';
-    overlay.style.borderRadius = 'inherit';
-    overlay.style.zIndex = '2'; // <-- ВАЖНО: z-index выше чем у preview
-    overlay.style.pointerEvents = 'none'; // Добавляем для корректной работы
-    
-    // Стили для иконки
-    const editIcon = overlay.querySelector('.edit-icon');
-    if (editIcon) {
-        editIcon.style.width = '40px';
-        editIcon.style.height = '40px';
-        editIcon.style.opacity = '0.9';
-        editIcon.style.transition = 'transform 0.2s ease';
-        editIcon.style.position = 'relative';
-        editIcon.style.zIndex = '3'; // Иконка поверх всего
-        editIcon.style.pointerEvents = 'auto'; // Иконка должна быть кликабельной
-    }
-    
-    imageUpload.appendChild(preview);
-    imageUpload.appendChild(overlay);
-    imageUpload.style.position = 'relative';
-    
-    // Исправляем обработчики событий
-    imageUpload.addEventListener('mouseenter', () => {
-        overlay.style.opacity = '1';
-        overlay.style.pointerEvents = 'auto';
-    });
-    
-    imageUpload.addEventListener('mouseleave', () => {
+        if (!imageUpload) return;
+        
+        const oldPreview = imageUpload.querySelector('.image-preview');
+        if (oldPreview) oldPreview.remove();
+        
+        const oldOverlay = imageUpload.querySelector('.image-overlay');
+        if (oldOverlay) oldOverlay.remove();
+        
+        const preview = document.createElement('img');
+        preview.src = imageUrl;
+        preview.className = 'image-preview';
+        preview.alt = 'Course preview';
+        preview.style.objectFit = 'cover';
+        preview.style.width = '100%';
+        preview.style.height = '100%';
+        preview.style.position = 'absolute';
+        preview.style.top = '0';
+        preview.style.left = '0';
+        preview.style.zIndex = '1';
+        
+        const overlay = document.createElement('div');
+        overlay.className = 'image-overlay';
+        overlay.innerHTML = `
+            <img src="/images/teacherMainPanel/edit.svg" alt="Edit" class="edit-icon">
+        `;
+        
+        overlay.style.position = 'absolute';
+        overlay.style.top = '0';
+        overlay.style.left = '0';
+        overlay.style.width = '100%';
+        overlay.style.height = '100%';
+        overlay.style.backdropFilter = 'blur(3px)';
+        overlay.style.display = 'flex';
+        overlay.style.alignItems = 'center';
+        overlay.style.justifyContent = 'center';
         overlay.style.opacity = '0';
+        overlay.style.transition = 'opacity 0.3s ease';
+        overlay.style.cursor = 'pointer';
+        overlay.style.borderRadius = 'inherit';
+        overlay.style.zIndex = '2';
         overlay.style.pointerEvents = 'none';
-    });
-    
-    overlay.addEventListener('click', (e) => {
-        e.stopPropagation();
-        imageInput.click();
-    });
-    
-    if (placeholderImg) {
-        placeholderImg.style.display = 'none';
+        
+        const editIcon = overlay.querySelector('.edit-icon');
+        if (editIcon) {
+            editIcon.style.width = '40px';
+            editIcon.style.height = '40px';
+            editIcon.style.opacity = '0.9';
+            editIcon.style.transition = 'transform 0.2s ease';
+            editIcon.style.position = 'relative';
+            editIcon.style.zIndex = '3';
+            editIcon.style.pointerEvents = 'auto';
+        }
+        
+        imageUpload.appendChild(preview);
+        imageUpload.appendChild(overlay);
+        imageUpload.style.position = 'relative';
+        
+        imageUpload.addEventListener('mouseenter', () => {
+            overlay.style.opacity = '1';
+            overlay.style.pointerEvents = 'auto';
+        });
+        
+        imageUpload.addEventListener('mouseleave', () => {
+            overlay.style.opacity = '0';
+            overlay.style.pointerEvents = 'none';
+        });
+        
+        overlay.addEventListener('click', (e) => {
+            e.stopPropagation();
+            imageInput.click();
+        });
+        
+        if (placeholderImg) {
+            placeholderImg.style.display = 'none';
+        }
+        
+        currentCoverImage = imageUrl;
+        scheduleAutoSave();
     }
     
-    currentCoverImage = imageUrl;
-    scheduleAutoSave();
-}
-    
-    // Загрузка черновика (ИСПРАВЛЕНО - убрали вызов loadDataToDOM)
+    // Загрузка черновика
     function loadDraft() {
         if (currentCourseId) return;
         
@@ -165,19 +163,16 @@ document.addEventListener("DOMContentLoaded", async function () {
         try {
             const draftData = JSON.parse(savedDraft);
             
-            // Загружаем название
             const titleInput = document.getElementById('courseTitle');
             if (titleInput && draftData.title) {
                 titleInput.value = draftData.title;
             }
             
-            // Загружаем изображение
             if (draftData.cover_image) {
                 currentCoverImage = draftData.cover_image;
                 displayCourseImage(draftData.cover_image);
             }
             
-            // Загружаем темы
             if (draftData.themes && draftData.themes.length > 0) {
                 courseData.themes = draftData.themes;
             }
@@ -214,9 +209,10 @@ document.addEventListener("DOMContentLoaded", async function () {
                     displayCourseImage(course.cover_image);
                 }
                 
-                // Сохраняем темы в хранилище
+                // Сохраняем темы с ID в хранилище
                 if (course.themes && course.themes.length > 0) {
                     courseData.themes = JSON.parse(JSON.stringify(course.themes));
+                    console.log('Загружены темы с ID:', courseData.themes); // Для отладки
                 }
             }
         } catch (error) {
@@ -255,11 +251,9 @@ document.addEventListener("DOMContentLoaded", async function () {
             currentCourseId = courseId;
             await loadCourseForEditing(courseId);
         } else {
-            // Загружаем черновик для нового курса
             loadDraft();
         }
         
-        // ИСПРАВЛЕНИЕ: добавляем задержку для отображения данных после загрузки черновика
         setTimeout(() => {
             if (blocksLink && blocksLink.classList.contains('active')) {
                 loadDataToDOM();
@@ -274,46 +268,9 @@ document.addEventListener("DOMContentLoaded", async function () {
     }
     
     // ===============================
-    // ЗАГРУЗКА КУРСА ДЛЯ РЕДАКТИРОВАНИЯ
-    // ===============================
-    async function loadCourseForEditing(courseId) {
-        try {
-            const response = await fetch(`/api/courses/${courseId}`, {
-                headers: {
-                    'Authorization': `Bearer ${token}`
-                }
-            });
-            
-            const data = await response.json();
-            
-            if (data.success) {
-                const course = data.course;
-                
-                const titleInput = document.getElementById('courseTitle');
-                if (titleInput) {
-                    titleInput.value = course.title;
-                }
-                
-                if (course.cover_image) {
-                    currentCoverImage = course.cover_image;
-                    displayCourseImage(course.cover_image);
-                }
-                
-                // Сохраняем темы в хранилище
-                if (course.themes && course.themes.length > 0) {
-                    courseData.themes = JSON.parse(JSON.stringify(course.themes));
-                }
-            }
-        } catch (error) {
-            showNotification('Не удалось загрузить курс для редактирования', 'warning');
-        }
-    }
-    
-    // ===============================
     // ФУНКЦИИ ДЛЯ РАБОТЫ С ХРАНИЛИЩЕМ ДАННЫХ
     // ===============================
     
-    // Сбор данных из DOM в хранилище
     function collectDataFromDOM() {
         const themesContainer = document.getElementById('themesContainer');
         if (!themesContainer) {
@@ -358,7 +315,6 @@ document.addEventListener("DOMContentLoaded", async function () {
         courseData.themes = JSON.parse(JSON.stringify(themes));
     }
     
-    // Загрузка данных из хранилища в DOM
     function loadDataToDOM() {
         const themesContainer = document.getElementById('themesContainer');
         if (!themesContainer) return;
@@ -491,266 +447,260 @@ document.addEventListener("DOMContentLoaded", async function () {
     }
     
     function renderSection(section) {
-    if (!sectionsContent) return;
-    
-    if (section === 'blocks') {
-        sectionsContent.innerHTML = `
-            <div class="blocks-section" style="opacity: 0;">
-                <div class="themes-container" id="themesContainer"></div>
-                <button class="add-theme-btn" id="addThemeBtn">
-                    <img src="/images/teacherMainPanel/plus.svg" alt="Plus" class="btn-plus-icon">
-                    Добавить еще тему
-                </button>
-            </div>
-        `;
+        if (!sectionsContent) return;
         
-        const blocksSection = sectionsContent.querySelector('.blocks-section');
-        
-        loadDataToDOM();
-        
-        setTimeout(() => {
-            gsap.to(blocksSection, {
-                opacity: 1,
-                duration: 0.3,
-                ease: "power2.out"
-            });
-        }, 50);
-        
-        const addThemeBtn = document.getElementById('addThemeBtn');
-        if (addThemeBtn) {
-            addThemeBtn.addEventListener('click', function() {
-                addNewTheme();
-            });
-        }
-        
-    } else if (section === 'students') {
-        // Раздел "Составление заданий" — отображаем копию структуры курса в режиме только для чтения
-        sectionsContent.innerHTML = `
-            <div class="tasks-section" style="opacity: 0;">
-                <div class="themes-container-readonly" id="themesContainerReadonly"></div>
-            </div>
-        `;
-        
-        const tasksSection = sectionsContent.querySelector('.tasks-section');
-        
-        // Загружаем структуру курса в режиме только для просмотра
-        loadReadonlyStructure();
-        
-        setTimeout(() => {
-            gsap.to(tasksSection, {
-                opacity: 1,
-                duration: 0.3,
-                ease: "power2.out"
-            });
-        }, 50);
-        
-    } else if (section === 'connection') {
-        sectionsContent.innerHTML = `
-            <div class="connection-section">
-                <p class="connection-description">По этой ссылке студенты смогут подключиться к курсу</p>
-                
-                <div class="connection-link-container">
-                    <input type="text" 
-                           class="form-input connection-input" 
-                           id="courseLinkInput"
-                           value="${currentCourseId ? `https://zenith.edu/join/${currentCourseId}` : 'Сначала сохраните курс'}"
-                           readonly>
+        if (section === 'blocks') {
+            sectionsContent.innerHTML = `
+                <div class="blocks-section" style="opacity: 0;">
+                    <div class="themes-container" id="themesContainer"></div>
+                    <button class="add-theme-btn" id="addThemeBtn">
+                        <img src="/images/teacherMainPanel/plus.svg" alt="Plus" class="btn-plus-icon">
+                        Добавить еще тему
+                    </button>
+                </div>
+            `;
+            
+            const blocksSection = sectionsContent.querySelector('.blocks-section');
+            
+            loadDataToDOM();
+            
+            setTimeout(() => {
+                gsap.to(blocksSection, {
+                    opacity: 1,
+                    duration: 0.3,
+                    ease: "power2.out"
+                });
+            }, 50);
+            
+            const addThemeBtn = document.getElementById('addThemeBtn');
+            if (addThemeBtn) {
+                addThemeBtn.addEventListener('click', function() {
+                    addNewTheme();
+                });
+            }
+            
+        } else if (section === 'students') {
+            sectionsContent.innerHTML = `
+                <div class="tasks-section" style="opacity: 0;">
+                    <div class="themes-container-readonly" id="themesContainerReadonly"></div>
+                </div>
+            `;
+            
+            const tasksSection = sectionsContent.querySelector('.tasks-section');
+            
+            loadReadonlyStructure();
+            
+            setTimeout(() => {
+                gsap.to(tasksSection, {
+                    opacity: 1,
+                    duration: 0.3,
+                    ease: "power2.out"
+                });
+            }, 50);
+            
+        } else if (section === 'connection') {
+            sectionsContent.innerHTML = `
+                <div class="connection-section">
+                    <p class="connection-description">По этой ссылке студенты смогут подключиться к курсу</p>
                     
-                    <div class="connection-buttons">
-                        <button class="connection-btn" id="refreshLinkBtn" title="Обновить ссылку">
-                            <img src="/images/teacherMainPanel/refresh.svg" alt="Refresh">
-                        </button>
-                        <button class="connection-btn" id="copyLinkBtn" title="Копировать ссылку">
-                            <img src="/images/teacherMainPanel/copy.svg" alt="Copy">
-                        </button>
+                    <div class="connection-link-container">
+                        <input type="text" 
+                               class="form-input connection-input" 
+                               id="courseLinkInput"
+                               value="${currentCourseId ? `https://zenith.edu/join/${currentCourseId}` : 'Сначала сохраните курс'}"
+                               readonly>
+                        
+                        <div class="connection-buttons">
+                            <button class="connection-btn" id="refreshLinkBtn" title="Обновить ссылку">
+                                <img src="/images/teacherMainPanel/refresh.svg" alt="Refresh">
+                            </button>
+                            <button class="connection-btn" id="copyLinkBtn" title="Копировать ссылку">
+                                <img src="/images/teacherMainPanel/copy.svg" alt="Copy">
+                            </button>
+                        </div>
                     </div>
                 </div>
-            </div>
-        `;
+            `;
 
-        const refreshBtn = document.getElementById('refreshLinkBtn');
-        const copyBtn = document.getElementById('copyLinkBtn');
-        const linkInput = document.getElementById('courseLinkInput');
+            const refreshBtn = document.getElementById('refreshLinkBtn');
+            const copyBtn = document.getElementById('copyLinkBtn');
+            const linkInput = document.getElementById('courseLinkInput');
 
-        if (refreshBtn) {
-            refreshBtn.addEventListener('click', () => {
-                showNotification('Ссылка обновлена', 'success');
-                
-                linkInput.classList.add('focus-effect');
-                setTimeout(() => {
-                    linkInput.classList.remove('focus-effect');
-                }, 2000);
-            });
-        }
-
-        if (copyBtn) {
-            copyBtn.addEventListener('click', async () => {
-                try {
-                    await navigator.clipboard.writeText(linkInput.value);
-                    showNotification('Ссылка скопирована', 'success');
+            if (refreshBtn) {
+                refreshBtn.addEventListener('click', () => {
+                    showNotification('Ссылка обновлена', 'success');
                     
                     linkInput.classList.add('focus-effect');
                     setTimeout(() => {
                         linkInput.classList.remove('focus-effect');
                     }, 2000);
-                } catch (err) {
-                    showNotification('Ошибка при копировании', 'warning');
-                }
-            });
+                });
+            }
+
+            if (copyBtn) {
+                copyBtn.addEventListener('click', async () => {
+                    try {
+                        await navigator.clipboard.writeText(linkInput.value);
+                        showNotification('Ссылка скопирована', 'success');
+                        
+                        linkInput.classList.add('focus-effect');
+                        setTimeout(() => {
+                            linkInput.classList.remove('focus-effect');
+                        }, 2000);
+                    } catch (err) {
+                        showNotification('Ошибка при копировании', 'warning');
+                    }
+                });
+            }
         }
     }
-}
-
+    
     // Загрузка структуры курса в режиме только для просмотра (раздел заданий)
-function loadReadonlyStructure() {
-    const container = document.getElementById('themesContainerReadonly');
-    if (!container) return;
-    
-    container.innerHTML = '';
-    
-    if (!courseData.themes || courseData.themes.length === 0) {
-        container.innerHTML = '<p class="empty-state">Нет тем. Сначала добавьте темы в разделе "Содержание курса"</p>';
-        return;
+    function loadReadonlyStructure() {
+        const container = document.getElementById('themesContainerReadonly');
+        if (!container) return;
+        
+        container.innerHTML = '';
+        
+        if (!courseData.themes || courseData.themes.length === 0) {
+            container.innerHTML = '<p class="empty-state">Нет тем. Сначала добавьте темы в разделе "Содержание курса"</p>';
+            return;
+        }
+        
+        courseData.themes.forEach((theme, themeIndex) => {
+            const themeWrapper = createReadonlyTheme(theme.id, theme.title, theme.blocks || []);
+            container.appendChild(themeWrapper);
+        });
     }
     
-    courseData.themes.forEach((theme, themeIndex) => {
-        const themeWrapper = createReadonlyTheme(theme.title, theme.blocks || []);
-        container.appendChild(themeWrapper);
-    });
-}
-
-// Создание темы в режиме только для чтения
-function createReadonlyTheme(themeTitle, blocks) {
-    const themeWrapper = document.createElement('div');
-    themeWrapper.className = 'theme-wrapper readonly-theme';
-    
-    themeWrapper.innerHTML = `
-        <div class="theme-header">
-            <div class="theme-title-container">
-                <button class="toggle-theme-btn" title="Свернуть/развернуть тему">
-                    <img src="/images/teacherMainPanel/chevronDown.svg" alt="Toggle" class="chevron-icon">
-                </button>
-                <span class="course-theme-readonly">${escapeHtml(themeTitle)}</span>
-            </div>
-            <button class="goto-theme-btn" title="Перейти к теме">
-                Перейти к теме
-            </button>
-        </div>
-        <div class="blocks-container readonly-blocks-container">
-            <!-- Сюда будут добавляться блоки -->
-        </div>
-    `;
-    
-    const toggleBtn = themeWrapper.querySelector('.toggle-theme-btn');
-    const chevronIcon = themeWrapper.querySelector('.chevron-icon');
-    const blocksContainer = themeWrapper.querySelector('.blocks-container');
-    const gotoBtn = themeWrapper.querySelector('.goto-theme-btn');
-    
-    let isThemeOpen = true;
-    
-    gsap.set(chevronIcon, { rotation: 180 });
-    
-    toggleBtn.addEventListener('click', function(e) {
-        e.stopPropagation();
+    // Создание темы в режиме только для чтения
+    function createReadonlyTheme(themeId, themeTitle, blocks) {
+        const themeWrapper = document.createElement('div');
+        themeWrapper.className = 'theme-wrapper readonly-theme';
         
-        if (isThemeOpen) {
-            gsap.to(blocksContainer, {
-                height: 0,
-                opacity: 0,
-                duration: 0.3,
-                ease: "power2.inOut",
-                onComplete: () => {
-                    blocksContainer.style.display = 'none';
-                }
-            });
+        themeWrapper.innerHTML = `
+            <div class="theme-header">
+                <div class="theme-title-container">
+                    <button class="toggle-theme-btn" title="Свернуть/развернуть тему">
+                        <img src="/images/teacherMainPanel/chevronDown.svg" alt="Toggle" class="chevron-icon">
+                    </button>
+                    <span class="course-theme-readonly">${escapeHtml(themeTitle)}</span>
+                </div>
+                <button class="goto-theme-btn" title="Перейти к теме">
+                    Перейти к теме
+                </button>
+            </div>
+            <div class="blocks-container readonly-blocks-container">
+                <!-- Сюда будут добавляться блоки -->
+            </div>
+        `;
+        
+        const toggleBtn = themeWrapper.querySelector('.toggle-theme-btn');
+        const chevronIcon = themeWrapper.querySelector('.chevron-icon');
+        const blocksContainer = themeWrapper.querySelector('.blocks-container');
+        const gotoBtn = themeWrapper.querySelector('.goto-theme-btn');
+        
+        let isThemeOpen = true;
+        
+        gsap.set(chevronIcon, { rotation: 180 });
+        
+        toggleBtn.addEventListener('click', function(e) {
+            e.stopPropagation();
             
-            gsap.to(chevronIcon, {
-                rotation: 0,
-                duration: 0.2,
-                ease: "power2.inOut"
+            if (isThemeOpen) {
+                gsap.to(blocksContainer, {
+                    height: 0,
+                    opacity: 0,
+                    duration: 0.3,
+                    ease: "power2.inOut",
+                    onComplete: () => {
+                        blocksContainer.style.display = 'none';
+                    }
+                });
+                
+                gsap.to(chevronIcon, {
+                    rotation: 0,
+                    duration: 0.2,
+                    ease: "power2.inOut"
+                });
+            } else {
+                blocksContainer.style.display = 'flex';
+                blocksContainer.style.height = 'auto';
+                const autoHeight = blocksContainer.offsetHeight;
+                blocksContainer.style.height = '0';
+                
+                gsap.to(blocksContainer, {
+                    height: autoHeight,
+                    opacity: 1,
+                    duration: 0.3,
+                    ease: "power2.inOut",
+                    onComplete: () => {
+                        blocksContainer.style.height = 'auto';
+                    }
+                });
+                
+                gsap.to(chevronIcon, {
+                    rotation: 180,
+                    duration: 0.2,
+                    ease: "power2.inOut"
+                });
+            }
+            
+            isThemeOpen = !isThemeOpen;
+        });
+        
+        // Кнопка "Перейти к теме"
+        gotoBtn.addEventListener('click', () => {
+            navigateToThemeConstructor(themeId, currentCourseId);
+        });
+        
+        // Добавляем блоки в режиме только для чтения
+        if (blocks && blocks.length > 0) {
+            blocks.forEach(block => {
+                const blockElement = createReadonlyBlock(block.id, block.title, block.description, themeId);
+                blocksContainer.appendChild(blockElement);
             });
         } else {
-            blocksContainer.style.display = 'flex';
-            blocksContainer.style.height = 'auto';
-            const autoHeight = blocksContainer.offsetHeight;
-            blocksContainer.style.height = '0';
-            
-            gsap.to(blocksContainer, {
-                height: autoHeight,
-                opacity: 1,
-                duration: 0.3,
-                ease: "power2.inOut",
-                onComplete: () => {
-                    blocksContainer.style.height = 'auto';
-                }
-            });
-            
-            gsap.to(chevronIcon, {
-                rotation: 180,
-                duration: 0.2,
-                ease: "power2.inOut"
-            });
+            blocksContainer.innerHTML = '<p class="empty-state-blocks">Нет блоков</p>';
         }
         
-        isThemeOpen = !isThemeOpen;
-    });
-    
-    // Кнопка "Перейти к теме"
-    gotoBtn.addEventListener('click', () => {
-        // Здесь будет переход к конструктору заданий для темы
-        showNotification(`Переход к конструктору темы: ${themeTitle}`, 'success');
-        // TODO: реализовать переход к конструктору заданий
-    });
-    
-    // Добавляем блоки в режиме только для чтения
-    if (blocks && blocks.length > 0) {
-        blocks.forEach(block => {
-            const blockElement = createReadonlyBlock(block.title, block.description);
-            blocksContainer.appendChild(blockElement);
-        });
-    } else {
-        blocksContainer.innerHTML = '<p class="empty-state-blocks">Нет блоков</p>';
+        return themeWrapper;
     }
     
-    return themeWrapper;
-}
-
-// Создание блока в режиме только для чтения (с edit.svg при наведении)
-function createReadonlyBlock(title, description) {
-    const block = document.createElement('div');
-    block.className = 'course-block readonly-block';
-    block.innerHTML = `
-        <img src="/images/teacherMainPanel/addCourseCard.png" alt="Block background" class="block-bg">
-        <div class="block-content">
-            <div class="block-title-readonly">${escapeHtml(title || 'Без названия')}</div>
-            <div class="block-description-readonly">${escapeHtml(description || 'Нет описания')}</div>
-        </div>
-        <div class="block-edit-overlay">
-            <img src="/images/teacherMainPanel/edit.svg" alt="Edit" class="edit-icon-block">
-        </div>
-    `;
+    // Создание блока в режиме только для чтения (с edit.svg при наведении)
+    function createReadonlyBlock(blockId, title, description, themeId) {
+        const block = document.createElement('div');
+        block.className = 'course-block readonly-block';
+        block.innerHTML = `
+            <img src="/images/teacherMainPanel/addCourseCard.png" alt="Block background" class="block-bg">
+            <div class="block-content">
+                <div class="block-title-readonly">${escapeHtml(title || 'Без названия')}</div>
+                <div class="block-description-readonly">${escapeHtml(description || 'Нет описания')}</div>
+            </div>
+            <div class="block-edit-overlay">
+                <img src="/images/teacherMainPanel/edit.svg" alt="Edit" class="edit-icon-block">
+            </div>
+        `;
+        
+        const editOverlay = block.querySelector('.block-edit-overlay');
+        
+        block.addEventListener('click', () => {
+            navigateToBlockConstructor(blockId, currentCourseId, themeId);
+        });
+        
+        return block;
+    }
     
-    const editOverlay = block.querySelector('.block-edit-overlay');
-    
-    block.addEventListener('click', () => {
-        // Здесь будет переход к конструктору заданий для блока
-        showNotification(`Переход к конструктору блока: ${title || 'Без названия'}`, 'success');
-        // TODO: реализовать переход к конструктору заданий
-    });
-    
-    return block;
-}
-
-// Простая функция для экранирования HTML
-function escapeHtml(str) {
-    if (!str) return '';
-    return str
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#39;');
-}
+    // Простая функция для экранирования HTML
+    function escapeHtml(str) {
+        if (!str) return '';
+        return str
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+    }
     
     // ===============================
     // ФУНКЦИИ ДЛЯ РАБОТЫ С ТЕМАМИ И БЛОКАМИ
@@ -914,114 +864,112 @@ function escapeHtml(str) {
     }
     
     function createFormBlock(title = '', description = '') {
-    const block = document.createElement('div');
-    block.className = 'course-block form-block';
-    block.innerHTML = `
-        <img src="/images/teacherMainPanel/addCourseCard.png" alt="Block background" class="block-bg">
-        <div class="block-content">
-            <div class="block-title" data-placeholder="Название блока">${title}</div>
-            <div class="block-description" data-placeholder="Описание блока">${description}</div>
-        </div>
-        <div class="delete-block" title="Удалить блок">×</div>
-    `;
-    
-    const titleEl = block.querySelector('.block-title');
-    const descriptionEl = block.querySelector('.block-description');
-    const deleteBtn = block.querySelector('.delete-block');
-    
-    titleEl.contentEditable = true;
-    descriptionEl.contentEditable = true;
-    
-    titleEl.style.pointerEvents = 'auto';
-    descriptionEl.style.pointerEvents = 'auto';
-    
-    // Функция для установки класса placeholder
-    function setPlaceholderClass(element) {
-        if (element.innerText.trim() === '') {
-            element.classList.add('empty');
-        } else {
-            element.classList.remove('empty');
+        const block = document.createElement('div');
+        block.className = 'course-block form-block';
+        block.innerHTML = `
+            <img src="/images/teacherMainPanel/addCourseCard.png" alt="Block background" class="block-bg">
+            <div class="block-content">
+                <div class="block-title" data-placeholder="Название блока">${title}</div>
+                <div class="block-description" data-placeholder="Описание блока">${description}</div>
+            </div>
+            <div class="delete-block" title="Удалить блок">×</div>
+        `;
+        
+        const titleEl = block.querySelector('.block-title');
+        const descriptionEl = block.querySelector('.block-description');
+        const deleteBtn = block.querySelector('.delete-block');
+        
+        titleEl.contentEditable = true;
+        descriptionEl.contentEditable = true;
+        
+        titleEl.style.pointerEvents = 'auto';
+        descriptionEl.style.pointerEvents = 'auto';
+        
+        function setPlaceholderClass(element) {
+            if (element.innerText.trim() === '') {
+                element.classList.add('empty');
+            } else {
+                element.classList.remove('empty');
+            }
         }
-    }
-    
-    // Устанавливаем классы сразу после создания
-    setPlaceholderClass(titleEl);
-    setPlaceholderClass(descriptionEl);
-    
-    const saveChanges = () => {
-        collectDataFromDOM();
-        scheduleAutoSave();
-    };
-    
-    [titleEl, descriptionEl].forEach(el => {
-        el.addEventListener('click', (e) => {
-            e.stopPropagation();
-        });
         
-        el.addEventListener('input', () => {
-            saveChanges();
-            setPlaceholderClass(el);
-        });
+        setPlaceholderClass(titleEl);
+        setPlaceholderClass(descriptionEl);
         
-        el.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') {
-                e.preventDefault();
-                if (el === titleEl) {
-                    descriptionEl.focus();
+        const saveChanges = () => {
+            collectDataFromDOM();
+            scheduleAutoSave();
+        };
+        
+        [titleEl, descriptionEl].forEach(el => {
+            el.addEventListener('click', (e) => {
+                e.stopPropagation();
+            });
+            
+            el.addEventListener('input', () => {
+                saveChanges();
+                setPlaceholderClass(el);
+            });
+            
+            el.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    if (el === titleEl) {
+                        descriptionEl.focus();
+                    }
                 }
+            });
+            
+            el.addEventListener('paste', (e) => {
+                e.preventDefault();
+                const text = e.clipboardData.getData('text/plain');
+                document.execCommand('insertText', false, text);
+                saveChanges();
+                setPlaceholderClass(el);
+            });
+            
+            el.addEventListener('focus', function() {
+                if (this.innerText === '') {
+                    this.classList.add('editing');
+                }
+            });
+            
+            el.addEventListener('blur', function() {
+                this.classList.remove('editing');
+                setPlaceholderClass(this);
+                saveChanges();
+            });
+        });
+        
+        deleteBtn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            
+            const blocksContainer = block.closest('.blocks-container');
+            if (!blocksContainer) return;
+            
+            const blocks = Array.from(blocksContainer.children);
+            
+            if (blocks.length === 1) {
+                showNotification('Нельзя удалить единственный блок. Добавьте новый или оставьте этот.', 'warning');
+                return;
             }
-        });
-        
-        el.addEventListener('paste', (e) => {
-            e.preventDefault();
-            const text = e.clipboardData.getData('text/plain');
-            document.execCommand('insertText', false, text);
-            saveChanges();
-            setPlaceholderClass(el);
-        });
-        
-        el.addEventListener('focus', function() {
-            if (this.innerText === '') {
-                this.classList.add('editing');
+            
+            block.remove();
+            
+            const remainingBlocks = Array.from(blocksContainer.children);
+            const hasPlusBlock = remainingBlocks.some(b => b.classList.contains('plus-block'));
+            
+            if (!hasPlusBlock) {
+                const newPlusBlock = createPlusBlock();
+                blocksContainer.appendChild(newPlusBlock);
             }
+            
+            collectDataFromDOM();
+            scheduleAutoSave();
         });
         
-        el.addEventListener('blur', function() {
-            this.classList.remove('editing');
-            setPlaceholderClass(this);
-            saveChanges();
-        });
-    });
-    
-    deleteBtn.addEventListener('click', function(e) {
-        e.stopPropagation();
-        
-        const blocksContainer = block.closest('.blocks-container');
-        if (!blocksContainer) return;
-        
-        const blocks = Array.from(blocksContainer.children);
-        
-        if (blocks.length === 1) {
-            showNotification('Нельзя удалить единственный блок. Добавьте новый или оставьте этот.', 'warning');
-            return;
-        }
-        
-        block.remove();
-        
-        const remainingBlocks = Array.from(blocksContainer.children);
-        const hasPlusBlock = remainingBlocks.some(b => b.classList.contains('plus-block'));
-        
-        if (!hasPlusBlock) {
-            const newPlusBlock = createPlusBlock();
-            blocksContainer.appendChild(newPlusBlock);
-        }
-        
-        collectDataFromDOM();
-        scheduleAutoSave();
-    });
-    
-    return block;
-}
+        return block;
+    }
     
     // ===============================
     // СОХРАНЕНИЕ КУРСА
@@ -1072,13 +1020,22 @@ function escapeHtml(str) {
                 if (!currentCourseId && data.course) {
                     currentCourseId = data.course.id;
                     
+                    // ОБНОВЛЯЕМ courseData с полученными ID от сервера
+                    if (data.course.themes) {
+                        courseData.themes = data.course.themes;
+                        console.log('Обновлены темы с ID после сохранения:', courseData.themes);
+                    }
+                    
                     const linkInput = document.getElementById('courseLinkInput');
                     if (linkInput) {
                         linkInput.value = `https://zenith.edu/join/${currentCourseId}`;
                     }
                     
-                    // Очищаем черновик после успешного сохранения
                     clearDraft();
+                } else if (currentCourseId && data.course && data.course.themes) {
+                    // Обновляем courseData с новыми ID при обновлении курса
+                    courseData.themes = data.course.themes;
+                    console.log('Обновлены темы с ID после обновления:', courseData.themes);
                 }
             } else {
                 showNotification(data.message || 'Ошибка при сохранении курса', 'error');
@@ -1275,7 +1232,7 @@ function escapeHtml(str) {
         `;
         document.head.appendChild(style);
     }
-
+    
     // ===============================
     // ДИАЛОГ ПОДТВЕРЖДЕНИЯ
     // ===============================
@@ -1345,7 +1302,7 @@ function escapeHtml(str) {
         };
         document.addEventListener('keydown', escHandler);
     }
-
+    
     function closeConfirmDialog(overlay) {
         const dialog = overlay.querySelector('.confirm-dialog');
         
@@ -1365,7 +1322,7 @@ function escapeHtml(str) {
             }
         });
     }
-
+    
     function addConfirmStyles() {
         if (document.getElementById('confirm-dialog-styles')) return;
         
@@ -1488,6 +1445,27 @@ function escapeHtml(str) {
         document.head.appendChild(style);
     }
     
+    // ========== ФУНКЦИИ ПЕРЕХОДА К КОНСТРУКТОРУ ==========
+    
+    // Функция перехода к конструктору темы
+    function navigateToThemeConstructor(themeId, courseId) {
+        const theme = courseData.themes.find(t => t.id === themeId);
+        if (theme && theme.blocks && theme.blocks.length > 0) {
+            const firstBlock = theme.blocks[0];
+            // Проверьте, что firstBlock.id существует
+            console.log('Переход к теме:', themeId, 'первый блок:', firstBlock.id);
+            window.location.href = `/teacher/course-constructor?courseId=${courseId}&blockId=${firstBlock.id}&themeId=${themeId}`;
+        } else {
+            showNotification('В этой теме нет блоков. Сначала создайте блок.', 'warning');
+        }
+    }
+
+    // Функция перехода к конструктору конкретного блока
+    function navigateToBlockConstructor(blockId, courseId, themeId) {
+        console.log('Переход к блоку:', blockId, 'курс:', courseId);
+        window.location.href = `/teacher/course-constructor?courseId=${courseId}&blockId=${blockId}&themeId=${themeId}`;
+    }
+    
     // ===============================
     // АНИМАЦИИ
     // ===============================
@@ -1496,7 +1474,7 @@ function escapeHtml(str) {
     gsap.from('header', { y: -30, opacity: 0, duration: 0.8, delay: 0.2, ease: 'power3.out' });
     gsap.from('.course-info-grid', { y: 30, opacity: 0, duration: 0.8, delay: 0.3, ease: 'power3.out' });
     gsap.from('.course-sections-nav', { y: 30, opacity: 0, duration: 0.8, delay: 0.4, ease: 'power3.out' });
-
+    
     setTimeout(() => {
         document.documentElement.classList.add('ready');
     }, 220);

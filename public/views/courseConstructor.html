@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Конструктор курса - Zenith</title>
+    <link rel="stylesheet" href="/public/css/courseConstructor.css">
+    <link href="https://fonts.googleapis.com/css2?family=Ysabeau:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+</head>
+<body>
+    <!-- Header -->
+    <header class="header">
+        <div class="logo">
+            <img src="/images/mainPage/logo.svg" alt="Zenith Logo">
+        </div>
+        <div class="nav-right">
+            <button class="back-button" id="backToCourseBtn">
+                Вернуться к содержанию курса
+            </button>
+        </div>
+    </header>
+
+    <div class="main-container">
+        <!-- Левая панель навигации -->
+        <aside class="sidebar">
+            <div class="sidebar-content">
+                <div class="course-info" id="courseInfo">
+                    <h2 class="course-title" id="courseTitle">Загрузка...</h2>
+                </div>
+                <div class="themes-list" id="themesList">
+                    <!-- Динамически будут подгружаться темы и блоки -->
+                </div>
+            </div>
+        </aside>
+
+        <!-- Основная область контента -->
+        <main class="content-area">
+            <div class="content-wrapper" id="contentWrapper">
+                <!-- Приветственный экран -->
+                <div class="welcome-screen" id="welcomeScreen">
+                    <div class="welcome-content">
+                        <h2>Выберите блок для редактирования</h2>
+                        <p>Нажмите на любой блок в левой панели, чтобы начать создание заданий</p>
+                    </div>
+                </div>
+
+                <!-- Область для отображения разделов блока -->
+                <div class="sections-area" id="sectionsArea" style="display: none;">
+                    <div class="block-header">
+                        <h2 class="block-title" id="currentBlockTitle"></h2>
+                        <p class="block-description" id="currentBlockDescription"></p>
+                    </div>
+
+                    <!-- Список разделов -->
+                    <div class="sections-list" id="sectionsList">
+                        <!-- Здесь будут отображаться созданные разделы -->
+                    </div>
+
+                    <!-- Кнопка создания нового раздела -->
+                    <div class="add-section-btn-container">
+                        <button class="add-section-btn" id="showCreateMenuBtn">
+                            <span>+</span> Создать раздел
+                        </button>
+                    </div>
+
+                    <!-- Меню выбора типа раздела (3 кнопки) -->
+                    <!-- Меню выбора типа раздела (3 кнопки) -->
+                <div class="create-menu" id="createMenu" style="display: none;">
+                    <div class="create-menu-header">
+                        <h3>Создать раздел</h3>
+                        <button class="close-menu-btn" id="closeMenuBtn">×</button>
+                    </div>
+                    <div class="create-options">
+                        <button class="create-option theory-option" data-type="theory">
+                            <span class="option-icon">📖</span>
+                            Теория
+                        </button>
+                        <button class="create-option matching-option" data-type="exercise">
+                            <span class="option-icon">🔗</span>
+                            Упражнение
+                        </button>
+                        <button class="create-option fillblanks-option" data-type="test">
+                            <span class="option-icon">📝</span>
+                            Итоговый тест
+                        </button>
+                    </div>
+                </div>
+                </div>
+            </div>
+
+            <!-- Декоративное изображение внизу -->
+            <div class="gradient-decoration">
+                <img src="/images/taskCreationPage/backgroundConstructor.png">
+            </div>
+        </main>
+    </div>
+
+    <!-- Модальное окно для редактирования названия -->
+    <div class="modal" id="editModal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="modalTitle">Редактирование названия</h3>
+                <button class="modal-close" id="closeModalBtn">×</button>
+            </div>
+            <div class="modal-body" id="modalBody">
+                <div class="form-group">
+                    <label>Название раздела</label>
+                    <input type="text" id="editTitle" class="edit-title-input" placeholder="Введите название раздела">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-cancel" id="cancelModalBtn">Отмена</button>
+                <button class="btn-save" id="saveModalBtn">Сохранить</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="/public/js/courseConstructor.js"></script>
+</body>
+</html>
