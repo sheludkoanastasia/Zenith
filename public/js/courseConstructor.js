@@ -19,7 +19,7 @@ const sectionsList = document.getElementById('sectionsList');
 const backButton = document.getElementById('backToCourseBtn');
 const showCreateMenuBtn = document.getElementById('showCreateMenuBtn');
 const createMenu = document.getElementById('createMenu');
-const closeMenuBtn = document.getElementById('closeMenuBtn');
+const addSectionWrapper = document.getElementById('addSectionWrapper');
 
 const editModal = document.getElementById('editModal');
 const modalTitle = document.getElementById('modalTitle');
@@ -169,6 +169,9 @@ async function loadCourseData() {
         if (data.success) {
             currentCourse = data.course;
             courseTitleEl.textContent = currentCourse.title;
+            
+            // Загружаем разделы для всех блоков перед рендерингом
+            await loadAllBlocksSections(currentCourse.themes);
             renderThemes(currentCourse.themes);
             
             if (blockId) {
@@ -205,31 +208,113 @@ async function loadCourseData() {
     }
 }
 
+// Новая функция: загружаем разделы для всех блоков
+async function loadAllBlocksSections(themes) {
+    for (const theme of themes) {
+        if (theme.blocks && theme.blocks.length > 0) {
+            for (const block of theme.blocks) {
+                try {
+                    const response = await fetch(`${apiBaseUrl}/blocks/${block.id}/sections`, {
+                        headers: { 'Authorization': `Bearer ${getToken()}` }
+                    });
+                    if (response.ok) {
+                        const data = await response.json();
+                        if (data.success) {
+                            block.sections = data.sections || [];
+                        }
+                    }
+                } catch (error) {
+                    console.error(`Ошибка загрузки разделов для блока ${block.id}:`, error);
+                    block.sections = [];
+                }
+            }
+        }
+    }
+}
+
 function renderThemes(themes) {
     if (!themes || themes.length === 0) {
         themesListEl.innerHTML = '<p class="empty-message">Нет тем в этом курсе</p>';
         return;
     }
 
-    themesListEl.innerHTML = themes.map(theme => `
-        <div class="theme-item" data-theme-id="${theme.id}">
-            <div class="theme-header">${escapeHtml(theme.title)}</div>
-            <div class="blocks-list">
-                ${theme.blocks && theme.blocks.length > 0 
-                    ? theme.blocks.map(block => `
-                        <div class="block-item ${blockId === block.id ? 'active' : ''}" 
-                             data-block-id="${block.id}" 
-                             data-block-title="${escapeHtml(block.title)}" 
-                             data-block-description="${escapeHtml(block.description || '')}">
-                            ${escapeHtml(block.title)}
-                        </div>
-                    `).join('')
-                    : '<div class="empty-message">Нет блоков в этой теме</div>'
-                }
+    themesListEl.innerHTML = themes.map((theme) => {
+        // Проверяем, есть ли в этой теме блок, который открыт по URL
+        const hasActiveBlock = theme.blocks?.some(block => block.id === blockId);
+        // По умолчанию все темы закрыты, кроме той, в которой есть активный блок
+        const isInitiallyExpanded = hasActiveBlock;
+        
+        return `
+            <div class="theme-item" data-theme-id="${theme.id}">
+                <div class="theme-header-wrapper">
+                    <div class="theme-header">${escapeHtml(theme.title)}</div>
+                    <button class="theme-toggle ${!isInitiallyExpanded ? 'collapsed' : ''}" data-theme-id="${theme.id}">
+                        <img src="/images/taskCreationPage/chevronDown.svg" alt="toggle">
+                    </button>
+                </div>
+                <div class="theme-blocks-container ${!isInitiallyExpanded ? 'collapsed' : ''}" id="theme-blocks-${theme.id}">
+                    <div class="blocks-list">
+                        ${theme.blocks && theme.blocks.length > 0 
+                            ? theme.blocks.map((block) => `
+                                <div class="block-item-wrapper" data-block-id="${block.id}">
+                                    <div class="block-header-wrapper">
+                                        <div class="block-item ${blockId === block.id ? 'active' : ''}" 
+                                             data-block-id="${block.id}" 
+                                             data-block-title="${escapeHtml(block.title)}" 
+                                             data-block-description="${escapeHtml(block.description || '')}">
+                                            ${escapeHtml(block.title)}
+                                        </div>
+                                        <button class="block-toggle ${blockId === block.id ? '' : 'collapsed'}" data-block-id="${block.id}">
+                                            <img src="/images/taskCreationPage/chevronDown.svg" alt="toggle">
+                                        </button>
+                                    </div>
+                                    <div class="block-sections-list" id="block-sections-${block.id}" style="display: ${blockId === block.id ? 'block' : 'none'};">
+                                        ${renderBlockSections(block.sections || [])}
+                                    </div>
+                                </div>
+                            `).join('')
+                            : '<div class="empty-message">Нет блоков в этой теме</div>'
+                        }
+                    </div>
+                </div>
             </div>
-        </div>
-    `).join('');
+        `;
+    }).join('');
 
+    // Добавляем обработчики для сворачивания/разворачивания тем
+    document.querySelectorAll('.theme-toggle').forEach(toggle => {
+        const themeId = toggle.dataset.themeId;
+        const container = document.getElementById(`theme-blocks-${themeId}`);
+        
+        toggle.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (container) {
+                container.classList.toggle('collapsed');
+                toggle.classList.toggle('collapsed');
+            }
+        });
+    });
+
+    // Добавляем обработчики для сворачивания/разворачивания блоков
+    document.querySelectorAll('.block-toggle').forEach(toggle => {
+        const blockId = toggle.dataset.blockId;
+        const sectionsList = document.getElementById(`block-sections-${blockId}`);
+        
+        toggle.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (sectionsList) {
+                if (sectionsList.style.display === 'none') {
+                    sectionsList.style.display = 'block';
+                    toggle.classList.remove('collapsed');
+                } else {
+                    sectionsList.style.display = 'none';
+                    toggle.classList.add('collapsed');
+                }
+            }
+        });
+    });
+
+    // Обработчики для блоков (выбор блока)
     document.querySelectorAll('.block-item').forEach(blockEl => {
         blockEl.addEventListener('click', () => {
             const blockId = blockEl.dataset.blockId;
@@ -239,12 +324,74 @@ function renderThemes(themes) {
             document.querySelectorAll('.block-item').forEach(el => el.classList.remove('active'));
             blockEl.classList.add('active');
             
+            // Скрываем все списки разделов
+            document.querySelectorAll('.block-sections-list').forEach(list => {
+                list.style.display = 'none';
+                // Сбрасываем состояние кнопки сворачивания для скрытых блоков
+                const parentWrapper = list.closest('.block-item-wrapper');
+                if (parentWrapper) {
+                    const blockToggle = parentWrapper.querySelector('.block-toggle');
+                    if (blockToggle && !blockToggle.classList.contains('collapsed')) {
+                        blockToggle.classList.add('collapsed');
+                    }
+                }
+            });
+            
+            const sectionsListContainer = document.getElementById(`block-sections-${blockId}`);
+            if (sectionsListContainer) {
+                sectionsListContainer.style.display = 'block';
+                // Разворачиваем кнопку для выбранного блока
+                const currentBlockWrapper = document.querySelector(`.block-item-wrapper[data-block-id="${blockId}"]`);
+                if (currentBlockWrapper) {
+                    const blockToggle = currentBlockWrapper.querySelector('.block-toggle');
+                    if (blockToggle && blockToggle.classList.contains('collapsed')) {
+                        blockToggle.classList.remove('collapsed');
+                    }
+                }
+            }
+            
             const newUrl = `/teacher/course-constructor?courseId=${courseId}&blockId=${blockId}&themeId=${themeId}`;
             window.history.pushState({}, '', newUrl);
             
             loadBlockSections(blockId, blockTitle, blockDescription);
         });
     });
+}
+
+function renderBlockSections(sections) {
+    if (!sections || sections.length === 0) {
+        return '<div class="empty-sections-message">Нет разделов</div>';
+    }
+    
+    return sections.map(section => {
+        return `
+            <div class="sidebar-section-item" data-section-id="${section.id}" data-section-type="${section.type}">
+                <span class="section-title-text">${escapeHtml(section.title)}</span>
+                <img src="/images/taskCreationPage/rightArrow.svg" alt="arrow" class="section-arrow-icon">
+            </div>
+        `;
+    }).join('');
+}
+
+// Обновляем список разделов в сайдбаре для конкретного блока
+function updateSidebarSections(blockId, sections) {
+    const sectionsContainer = document.getElementById(`block-sections-${blockId}`);
+    if (sectionsContainer) {
+        sectionsContainer.innerHTML = renderBlockSections(sections);
+        
+        // Добавляем обработчики кликов на разделы в сайдбаре
+        sectionsContainer.querySelectorAll('.sidebar-section-item').forEach(sectionEl => {
+            const sectionId = sectionEl.dataset.sectionId;
+            const section = sections.find(s => s.id === sectionId);
+            
+            sectionEl.addEventListener('click', (e) => {
+                e.stopPropagation();
+                if (section) {
+                    showNotification(`Переход к разделу "${section.title}" (будет реализовано позже)`, 'info');
+                }
+            });
+        });
+    }
 }
 
 async function loadBlockSections(blockId, blockTitle, blockDescription) {
@@ -259,6 +406,20 @@ async function loadBlockSections(blockId, blockTitle, blockDescription) {
         if (data.success) {
             currentBlock = { id: blockId, title: blockTitle, description: blockDescription };
             currentSections = data.sections;
+            
+            // Обновляем блок в currentCourse
+            if (currentCourse && currentCourse.themes) {
+                for (const theme of currentCourse.themes) {
+                    const block = theme.blocks?.find(b => b.id === blockId);
+                    if (block) {
+                        block.sections = currentSections;
+                        break;
+                    }
+                }
+            }
+            
+            // Обновляем сайдбар
+            updateSidebarSections(blockId, currentSections);
             
             welcomeScreen.style.display = 'none';
             sectionsArea.style.display = 'block';
@@ -360,6 +521,32 @@ function renderSections(sections) {
     });
 }
 
+// Функция для восстановления всех состояний сворачивания
+function restoreCollapseStates() {
+    // Восстанавливаем состояния тем
+    document.querySelectorAll('.theme-toggle').forEach(toggle => {
+        const themeId = toggle.dataset.themeId;
+        const container = document.getElementById(`theme-blocks-${themeId}`);
+        const isCollapsed = localStorage.getItem(`theme_${themeId}_collapsed`) === 'true';
+        if (isCollapsed && container) {
+            container.classList.add('collapsed');
+            toggle.classList.add('collapsed');
+        }
+    });
+    
+    // Восстанавливаем состояния блоков
+    document.querySelectorAll('.block-toggle').forEach(toggle => {
+        const blockId = toggle.dataset.blockId;
+        const sectionsList = document.getElementById(`block-sections-${blockId}`);
+        const isCollapsed = localStorage.getItem(`block_${blockId}_collapsed`) === 'true';
+        if (isCollapsed && sectionsList) {
+            sectionsList.classList.add('collapsed');
+            toggle.classList.add('collapsed');
+        }
+    });
+}
+
+
 function openEditModal(section) {
     currentEditingSection = section;
     modalTitle.textContent = 'Редактирование названия';
@@ -428,7 +615,16 @@ async function saveSection() {
         if (data.success) {
             editModal.style.display = 'none';
             showNotification('Название раздела успешно сохранено', 'success');
-            await loadBlockSections(currentBlock.id, currentBlock.title, currentBlock.description);
+            
+            // Обновляем название в currentSections
+            const sectionIndex = currentSections.findIndex(s => s.id === currentEditingSection.id);
+            if (sectionIndex !== -1) {
+                currentSections[sectionIndex].title = title;
+            }
+            
+            // Обновляем отображение
+            renderSections(currentSections);
+            updateSidebarSections(currentBlock.id, currentSections);
         } else {
             showNotification(data.message || 'Не удалось сохранить название раздела', 'error');
         }
@@ -450,7 +646,13 @@ async function deleteSection(sectionId) {
         const data = await response.json();
         if (data.success) {
             showNotification('Раздел успешно удален', 'success');
-            await loadBlockSections(currentBlock.id, currentBlock.title, currentBlock.description);
+            
+            // Удаляем из currentSections
+            currentSections = currentSections.filter(s => s.id !== sectionId);
+            
+            // Обновляем отображение
+            renderSections(currentSections);
+            updateSidebarSections(currentBlock.id, currentSections);
         } else {
             showNotification(data.message || 'Не удалось удалить раздел', 'error');
         }
@@ -500,7 +702,10 @@ async function createSection(type) {
         if (data.success) {
             createMenu.style.display = 'none';
             showNotification('Раздел успешно создан', 'success');
+            
+            // Обновляем список разделов
             await loadBlockSections(currentBlock.id, currentBlock.title, currentBlock.description);
+            
             if (data.section) {
                 openEditModal(data.section);
             }
@@ -511,6 +716,20 @@ async function createSection(type) {
         console.error('Ошибка:', error);
         showNotification('Не удалось создать раздел', 'error');
     }
+}
+
+// Функция для плавной прокрутки к элементу
+function scrollToElement(element) {
+    if (!element) return;
+    
+    const elementRect = element.getBoundingClientRect();
+    const absoluteElementTop = elementRect.top + window.pageYOffset;
+    const offset = 100;
+    
+    window.scrollTo({
+        top: absoluteElementTop - offset,
+        behavior: 'smooth'
+    });
 }
 
 // ========== ДИАЛОГ ПОДТВЕРЖДЕНИЯ ==========
@@ -678,12 +897,26 @@ backButton.addEventListener('click', () => {
     window.location.href = `/teacher/create-course?id=${courseId}`;
 });
 
-showCreateMenuBtn.addEventListener('click', () => {
-    createMenu.style.display = 'block';
+showCreateMenuBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const isVisible = createMenu.style.display === 'block';
+    
+    if (!isVisible) {
+        createMenu.style.display = 'block';
+        
+    } else {
+        createMenu.style.display = 'none';
+    }
 });
 
-closeMenuBtn.addEventListener('click', () => {
-    createMenu.style.display = 'none';
+// Закрытие меню при клике вне его
+document.addEventListener('click', (e) => {
+    if (createMenu.style.display === 'block' && 
+        !createMenu.contains(e.target) && 
+        e.target !== showCreateMenuBtn &&
+        !addSectionWrapper.contains(e.target)) {
+        createMenu.style.display = 'none';
+    }
 });
 
 closeModalBtn.addEventListener('click', () => {
@@ -702,14 +935,6 @@ document.querySelectorAll('.create-option').forEach(option => {
         createMenu.style.display = 'none';
         createSection(type);
     });
-});
-
-document.addEventListener('click', (e) => {
-    if (createMenu.style.display === 'block' && 
-        !createMenu.contains(e.target) && 
-        e.target !== showCreateMenuBtn) {
-        createMenu.style.display = 'none';
-    }
 });
 
 function escapeHtml(text) {
