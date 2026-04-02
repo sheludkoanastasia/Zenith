@@ -24,14 +24,10 @@ document.addEventListener("DOMContentLoaded", async function () {
     // ===============================
     const STORAGE_KEY = 'course_draft';
     
-    // Сохранение черновика
     function saveDraft() {
-        // Сохраняем только для новых курсов
         if (currentCourseId) return;
         
         const title = document.getElementById('courseTitle')?.value.trim() || '';
-        
-        // Собираем актуальные данные из DOM
         collectDataFromDOM();
         
         const draftData = {
@@ -43,21 +39,14 @@ document.addEventListener("DOMContentLoaded", async function () {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(draftData));
     }
     
-    // Очистка черновика
     function clearDraft() {
         localStorage.removeItem(STORAGE_KEY);
     }
     
-    // Автосохранение (без уведомлений)
     let autoSaveTimeout;
     function scheduleAutoSave() {
-        if (autoSaveTimeout) {
-            clearTimeout(autoSaveTimeout);
-        }
-        
-        autoSaveTimeout = setTimeout(() => {
-            saveDraft();
-        }, 1000);
+        if (autoSaveTimeout) clearTimeout(autoSaveTimeout);
+        autoSaveTimeout = setTimeout(() => saveDraft(), 1000);
     }
     
     // ===============================
@@ -95,9 +84,7 @@ document.addEventListener("DOMContentLoaded", async function () {
         
         const overlay = document.createElement('div');
         overlay.className = 'image-overlay';
-        overlay.innerHTML = `
-            <img src="/images/teacherMainPanel/edit.svg" alt="Edit" class="edit-icon">
-        `;
+        overlay.innerHTML = `<img src="/images/teacherMainPanel/edit.svg" alt="Edit" class="edit-icon">`;
         
         overlay.style.position = 'absolute';
         overlay.style.top = '0';
@@ -145,15 +132,12 @@ document.addEventListener("DOMContentLoaded", async function () {
             imageInput.click();
         });
         
-        if (placeholderImg) {
-            placeholderImg.style.display = 'none';
-        }
+        if (placeholderImg) placeholderImg.style.display = 'none';
         
         currentCoverImage = imageUrl;
         scheduleAutoSave();
     }
     
-    // Загрузка черновика
     function loadDraft() {
         if (currentCourseId) return;
         
@@ -164,9 +148,7 @@ document.addEventListener("DOMContentLoaded", async function () {
             const draftData = JSON.parse(savedDraft);
             
             const titleInput = document.getElementById('courseTitle');
-            if (titleInput && draftData.title) {
-                titleInput.value = draftData.title;
-            }
+            if (titleInput && draftData.title) titleInput.value = draftData.title;
             
             if (draftData.cover_image) {
                 currentCoverImage = draftData.cover_image;
@@ -176,10 +158,38 @@ document.addEventListener("DOMContentLoaded", async function () {
             if (draftData.themes && draftData.themes.length > 0) {
                 courseData.themes = draftData.themes;
             }
-            
         } catch (error) {
             console.error('Ошибка загрузки черновика:', error);
             localStorage.removeItem(STORAGE_KEY);
+        }
+    }
+    
+    // ===============================
+    // ЗАГРУЗКА РАЗДЕЛОВ ДЛЯ ВСЕХ БЛОКОВ
+    // ===============================
+    async function loadAllBlocksSections(themes) {
+        if (!themes) return;
+        
+        for (const theme of themes) {
+            if (theme.blocks && theme.blocks.length > 0) {
+                for (const block of theme.blocks) {
+                    if (block.id) {
+                        try {
+                            const response = await fetch(`/api/blocks/${block.id}/sections`, {
+                                headers: { 'Authorization': `Bearer ${token}` }
+                            });
+                            if (response.ok) {
+                                const data = await response.json();
+                                if (data.success && data.sections) {
+                                    block.sections = data.sections;
+                                }
+                            }
+                        } catch (error) {
+                            console.error(`Ошибка загрузки разделов для блока ${block.id}:`, error);
+                        }
+                    }
+                }
+            }
         }
     }
     
@@ -189,9 +199,7 @@ document.addEventListener("DOMContentLoaded", async function () {
     async function loadCourseForEditing(courseId) {
         try {
             const response = await fetch(`/api/courses/${courseId}`, {
-                headers: {
-                    'Authorization': `Bearer ${token}`
-                }
+                headers: { 'Authorization': `Bearer ${token}` }
             });
             
             const data = await response.json();
@@ -200,19 +208,17 @@ document.addEventListener("DOMContentLoaded", async function () {
                 const course = data.course;
                 
                 const titleInput = document.getElementById('courseTitle');
-                if (titleInput) {
-                    titleInput.value = course.title;
-                }
+                if (titleInput) titleInput.value = course.title;
                 
                 if (course.cover_image) {
                     currentCoverImage = course.cover_image;
                     displayCourseImage(course.cover_image);
                 }
                 
-                // Сохраняем темы с ID в хранилище
                 if (course.themes && course.themes.length > 0) {
                     courseData.themes = JSON.parse(JSON.stringify(course.themes));
-                    console.log('Загружены темы с ID:', courseData.themes); // Для отладки
+                    await loadAllBlocksSections(courseData.themes);
+                    console.log('Загружены темы с разделами:', courseData.themes);
                 }
             }
         } catch (error) {
@@ -223,9 +229,7 @@ document.addEventListener("DOMContentLoaded", async function () {
     try {
         const response = await fetch('/api/auth/check', {
             method: 'GET',
-            headers: {
-                'Authorization': `Bearer ${token}`
-            }
+            headers: { 'Authorization': `Bearer ${token}` }
         });
         
         const data = await response.json();
@@ -273,20 +277,17 @@ document.addEventListener("DOMContentLoaded", async function () {
     
     function collectDataFromDOM() {
         const themesContainer = document.getElementById('themesContainer');
-        if (!themesContainer) {
-            return;
-        }
+        if (!themesContainer) return;
         
         const themes = [];
         const themeWrappers = document.querySelectorAll('#themesContainer .theme-wrapper');
         
-        if (themeWrappers.length === 0) {
-            return;
-        }
+        if (themeWrappers.length === 0) return;
         
         themeWrappers.forEach((themeWrapper, themeIndex) => {
             const themeInput = themeWrapper.querySelector('.course-theme-input');
             const themeTitle = themeInput?.value.trim() || `Тема ${themeIndex + 1}`;
+            const themeId = themeWrapper.dataset.themeId || null;
             
             const blocks = [];
             const blockElements = themeWrapper.querySelectorAll('.blocks-container .form-block');
@@ -297,8 +298,10 @@ document.addEventListener("DOMContentLoaded", async function () {
                 
                 const blockTitle = titleEl?.innerText.trim() || '';
                 const blockDescription = descEl?.innerText.trim() || '';
+                const blockId = blockEl.dataset.blockId || null;
                 
                 blocks.push({
+                    id: blockId,
                     title: blockTitle,
                     description: blockDescription,
                     order_index: blockIndex
@@ -306,6 +309,7 @@ document.addEventListener("DOMContentLoaded", async function () {
             });
             
             themes.push({
+                id: themeId,
                 title: themeTitle,
                 order_index: themeIndex,
                 blocks: blocks
@@ -313,6 +317,7 @@ document.addEventListener("DOMContentLoaded", async function () {
         });
         
         courseData.themes = JSON.parse(JSON.stringify(themes));
+        console.log('Собраны данные из DOM:', courseData.themes.map(t => ({ title: t.title, order: t.order_index })));
     }
     
     function loadDataToDOM() {
@@ -326,24 +331,38 @@ document.addEventListener("DOMContentLoaded", async function () {
             return;
         }
         
-        const themesToLoad = JSON.parse(JSON.stringify(courseData.themes));
+        // Сортируем темы по order_index
+        const sortedThemes = [...courseData.themes].sort((a, b) => (a.order_index || 0) - (b.order_index || 0));
         
-        themesToLoad.forEach(theme => {
-            const themeWrapper = createTheme(theme.title);
+        sortedThemes.forEach((theme) => {
+            const themeWrapper = createTheme(theme.title, theme.id);
             const blocksContainer = themeWrapper.querySelector('.blocks-container');
             
             const plusBlock = blocksContainer.querySelector('.plus-block');
             if (plusBlock) plusBlock.remove();
             
-            if (theme.blocks && theme.blocks.length > 0) {
-                theme.blocks.forEach(block => {
-                    const formBlock = createFormBlock(block.title, block.description);
+            // Сортируем блоки по order_index
+            const sortedBlocks = (theme.blocks || []).sort((a, b) => (a.order_index || 0) - (b.order_index || 0));
+            
+            if (sortedBlocks.length > 0) {
+                sortedBlocks.forEach((block) => {
+                    const formBlock = createFormBlock(block.title, block.description, block.id);
                     blocksContainer.appendChild(formBlock);
                 });
             }
             
             blocksContainer.appendChild(createPlusBlock());
             themesContainer.appendChild(themeWrapper);
+        });
+        
+        // Обновляем order_index после загрузки
+        updateThemeOrderIndices();
+    }
+    
+    function updateThemeOrderIndices() {
+        const themeWrappers = document.querySelectorAll('#themesContainer .theme-wrapper');
+        themeWrappers.forEach((wrapper, index) => {
+            wrapper.dataset.orderIndex = index;
         });
     }
     
@@ -372,7 +391,7 @@ document.addEventListener("DOMContentLoaded", async function () {
     }
     
     // ===============================
-    // ЗАГРУЗКА ИЗОБРАЖЕНИЯ КУРСА (ОБРАБОТЧИКИ)
+    // ЗАГРУЗКА ИЗОБРАЖЕНИЯ КУРСА
     // ===============================
     if (imageUpload && imageInput) {
         imageUpload.addEventListener('click', () => imageInput.click());
@@ -408,9 +427,7 @@ document.addEventListener("DOMContentLoaded", async function () {
         try {
             const response = await fetch('/api/courses/upload-image', {
                 method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${token}`
-                },
+                headers: { 'Authorization': `Bearer ${token}` },
                 body: formData
             });
             
@@ -442,7 +459,6 @@ document.addEventListener("DOMContentLoaded", async function () {
             collectDataFromDOM();
             scheduleAutoSave();
         }
-        
         renderSection(section);
     }
     
@@ -461,22 +477,15 @@ document.addEventListener("DOMContentLoaded", async function () {
             `;
             
             const blocksSection = sectionsContent.querySelector('.blocks-section');
-            
             loadDataToDOM();
             
             setTimeout(() => {
-                gsap.to(blocksSection, {
-                    opacity: 1,
-                    duration: 0.3,
-                    ease: "power2.out"
-                });
+                gsap.to(blocksSection, { opacity: 1, duration: 0.3, ease: "power2.out" });
             }, 50);
             
             const addThemeBtn = document.getElementById('addThemeBtn');
             if (addThemeBtn) {
-                addThemeBtn.addEventListener('click', function() {
-                    addNewTheme();
-                });
+                addThemeBtn.addEventListener('click', () => addNewTheme());
             }
             
         } else if (section === 'students') {
@@ -487,29 +496,19 @@ document.addEventListener("DOMContentLoaded", async function () {
             `;
             
             const tasksSection = sectionsContent.querySelector('.tasks-section');
-            
             loadReadonlyStructure();
             
             setTimeout(() => {
-                gsap.to(tasksSection, {
-                    opacity: 1,
-                    duration: 0.3,
-                    ease: "power2.out"
-                });
+                gsap.to(tasksSection, { opacity: 1, duration: 0.3, ease: "power2.out" });
             }, 50);
             
         } else if (section === 'connection') {
             sectionsContent.innerHTML = `
                 <div class="connection-section">
                     <p class="connection-description">По этой ссылке студенты смогут подключиться к курсу</p>
-                    
                     <div class="connection-link-container">
-                        <input type="text" 
-                               class="form-input connection-input" 
-                               id="courseLinkInput"
-                               value="${currentCourseId ? `https://zenith.edu/join/${currentCourseId}` : 'Сначала сохраните курс'}"
-                               readonly>
-                        
+                        <input type="text" class="form-input connection-input" id="courseLinkInput"
+                               value="${currentCourseId ? `https://zenith.edu/join/${currentCourseId}` : 'Сначала сохраните курс'}" readonly>
                         <div class="connection-buttons">
                             <button class="connection-btn" id="refreshLinkBtn" title="Обновить ссылку">
                                 <img src="/images/teacherMainPanel/refresh.svg" alt="Refresh">
@@ -529,11 +528,8 @@ document.addEventListener("DOMContentLoaded", async function () {
             if (refreshBtn) {
                 refreshBtn.addEventListener('click', () => {
                     showNotification('Ссылка обновлена', 'success');
-                    
                     linkInput.classList.add('focus-effect');
-                    setTimeout(() => {
-                        linkInput.classList.remove('focus-effect');
-                    }, 2000);
+                    setTimeout(() => linkInput.classList.remove('focus-effect'), 2000);
                 });
             }
 
@@ -542,11 +538,8 @@ document.addEventListener("DOMContentLoaded", async function () {
                     try {
                         await navigator.clipboard.writeText(linkInput.value);
                         showNotification('Ссылка скопирована', 'success');
-                        
                         linkInput.classList.add('focus-effect');
-                        setTimeout(() => {
-                            linkInput.classList.remove('focus-effect');
-                        }, 2000);
+                        setTimeout(() => linkInput.classList.remove('focus-effect'), 2000);
                     } catch (err) {
                         showNotification('Ошибка при копировании', 'warning');
                     }
@@ -555,7 +548,6 @@ document.addEventListener("DOMContentLoaded", async function () {
         }
     }
     
-    // Загрузка структуры курса в режиме только для просмотра (раздел заданий)
     function loadReadonlyStructure() {
         const container = document.getElementById('themesContainerReadonly');
         if (!container) return;
@@ -567,13 +559,15 @@ document.addEventListener("DOMContentLoaded", async function () {
             return;
         }
         
-        courseData.themes.forEach((theme, themeIndex) => {
+        // Сортируем темы по order_index
+        const sortedThemes = [...courseData.themes].sort((a, b) => (a.order_index || 0) - (b.order_index || 0));
+        
+        sortedThemes.forEach((theme) => {
             const themeWrapper = createReadonlyTheme(theme.id, theme.title, theme.blocks || []);
             container.appendChild(themeWrapper);
         });
     }
     
-    // Создание темы в режиме только для чтения
     function createReadonlyTheme(themeId, themeTitle, blocks) {
         const themeWrapper = document.createElement('div');
         themeWrapper.className = 'theme-wrapper readonly-theme';
@@ -586,13 +580,9 @@ document.addEventListener("DOMContentLoaded", async function () {
                     </button>
                     <span class="course-theme-readonly">${escapeHtml(themeTitle)}</span>
                 </div>
-                <button class="goto-theme-btn" title="Перейти к теме">
-                    Перейти к теме
-                </button>
+                <button class="goto-theme-btn" title="Перейти к теме">Перейти к теме</button>
             </div>
-            <div class="blocks-container readonly-blocks-container">
-                <!-- Сюда будут добавляться блоки -->
-            </div>
+            <div class="blocks-container readonly-blocks-container"></div>
         `;
         
         const toggleBtn = themeWrapper.querySelector('.toggle-theme-btn');
@@ -601,62 +591,36 @@ document.addEventListener("DOMContentLoaded", async function () {
         const gotoBtn = themeWrapper.querySelector('.goto-theme-btn');
         
         let isThemeOpen = true;
-        
         gsap.set(chevronIcon, { rotation: 180 });
         
         toggleBtn.addEventListener('click', function(e) {
             e.stopPropagation();
-            
             if (isThemeOpen) {
                 gsap.to(blocksContainer, {
-                    height: 0,
-                    opacity: 0,
-                    duration: 0.3,
-                    ease: "power2.inOut",
-                    onComplete: () => {
-                        blocksContainer.style.display = 'none';
-                    }
+                    height: 0, opacity: 0, duration: 0.3, ease: "power2.inOut",
+                    onComplete: () => blocksContainer.style.display = 'none'
                 });
-                
-                gsap.to(chevronIcon, {
-                    rotation: 0,
-                    duration: 0.2,
-                    ease: "power2.inOut"
-                });
+                gsap.to(chevronIcon, { rotation: 0, duration: 0.2, ease: "power2.inOut" });
             } else {
                 blocksContainer.style.display = 'flex';
                 blocksContainer.style.height = 'auto';
                 const autoHeight = blocksContainer.offsetHeight;
                 blocksContainer.style.height = '0';
-                
                 gsap.to(blocksContainer, {
-                    height: autoHeight,
-                    opacity: 1,
-                    duration: 0.3,
-                    ease: "power2.inOut",
-                    onComplete: () => {
-                        blocksContainer.style.height = 'auto';
-                    }
+                    height: autoHeight, opacity: 1, duration: 0.3, ease: "power2.inOut",
+                    onComplete: () => blocksContainer.style.height = 'auto'
                 });
-                
-                gsap.to(chevronIcon, {
-                    rotation: 180,
-                    duration: 0.2,
-                    ease: "power2.inOut"
-                });
+                gsap.to(chevronIcon, { rotation: 180, duration: 0.2, ease: "power2.inOut" });
             }
-            
             isThemeOpen = !isThemeOpen;
         });
         
-        // Кнопка "Перейти к теме"
-        gotoBtn.addEventListener('click', () => {
-            navigateToThemeConstructor(themeId, currentCourseId);
-        });
+        gotoBtn.addEventListener('click', () => navigateToThemeConstructor(themeId, currentCourseId));
         
-        // Добавляем блоки в режиме только для чтения
         if (blocks && blocks.length > 0) {
-            blocks.forEach(block => {
+            // Сортируем блоки по order_index
+            const sortedBlocks = [...blocks].sort((a, b) => (a.order_index || 0) - (b.order_index || 0));
+            sortedBlocks.forEach(block => {
                 const blockElement = createReadonlyBlock(block.id, block.title, block.description, themeId);
                 blocksContainer.appendChild(blockElement);
             });
@@ -667,7 +631,6 @@ document.addEventListener("DOMContentLoaded", async function () {
         return themeWrapper;
     }
     
-    // Создание блока в режиме только для чтения (с edit.svg при наведении)
     function createReadonlyBlock(blockId, title, description, themeId) {
         const block = document.createElement('div');
         block.className = 'course-block readonly-block';
@@ -681,34 +644,23 @@ document.addEventListener("DOMContentLoaded", async function () {
                 <img src="/images/teacherMainPanel/edit.svg" alt="Edit" class="edit-icon-block">
             </div>
         `;
-        
-        const editOverlay = block.querySelector('.block-edit-overlay');
-        
-        block.addEventListener('click', () => {
-            navigateToBlockConstructor(blockId, currentCourseId, themeId);
-        });
-        
+        block.addEventListener('click', () => navigateToBlockConstructor(blockId, currentCourseId, themeId));
         return block;
     }
     
-    // Простая функция для экранирования HTML
     function escapeHtml(str) {
         if (!str) return '';
-        return str
-            .replace(/&/g, '&amp;')
-            .replace(/</g, '&lt;')
-            .replace(/>/g, '&gt;')
-            .replace(/"/g, '&quot;')
-            .replace(/'/g, '&#39;');
+        return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
     }
     
     // ===============================
     // ФУНКЦИИ ДЛЯ РАБОТЫ С ТЕМАМИ И БЛОКАМИ
     // ===============================
     
-    function createTheme(themeTitle = '') {
+    function createTheme(themeTitle = '', themeId = null) {
         const themeWrapper = document.createElement('div');
         themeWrapper.className = 'theme-wrapper';
+        if (themeId) themeWrapper.dataset.themeId = themeId;
         
         themeWrapper.innerHTML = `
             <div class="theme-header">
@@ -722,9 +674,7 @@ document.addEventListener("DOMContentLoaded", async function () {
                     <img src="/images/teacherMainPanel/delete.svg" alt="Удалить" class="delete-icon">
                 </button>
             </div>
-            <div class="blocks-container">
-                <!-- Сюда будут добавляться блоки -->
-            </div>
+            <div class="blocks-container"></div>
         `;
         
         const deleteBtn = themeWrapper.querySelector('.delete-theme-btn');
@@ -734,86 +684,53 @@ document.addEventListener("DOMContentLoaded", async function () {
         const themeInput = themeWrapper.querySelector('.course-theme-input');
         
         let isThemeOpen = true;
-        
         gsap.set(chevronIcon, { rotation: 180 });
         
         toggleBtn.addEventListener('click', function(e) {
             e.stopPropagation();
-            
             if (isThemeOpen) {
                 gsap.to(blocksContainer, {
-                    height: 0,
-                    opacity: 0,
-                    duration: 0.3,
-                    ease: "power2.inOut",
-                    onComplete: () => {
-                        blocksContainer.style.display = 'none';
-                    }
+                    height: 0, opacity: 0, duration: 0.3, ease: "power2.inOut",
+                    onComplete: () => blocksContainer.style.display = 'none'
                 });
-                
-                gsap.to(chevronIcon, {
-                    rotation: 0,
-                    duration: 0.2,
-                    ease: "power2.inOut"
-                });
-                
+                gsap.to(chevronIcon, { rotation: 0, duration: 0.2, ease: "power2.inOut" });
             } else {
                 blocksContainer.style.display = 'flex';
-                
                 blocksContainer.style.height = 'auto';
                 const autoHeight = blocksContainer.offsetHeight;
                 blocksContainer.style.height = '0';
-                
                 gsap.to(blocksContainer, {
-                    height: autoHeight,
-                    opacity: 1,
-                    duration: 0.3,
-                    ease: "power2.inOut",
-                    onComplete: () => {
-                        blocksContainer.style.height = 'auto';
-                    }
+                    height: autoHeight, opacity: 1, duration: 0.3, ease: "power2.inOut",
+                    onComplete: () => blocksContainer.style.height = 'auto'
                 });
-                
-                gsap.to(chevronIcon, {
-                    rotation: 180,
-                    duration: 0.2,
-                    ease: "power2.inOut"
-                });
+                gsap.to(chevronIcon, { rotation: 180, duration: 0.2, ease: "power2.inOut" });
             }
-            
             isThemeOpen = !isThemeOpen;
         });
         
-        themeInput.addEventListener('input', function() {
+        themeInput.addEventListener('input', () => {
             collectDataFromDOM();
             scheduleAutoSave();
         });
         
         deleteBtn.addEventListener('click', function(e) {
             e.stopPropagation();
-            
             const themesContainer = document.getElementById('themesContainer');
             const themes = Array.from(themesContainer.children);
-            
             if (themes.length === 1) {
                 showNotification('Нельзя удалить единственную тему. Добавьте новую или измените текущую.', 'warning');
                 return;
             }
-            
-            showConfirmDialog(
-                'Удаление темы',
-                'Вы действительно хотите удалить эту тему?',
-                function() {
-                    themeWrapper.remove();
-                    collectDataFromDOM();
-                    scheduleAutoSave();
-                    showNotification('Тема успешно удалена', 'success');
-                }
-            );
+            showConfirmDialog('Удаление темы', 'Вы действительно хотите удалить эту тему?', function() {
+                themeWrapper.remove();
+                updateThemeOrderIndices();
+                collectDataFromDOM();
+                scheduleAutoSave();
+                showNotification('Тема успешно удалена', 'success');
+            });
         });
         
         blocksContainer.appendChild(createPlusBlock());
-        
         return themeWrapper;
     }
     
@@ -823,6 +740,7 @@ document.addEventListener("DOMContentLoaded", async function () {
         
         const newTheme = createTheme(themeTitle);
         themesContainer.appendChild(newTheme);
+        updateThemeOrderIndices();
         collectDataFromDOM();
         scheduleAutoSave();
     }
@@ -855,22 +773,25 @@ document.addEventListener("DOMContentLoaded", async function () {
             collectDataFromDOM();
             scheduleAutoSave();
             
-            setTimeout(() => {
-                formBlock.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            }, 100);
+            setTimeout(() => formBlock.scrollIntoView({ behavior: 'smooth', block: 'center' }), 100);
         });
         
         return block;
     }
     
-    function createFormBlock(title = '', description = '') {
+    function createFormBlock(title = '', description = '', blockId = null) {
         const block = document.createElement('div');
         block.className = 'course-block form-block';
+        
+        if (blockId) {
+            block.dataset.blockId = blockId;
+        }
+        
         block.innerHTML = `
             <img src="/images/teacherMainPanel/addCourseCard.png" alt="Block background" class="block-bg">
             <div class="block-content">
-                <div class="block-title" data-placeholder="Название блока">${title}</div>
-                <div class="block-description" data-placeholder="Описание блока">${description}</div>
+                <div class="block-title" data-placeholder="Название блока">${escapeHtml(title)}</div>
+                <div class="block-description" data-placeholder="Описание блока">${escapeHtml(description)}</div>
             </div>
             <div class="delete-block" title="Удалить блок">×</div>
         `;
@@ -881,7 +802,6 @@ document.addEventListener("DOMContentLoaded", async function () {
         
         titleEl.contentEditable = true;
         descriptionEl.contentEditable = true;
-        
         titleEl.style.pointerEvents = 'auto';
         descriptionEl.style.pointerEvents = 'auto';
         
@@ -902,24 +822,17 @@ document.addEventListener("DOMContentLoaded", async function () {
         };
         
         [titleEl, descriptionEl].forEach(el => {
-            el.addEventListener('click', (e) => {
-                e.stopPropagation();
-            });
-            
+            el.addEventListener('click', (e) => e.stopPropagation());
             el.addEventListener('input', () => {
                 saveChanges();
                 setPlaceholderClass(el);
             });
-            
             el.addEventListener('keydown', (e) => {
                 if (e.key === 'Enter') {
                     e.preventDefault();
-                    if (el === titleEl) {
-                        descriptionEl.focus();
-                    }
+                    if (el === titleEl) descriptionEl.focus();
                 }
             });
-            
             el.addEventListener('paste', (e) => {
                 e.preventDefault();
                 const text = e.clipboardData.getData('text/plain');
@@ -927,13 +840,9 @@ document.addEventListener("DOMContentLoaded", async function () {
                 saveChanges();
                 setPlaceholderClass(el);
             });
-            
             el.addEventListener('focus', function() {
-                if (this.innerText === '') {
-                    this.classList.add('editing');
-                }
+                if (this.innerText === '') this.classList.add('editing');
             });
-            
             el.addEventListener('blur', function() {
                 this.classList.remove('editing');
                 setPlaceholderClass(this);
@@ -943,12 +852,10 @@ document.addEventListener("DOMContentLoaded", async function () {
         
         deleteBtn.addEventListener('click', function(e) {
             e.stopPropagation();
-            
             const blocksContainer = block.closest('.blocks-container');
             if (!blocksContainer) return;
             
             const blocks = Array.from(blocksContainer.children);
-            
             if (blocks.length === 1) {
                 showNotification('Нельзя удалить единственный блок. Добавьте новый или оставьте этот.', 'warning');
                 return;
@@ -958,11 +865,7 @@ document.addEventListener("DOMContentLoaded", async function () {
             
             const remainingBlocks = Array.from(blocksContainer.children);
             const hasPlusBlock = remainingBlocks.some(b => b.classList.contains('plus-block'));
-            
-            if (!hasPlusBlock) {
-                const newPlusBlock = createPlusBlock();
-                blocksContainer.appendChild(newPlusBlock);
-            }
+            if (!hasPlusBlock) blocksContainer.appendChild(createPlusBlock());
             
             collectDataFromDOM();
             scheduleAutoSave();
@@ -976,9 +879,7 @@ document.addEventListener("DOMContentLoaded", async function () {
     // ===============================
     const saveBtn = document.getElementById('saveCourseBtn');
     if (saveBtn) {
-        saveBtn.addEventListener('click', async () => {
-            await saveCourse();
-        });
+        saveBtn.addEventListener('click', async () => await saveCourse());
     }
     
     async function saveCourse() {
@@ -991,8 +892,31 @@ document.addEventListener("DOMContentLoaded", async function () {
         
         collectDataFromDOM();
         
+        console.log('=== ПРОВЕРКА ПЕРЕД ОТПРАВКОЙ ===');
+        for (const theme of courseData.themes) {
+            console.log(`Тема: ${theme.title}, ID: ${theme.id}, order: ${theme.order_index}`);
+            for (const block of theme.blocks) {
+                console.log(`  Блок: "${block.title}", ID: ${block.id}, order: ${block.order_index}`);
+            }
+        }
+        
+        await loadAllBlocksSections(courseData.themes);
+        
         const url = currentCourseId ? `/api/courses/${currentCourseId}` : '/api/courses';
         const method = currentCourseId ? 'PUT' : 'POST';
+        
+        console.log('=== URL И МЕТОД ===');
+        console.log('currentCourseId:', currentCourseId);
+        console.log('url:', url);
+        console.log('method:', method);
+        
+        const requestBody = {
+            title: title,
+            cover_image: currentCoverImage,
+            themes: courseData.themes
+        };
+        
+        console.log('Отправляем на сервер:', JSON.stringify(requestBody, null, 2));
         
         setLoading(saveBtn, true);
         
@@ -1003,47 +927,63 @@ document.addEventListener("DOMContentLoaded", async function () {
                     'Authorization': `Bearer ${token}`,
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify({
-                    title: title,
-                    cover_image: currentCoverImage,
-                    themes: courseData.themes
-                })
+                body: JSON.stringify(requestBody)
             });
             
             const data = await response.json();
-            
             setLoading(saveBtn, false);
+            
+            console.log('Ответ сервера:', data);
             
             if (data.success) {
                 showNotification('Курс успешно сохранен', 'success');
                 
                 if (!currentCourseId && data.course) {
                     currentCourseId = data.course.id;
-                    
-                    // ОБНОВЛЯЕМ courseData с полученными ID от сервера
                     if (data.course.themes) {
                         courseData.themes = data.course.themes;
-                        console.log('Обновлены темы с ID после сохранения:', courseData.themes);
+                        await loadAllBlocksSections(courseData.themes);
                     }
-                    
-                    const linkInput = document.getElementById('courseLinkInput');
-                    if (linkInput) {
-                        linkInput.value = `https://zenith.edu/join/${currentCourseId}`;
-                    }
-                    
                     clearDraft();
                 } else if (currentCourseId && data.course && data.course.themes) {
-                    // Обновляем courseData с новыми ID при обновлении курса
                     courseData.themes = data.course.themes;
-                    console.log('Обновлены темы с ID после обновления:', courseData.themes);
+                    await loadAllBlocksSections(courseData.themes);
                 }
+                
+                updateDOMWithIds(courseData.themes);
             } else {
                 showNotification(data.message || 'Ошибка при сохранении курса', 'error');
             }
         } catch (error) {
             setLoading(saveBtn, false);
+            console.error('Ошибка сохранения:', error);
             showNotification('Не удалось сохранить курс', 'error');
         }
+    }
+    
+    function updateDOMWithIds(themes) {
+        const themeWrappers = document.querySelectorAll('#themesContainer .theme-wrapper');
+        
+        // Сортируем темы из ответа сервера по order_index
+        const sortedThemes = [...themes].sort((a, b) => (a.order_index || 0) - (b.order_index || 0));
+        
+        sortedThemes.forEach((theme, themeIndex) => {
+            if (themeWrappers[themeIndex]) {
+                themeWrappers[themeIndex].dataset.themeId = theme.id;
+                themeWrappers[themeIndex].dataset.orderIndex = themeIndex;
+                
+                const blocks = themeWrappers[themeIndex].querySelectorAll('.form-block');
+                // Сортируем блоки по order_index
+                const sortedBlocks = [...theme.blocks].sort((a, b) => (a.order_index || 0) - (b.order_index || 0));
+                
+                sortedBlocks.forEach((block, blockIndex) => {
+                    if (blocks[blockIndex] && block.id) {
+                        blocks[blockIndex].dataset.blockId = block.id;
+                        console.log(`Обновлен ID блока в DOM: ${block.id} для "${block.title}"`);
+                    }
+                });
+            }
+        });
     }
     
     // ===============================
@@ -1075,19 +1015,15 @@ document.addEventListener("DOMContentLoaded", async function () {
     
     if (blocksLink) {
         blocksLink.classList.add('active');
-        setTimeout(() => {
-            renderSection('blocks');
-        }, 100);
+        setTimeout(() => renderSection('blocks'), 100);
     }
     
     // ===============================
-    // ОТСЛЕЖИВАНИЕ ИЗМЕНЕНИЙ В НАЗВАНИИ КУРСА
+    // ОТСЛЕЖИВАНИЕ ИЗМЕНЕНИЙ
     // ===============================
-    const titleInput = document.getElementById('courseTitle');
-    if (titleInput) {
-        titleInput.addEventListener('input', () => {
-            scheduleAutoSave();
-        });
+    const titleInputElem = document.getElementById('courseTitle');
+    if (titleInputElem) {
+        titleInputElem.addEventListener('input', () => scheduleAutoSave());
     }
     
     // ===============================
@@ -1104,9 +1040,18 @@ document.addEventListener("DOMContentLoaded", async function () {
         
         const toast = document.createElement('div');
         toast.className = `creation-toast ${type}`;
+        
+        let title = '';
+        switch (type) {
+            case 'success': title = 'Успешно'; break;
+            case 'error': title = 'Ошибка'; break;
+            case 'warning': title = 'Внимание'; break;
+            default: title = 'Информация';
+        }
+        
         toast.innerHTML = `
             <div class="toast-content">
-                <div class="toast-title">${type === 'success' ? 'Успешно' : 'Ошибка'}</div>
+                <div class="toast-title">${title}</div>
                 <div class="toast-message">${message}</div>
             </div>
             <div class="toast-close">✕</div>
@@ -1164,44 +1109,33 @@ document.addEventListener("DOMContentLoaded", async function () {
             .creation-toast.success { border-left: 6px solid #4CAF50; }
             .creation-toast.error { border-left: 6px solid #FF3B3B; }
             .creation-toast.warning { border-left: 6px solid #FFB800; }
+            .creation-toast.info { border-left: 6px solid #7651BE; }
             .toast-content { flex: 1; }
-            .toast-title {
-                font-weight: 600;
-                font-size: 16px;
-                color: #1D1D1D;
-                margin-bottom: 4px;
-            }
-            .toast-message {
-                font-size: 14px;
-                color: #4C4C4C;
-                line-height: 1.5;
-            }
+            .toast-title { font-weight: 600; font-size: 16px; color: #1D1D1D; margin-bottom: 4px; }
+            .toast-message { font-size: 14px; color: #4C4C4C; line-height: 1.5; }
             .toast-close {
-                width: 24px;
-                height: 24px;
-                border-radius: 50%;
-                background: rgba(0, 0, 0, 0.05);
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                cursor: pointer;
-                font-size: 18px;
-                color: #666;
-                transition: all 0.2s ease;
-                flex-shrink: 0;
+                width: 24px; height: 24px; border-radius: 50%; background: rgba(0, 0, 0, 0.05);
+                display: flex; align-items: center; justify-content: center; cursor: pointer;
+                font-size: 18px; color: #666; transition: all 0.2s ease; flex-shrink: 0;
             }
-            .toast-close:hover {
-                background: rgba(0, 0, 0, 0.1);
-                transform: scale(1.1);
+            .toast-close:hover { background: rgba(0, 0, 0, 0.1); transform: scale(1.1); }
+            @keyframes slideInRight {
+                from { opacity: 0; transform: translateX(100px); }
+                to { opacity: 1; transform: translateX(0); }
             }
-            .auth-button.loading {
+            @keyframes slideOutRight {
+                from { opacity: 1; transform: translateX(0); }
+                to { opacity: 0; transform: translateX(100px); }
+            }
+            .creation-toast.hiding { animation: slideOutRight 0.3s ease forwards; }
+            .save-changes-btn.loading {
                 position: relative;
                 color: transparent !important;
                 pointer-events: none;
                 background-color: #4CAF50 !important;
                 opacity: 0.8;
             }
-            .auth-button.loading::after {
+            .save-changes-btn.loading::after {
                 content: '';
                 position: absolute;
                 top: 50%;
@@ -1218,17 +1152,6 @@ document.addEventListener("DOMContentLoaded", async function () {
                 0% { transform: rotate(0deg); }
                 100% { transform: rotate(360deg); }
             }
-            @keyframes slideInRight {
-                from { opacity: 0; transform: translateX(100px); }
-                to { opacity: 1; transform: translateX(0); }
-            }
-            @keyframes slideOutRight {
-                from { opacity: 1; transform: translateX(0); }
-                to { opacity: 0; transform: translateX(100px); }
-            }
-            .creation-toast.hiding {
-                animation: slideOutRight 0.3s ease forwards;
-            }
         `;
         document.head.appendChild(style);
     }
@@ -1240,16 +1163,13 @@ document.addEventListener("DOMContentLoaded", async function () {
         addConfirmStyles();
         
         const oldDialog = document.querySelector('.confirm-dialog-overlay');
-        if (oldDialog) {
-            oldDialog.remove();
-        }
+        if (oldDialog) oldDialog.remove();
         
         const overlay = document.createElement('div');
         overlay.className = 'confirm-dialog-overlay';
         
         const dialog = document.createElement('div');
         dialog.className = 'confirm-dialog';
-        
         dialog.innerHTML = `
             <div class="confirm-dialog-content">
                 <div class="confirm-dialog-title">${title}</div>
@@ -1264,35 +1184,19 @@ document.addEventListener("DOMContentLoaded", async function () {
         overlay.appendChild(dialog);
         document.body.appendChild(overlay);
         
-        gsap.fromTo(overlay, 
-            { opacity: 0 },
-            { opacity: 1, duration: 0.3, ease: "power2.out" }
-        );
-        
-        gsap.fromTo(dialog,
-            { scale: 0.9, opacity: 0 },
-            { scale: 1, opacity: 1, duration: 0.4, ease: "backOut" }
-        );
+        gsap.fromTo(overlay, { opacity: 0 }, { opacity: 1, duration: 0.3, ease: "power2.out" });
+        gsap.fromTo(dialog, { scale: 0.9, opacity: 0 }, { scale: 1, opacity: 1, duration: 0.4, ease: "backOut" });
         
         const cancelBtn = dialog.querySelector('.confirm-dialog-btn-cancel');
         const confirmBtn = dialog.querySelector('.confirm-dialog-btn-confirm');
         
-        cancelBtn.addEventListener('click', () => {
-            closeConfirmDialog(overlay);
-        });
-        
+        cancelBtn.addEventListener('click', () => closeConfirmDialog(overlay));
         confirmBtn.addEventListener('click', () => {
-            if (onConfirm) {
-                onConfirm();
-            }
+            if (onConfirm) onConfirm();
             closeConfirmDialog(overlay);
         });
         
-        overlay.addEventListener('click', (e) => {
-            if (e.target === overlay) {
-                closeConfirmDialog(overlay);
-            }
-        });
+        overlay.addEventListener('click', (e) => { if (e.target === overlay) closeConfirmDialog(overlay); });
         
         const escHandler = (e) => {
             if (e.key === 'Escape') {
@@ -1305,22 +1209,8 @@ document.addEventListener("DOMContentLoaded", async function () {
     
     function closeConfirmDialog(overlay) {
         const dialog = overlay.querySelector('.confirm-dialog');
-        
-        gsap.to(dialog, {
-            scale: 0.9,
-            opacity: 0,
-            duration: 0.3,
-            ease: "power2.in"
-        });
-        
-        gsap.to(overlay, {
-            opacity: 0,
-            duration: 0.3,
-            ease: "power2.in",
-            onComplete: () => {
-                overlay.remove();
-            }
-        });
+        gsap.to(dialog, { scale: 0.9, opacity: 0, duration: 0.3, ease: "power2.in" });
+        gsap.to(overlay, { opacity: 0, duration: 0.3, ease: "power2.in", onComplete: () => overlay.remove() });
     }
     
     function addConfirmStyles() {
@@ -1330,116 +1220,41 @@ document.addEventListener("DOMContentLoaded", async function () {
         style.id = 'confirm-dialog-styles';
         style.textContent = `
             .confirm-dialog-overlay {
-                position: fixed;
-                top: 0;
-                left: 0;
-                width: 100%;
-                height: 100%;
-                background-color: rgba(0, 0, 0, 0.5);
-                backdrop-filter: blur(4px);
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                z-index: 10000;
-                opacity: 0;
+                position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+                background-color: rgba(0, 0, 0, 0.5); backdrop-filter: blur(4px);
+                display: flex; align-items: center; justify-content: center;
+                z-index: 10000; opacity: 0;
             }
-            
             .confirm-dialog {
-                background: white;
-                border-radius: 24px;
-                padding: 32px;
-                max-width: 400px;
-                width: 90%;
-                box-shadow: 0 30px 60px rgba(0, 0, 0, 0.3);
-                border: 1px solid rgba(255, 255, 255, 0.3);
+                background: white; border-radius: 24px; padding: 32px;
+                max-width: 400px; width: 90%; box-shadow: 0 30px 60px rgba(0, 0, 0, 0.3);
                 transform-origin: center;
             }
-            
-            .confirm-dialog-content {
-                text-align: center;
-            }
-            
+            .confirm-dialog-content { text-align: center; }
             .confirm-dialog-title {
-                font-size: 28px;
-                font-weight: 500;
-                color: #1D1D1D;
-                margin-bottom: 16px;
-                font-family: 'Ysabeau', sans-serif;
+                font-size: 28px; font-weight: 500; color: #1D1D1D;
+                margin-bottom: 16px; font-family: 'Ysabeau', sans-serif;
             }
-            
             .confirm-dialog-message {
-                font-size: 18px;
-                color: #4C4C4C;
-                margin-bottom: 32px;
-                line-height: 1.5;
-                font-family: 'Ysabeau', sans-serif;
+                font-size: 18px; color: #4C4C4C; margin-bottom: 32px;
+                line-height: 1.5; font-family: 'Ysabeau', sans-serif;
             }
-            
-            .confirm-dialog-buttons {
-                display: flex;
-                gap: 16px;
-                justify-content: center;
-            }
-            
+            .confirm-dialog-buttons { display: flex; gap: 16px; justify-content: center; }
             .confirm-dialog-btn {
-                padding: 12px 32px;
-                border-radius: 40px;
-                font-size: 16px;
-                font-weight: 500;
-                font-family: 'Ysabeau', sans-serif;
-                cursor: pointer;
-                transition: all 0.3s ease;
-                border: none;
-                min-width: 120px;
+                padding: 12px 32px; border-radius: 40px; font-size: 16px;
+                font-weight: 500; font-family: 'Ysabeau', sans-serif;
+                cursor: pointer; transition: all 0.3s ease; border: none; min-width: 120px;
             }
-            
-            .confirm-dialog-btn-cancel {
-                background-color: #f0f0f0;
-                color: #4C4C4C;
-            }
-            
-            .confirm-dialog-btn-cancel:hover {
-                background-color: #e0e0e0;
-                transform: translateY(-2px);
-            }
-            
-            .confirm-dialog-btn-confirm {
-                background-color: #7651BE;
-                color: white;
-            }
-            
-            .confirm-dialog-btn-confirm:hover {
-                background-color: #6947ac;
-                transform: translateY(-2px);
-            }
-            
-            .confirm-dialog-btn:active {
-                transform: translateY(0);
-            }
-            
+            .confirm-dialog-btn-cancel { background-color: #f0f0f0; color: #4C4C4C; }
+            .confirm-dialog-btn-cancel:hover { background-color: #e0e0e0; transform: translateY(-2px); }
+            .confirm-dialog-btn-confirm { background-color: #7651BE; color: white; }
+            .confirm-dialog-btn-confirm:hover { background-color: #6947ac; transform: translateY(-2px); }
             @media (max-width: 576px) {
-                .confirm-dialog {
-                    padding: 24px;
-                    width: 95%;
-                }
-                
-                .confirm-dialog-title {
-                    font-size: 24px;
-                }
-                
-                .confirm-dialog-message {
-                    font-size: 16px;
-                    margin-bottom: 24px;
-                }
-                
-                .confirm-dialog-buttons {
-                    flex-direction: column;
-                    gap: 12px;
-                }
-                
-                .confirm-dialog-btn {
-                    width: 100%;
-                }
+                .confirm-dialog { padding: 24px; width: 95%; }
+                .confirm-dialog-title { font-size: 24px; }
+                .confirm-dialog-message { font-size: 16px; margin-bottom: 24px; }
+                .confirm-dialog-buttons { flex-direction: column; gap: 12px; }
+                .confirm-dialog-btn { width: 100%; }
             }
         `;
         document.head.appendChild(style);
@@ -1447,22 +1262,17 @@ document.addEventListener("DOMContentLoaded", async function () {
     
     // ========== ФУНКЦИИ ПЕРЕХОДА К КОНСТРУКТОРУ ==========
     
-    // Функция перехода к конструктору темы
     function navigateToThemeConstructor(themeId, courseId) {
         const theme = courseData.themes.find(t => t.id === themeId);
         if (theme && theme.blocks && theme.blocks.length > 0) {
             const firstBlock = theme.blocks[0];
-            // Проверьте, что firstBlock.id существует
-            console.log('Переход к теме:', themeId, 'первый блок:', firstBlock.id);
             window.location.href = `/teacher/course-constructor?courseId=${courseId}&blockId=${firstBlock.id}&themeId=${themeId}`;
         } else {
             showNotification('В этой теме нет блоков. Сначала создайте блок.', 'warning');
         }
     }
 
-    // Функция перехода к конструктору конкретного блока
     function navigateToBlockConstructor(blockId, courseId, themeId) {
-        console.log('Переход к блоку:', blockId, 'курс:', courseId);
         window.location.href = `/teacher/course-constructor?courseId=${courseId}&blockId=${blockId}&themeId=${themeId}`;
     }
     
