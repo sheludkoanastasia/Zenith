@@ -77,6 +77,7 @@ body {
 }
 
 /* ========== SIDEBAR ========== */
+/* ========== SIDEBAR SCROLLBAR GRADIENT ========== */
 .sidebar {
     width: 320px;
     background: white;
@@ -85,6 +86,25 @@ body {
     flex-shrink: 0;
     z-index: 1;
     height: 100%;
+}
+
+/* Для Webkit браузеров (Chrome, Safari, Edge) */
+.sidebar::-webkit-scrollbar {
+    width: 6px;
+}
+
+.sidebar::-webkit-scrollbar-track {
+    background: #f0f0f0;
+    border-radius: 4px;
+}
+
+.sidebar::-webkit-scrollbar-thumb {
+    background: linear-gradient(180deg, #BDDBFF 0%, #C8CDFF 50%, #EFE3FD 100%);
+    border-radius: 4px;
+}
+
+.sidebar::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(180deg, #9ec8ff 0%, #b0b8ff 50%, #e0ccff 100%);
 }
 
 .sidebar-content {
@@ -279,14 +299,35 @@ body {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    border-left: 2px solid #4C4C4C;
     border-radius: 2px;
     padding-left: 10px;
+    border-left: 2px solid #1D1D1D;
 }
 
-.section-title-text:hover {
-    border-left: 2px solid #7651BE;
+.sidebar-section-item:hover .section-title-text {
+    border-left-color: #7651BE !important;
 }
+
+/* Теория - серый/темный цвет как у badge теории */
+.section-title-text[data-type="theory"] {
+    border-left-color: #4b5563;
+}
+
+/* Упражнение - зеленый как у badge упражнения */
+.section-title-text[data-type="exercise"] {
+    border-left-color: #379B34;
+}
+
+/* Тест - красный как у badge теста */
+.section-title-text[data-type="test"] {
+    border-left-color: #c43232;
+}
+
+/* Также можно добавить hover для стрелочки */
+.sidebar-section-item:hover .section-arrow-icon {
+    transform: translateX(-7px);
+}
+
 .section-arrow-icon {
     width: 16px;
     height: 16px;

@@ -364,9 +364,18 @@ function renderBlockSections(sections) {
     }
     
     return sections.map(section => {
+        // Определяем цвет левой черты в зависимости от типа
+        let typeClass = '';
+        switch (section.type) {
+            case 'theory': typeClass = 'theory'; break;
+            case 'exercise': typeClass = 'exercise'; break;
+            case 'test': typeClass = 'test'; break;
+            default: typeClass = 'theory';
+        }
+        
         return `
             <div class="sidebar-section-item" data-section-id="${section.id}" data-section-type="${section.type}">
-                <span class="section-title-text">${escapeHtml(section.title)}</span>
+                <span class="section-title-text" data-type="${typeClass}">${escapeHtml(section.title)}</span>
                 <img src="/images/taskCreationPage/rightArrow.svg" alt="arrow" class="section-arrow-icon">
             </div>
         `;
