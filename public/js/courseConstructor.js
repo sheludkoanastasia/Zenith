@@ -30,8 +30,23 @@ const saveModalBtn = document.getElementById('saveModalBtn');
 
 let currentEditingSection = null;
 
+// ===== ДЛЯ РЕДАКТОРА ТЕОРИИ =====
+let quillEditor = null;
+let hasUnsavedChanges = false;
+let currentEditingTheorySection = null;
+let originalTheoryText = ''; // Храним исходный текст для сравнения
+
 function getToken() {
     return localStorage.getItem('token');
+}
+
+// Проверка наличия несохраненных изменений
+function checkUnsavedChanges() {
+    if (!quillEditor || !currentEditingTheorySection) return false;
+    
+    const currentText = quillEditor.root.innerHTML;
+    hasUnsavedChanges = currentText !== originalTheoryText;
+    return hasUnsavedChanges;
 }
 
 function showNotification(message, type = 'success') {
@@ -170,7 +185,6 @@ async function loadCourseData() {
             currentCourse = data.course;
             courseTitleEl.textContent = currentCourse.title;
             
-            // Загружаем разделы для всех блоков перед рендерингом
             await loadAllBlocksSections(currentCourse.themes);
             renderThemes(currentCourse.themes);
             
@@ -208,7 +222,6 @@ async function loadCourseData() {
     }
 }
 
-// Новая функция: загружаем разделы для всех блоков
 async function loadAllBlocksSections(themes) {
     for (const theme of themes) {
         if (theme.blocks && theme.blocks.length > 0) {
@@ -239,9 +252,7 @@ function renderThemes(themes) {
     }
 
     themesListEl.innerHTML = themes.map((theme) => {
-        // Проверяем, есть ли в этой теме блок, который открыт по URL
         const hasActiveBlock = theme.blocks?.some(block => block.id === blockId);
-        // По умолчанию все темы закрыты, кроме той, в которой есть активный блок
         const isInitiallyExpanded = hasActiveBlock;
         
         return `
@@ -281,7 +292,6 @@ function renderThemes(themes) {
         `;
     }).join('');
 
-    // Добавляем обработчики для сворачивания/разворачивания тем
     document.querySelectorAll('.theme-toggle').forEach(toggle => {
         const themeId = toggle.dataset.themeId;
         const container = document.getElementById(`theme-blocks-${themeId}`);
@@ -295,7 +305,6 @@ function renderThemes(themes) {
         });
     });
 
-    // Добавляем обработчики для сворачивания/разворачивания блоков
     document.querySelectorAll('.block-toggle').forEach(toggle => {
         const blockId = toggle.dataset.blockId;
         const sectionsList = document.getElementById(`block-sections-${blockId}`);
@@ -314,46 +323,28 @@ function renderThemes(themes) {
         });
     });
 
-    // Обработчики для блоков (выбор блока)
     document.querySelectorAll('.block-item').forEach(blockEl => {
         blockEl.addEventListener('click', () => {
-            const blockId = blockEl.dataset.blockId;
+            const clickedBlockId = blockEl.dataset.blockId;
             const blockTitle = blockEl.dataset.blockTitle;
             const blockDescription = blockEl.dataset.blockDescription;
             
-            document.querySelectorAll('.block-item').forEach(el => el.classList.remove('active'));
-            blockEl.classList.add('active');
+            checkUnsavedChanges();
             
-            // Скрываем все списки разделов
-            document.querySelectorAll('.block-sections-list').forEach(list => {
-                list.style.display = 'none';
-                // Сбрасываем состояние кнопки сворачивания для скрытых блоков
-                const parentWrapper = list.closest('.block-item-wrapper');
-                if (parentWrapper) {
-                    const blockToggle = parentWrapper.querySelector('.block-toggle');
-                    if (blockToggle && !blockToggle.classList.contains('collapsed')) {
-                        blockToggle.classList.add('collapsed');
+            if (hasUnsavedChanges) {
+                showUnsavedChangesDialog(
+                    'Несохраненные изменения',
+                    'У вас есть несохраненные изменения. Перейти к другому блоку?',
+                    () => {
+                        hideTheoryEditor();
+                        performBlockSwitch(clickedBlockId, blockTitle, blockDescription);
                     }
-                }
-            });
-            
-            const sectionsListContainer = document.getElementById(`block-sections-${blockId}`);
-            if (sectionsListContainer) {
-                sectionsListContainer.style.display = 'block';
-                // Разворачиваем кнопку для выбранного блока
-                const currentBlockWrapper = document.querySelector(`.block-item-wrapper[data-block-id="${blockId}"]`);
-                if (currentBlockWrapper) {
-                    const blockToggle = currentBlockWrapper.querySelector('.block-toggle');
-                    if (blockToggle && blockToggle.classList.contains('collapsed')) {
-                        blockToggle.classList.remove('collapsed');
-                    }
-                }
+                );
+                return;
             }
             
-            const newUrl = `/teacher/course-constructor?courseId=${courseId}&blockId=${blockId}&themeId=${themeId}`;
-            window.history.pushState({}, '', newUrl);
-            
-            loadBlockSections(blockId, blockTitle, blockDescription);
+            hideTheoryEditor();
+            performBlockSwitch(clickedBlockId, blockTitle, blockDescription);
         });
     });
 }
@@ -364,7 +355,6 @@ function renderBlockSections(sections) {
     }
     
     return sections.map(section => {
-        // Определяем цвет левой черты в зависимости от типа
         let typeClass = '';
         switch (section.type) {
             case 'theory': typeClass = 'theory'; break;
@@ -382,13 +372,11 @@ function renderBlockSections(sections) {
     }).join('');
 }
 
-// Обновляем список разделов в сайдбаре для конкретного блока
 function updateSidebarSections(blockId, sections) {
     const sectionsContainer = document.getElementById(`block-sections-${blockId}`);
     if (sectionsContainer) {
         sectionsContainer.innerHTML = renderBlockSections(sections);
         
-        // Добавляем обработчики кликов на разделы в сайдбаре
         sectionsContainer.querySelectorAll('.sidebar-section-item').forEach(sectionEl => {
             const sectionId = sectionEl.dataset.sectionId;
             const section = sections.find(s => s.id === sectionId);
@@ -396,7 +384,23 @@ function updateSidebarSections(blockId, sections) {
             sectionEl.addEventListener('click', (e) => {
                 e.stopPropagation();
                 if (section) {
-                    showNotification(`Переход к разделу "${section.title}" (будет реализовано позже)`, 'info');
+                    if (section.type === 'theory') {
+                        checkUnsavedChanges();
+                        
+                        if (hasUnsavedChanges) {
+                            showUnsavedChangesDialog(
+                                'Несохраненные изменения',
+                                'У вас есть несохраненные изменения в текущем разделе. Перейти к другому разделу?',
+                                () => {
+                                    loadTheorySection(section.id);
+                                }
+                            );
+                        } else {
+                            loadTheorySection(section.id);
+                        }
+                    } else {
+                        showNotification(`Редактирование "${section.title}" будет реализовано позже`, 'info');
+                    }
                 }
             });
         });
@@ -416,7 +420,6 @@ async function loadBlockSections(blockId, blockTitle, blockDescription) {
             currentBlock = { id: blockId, title: blockTitle, description: blockDescription };
             currentSections = data.sections;
             
-            // Обновляем блок в currentCourse
             if (currentCourse && currentCourse.themes) {
                 for (const theme of currentCourse.themes) {
                     const block = theme.blocks?.find(b => b.id === blockId);
@@ -427,7 +430,6 @@ async function loadBlockSections(blockId, blockTitle, blockDescription) {
                 }
             }
             
-            // Обновляем сайдбар
             updateSidebarSections(blockId, currentSections);
             
             welcomeScreen.style.display = 'none';
@@ -524,15 +526,34 @@ function renderSections(sections) {
             const sectionId = card.dataset.sectionId;
             const section = currentSections.find(s => s.id === sectionId);
             if (section) {
-                showNotification(`Переход к разделу "${section.title}" (будет реализовано позже)`, 'info');
+                if (section.type === 'theory') {
+                    // Если это тот же раздел - ничего не делаем
+                    if (currentEditingTheorySection && currentEditingTheorySection.id === sectionId) {
+                        return;
+                    }
+                    
+                    checkUnsavedChanges();
+                    
+                    if (hasUnsavedChanges) {
+                        showUnsavedChangesDialog(
+                            'Несохраненные изменения',
+                            'У вас есть несохраненные изменения в текущем разделе. Перейти к другому разделу?',
+                            () => {
+                                loadTheorySection(sectionId);
+                            }
+                        );
+                    } else {
+                        loadTheorySection(sectionId);
+                    }
+                } else {
+                    showNotification(`Редактирование "${section.title}" будет реализовано позже`, 'info');
+                }
             }
         });
     });
 }
 
-// Функция для восстановления всех состояний сворачивания
 function restoreCollapseStates() {
-    // Восстанавливаем состояния тем
     document.querySelectorAll('.theme-toggle').forEach(toggle => {
         const themeId = toggle.dataset.themeId;
         const container = document.getElementById(`theme-blocks-${themeId}`);
@@ -543,7 +564,6 @@ function restoreCollapseStates() {
         }
     });
     
-    // Восстанавливаем состояния блоков
     document.querySelectorAll('.block-toggle').forEach(toggle => {
         const blockId = toggle.dataset.blockId;
         const sectionsList = document.getElementById(`block-sections-${blockId}`);
@@ -554,7 +574,6 @@ function restoreCollapseStates() {
         }
     });
 }
-
 
 function openEditModal(section) {
     currentEditingSection = section;
@@ -593,15 +612,16 @@ async function saveSection() {
     switch (currentEditingSection.type) {
         case 'theory':
             url = `${apiBaseUrl}/sections/${currentEditingSection.id}/theory`;
-            body = { title, text: '', file_url: null };
+            // НЕ ОТПРАВЛЯЕМ ТЕКСТ! Только название
+            body = { title, file_url: null };
             break;
         case 'exercise':
             url = `${apiBaseUrl}/sections/${currentEditingSection.id}/exercise`;
-            body = { title, exercise_type: 'matching' };
+            body = { title };
             break;
         case 'test':
             url = `${apiBaseUrl}/sections/${currentEditingSection.id}/test`;
-            body = { title, questions: [], passing_score: 70 };
+            body = { title };
             break;
         default:
             showNotification('Неизвестный тип раздела', 'error');
@@ -656,10 +676,8 @@ async function deleteSection(sectionId) {
         if (data.success) {
             showNotification('Раздел успешно удален', 'success');
             
-            // Удаляем из currentSections
             currentSections = currentSections.filter(s => s.id !== sectionId);
             
-            // Обновляем отображение
             renderSections(currentSections);
             updateSidebarSections(currentBlock.id, currentSections);
         } else {
@@ -712,7 +730,6 @@ async function createSection(type) {
             createMenu.style.display = 'none';
             showNotification('Раздел успешно создан', 'success');
             
-            // Обновляем список разделов
             await loadBlockSections(currentBlock.id, currentBlock.title, currentBlock.description);
             
             if (data.section) {
@@ -727,7 +744,6 @@ async function createSection(type) {
     }
 }
 
-// Функция для плавной прокрутки к элементу
 function scrollToElement(element) {
     if (!element) return;
     
@@ -918,7 +934,6 @@ showCreateMenuBtn.addEventListener('click', (e) => {
     }
 });
 
-// Закрытие меню при клике вне его
 document.addEventListener('click', (e) => {
     if (createMenu.style.display === 'block' && 
         !createMenu.contains(e.target) && 
@@ -951,6 +966,611 @@ function escapeHtml(text) {
     const div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML;
+}
+
+// ===== ФУНКЦИИ ДЛЯ РЕДАКТОРА ТЕОРИИ =====
+
+function compressImage(file, maxSizeKB = 500) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = (e) => {
+            const img = new Image();
+            img.src = e.target.result;
+            img.onload = () => {
+                const canvas = document.createElement('canvas');
+                let width = img.width;
+                let height = img.height;
+                
+                // Максимальные размеры
+                const maxWidth = 800;
+                const maxHeight = 600;
+                
+                if (width > maxWidth) {
+                    height = (height * maxWidth) / width;
+                    width = maxWidth;
+                }
+                if (height > maxHeight) {
+                    width = (width * maxHeight) / height;
+                    height = maxHeight;
+                }
+                
+                canvas.width = width;
+                canvas.height = height;
+                
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0, width, height);
+                
+                // Качество сжатия (0.7 = 70%)
+                canvas.toBlob((blob) => {
+                    resolve(blob);
+                }, file.type, 0.7);
+            };
+        };
+        reader.onerror = (error) => reject(error);
+    });
+}
+
+function initQuillEditor() {
+    const editorContainer = document.getElementById('quillEditor');
+    if (!editorContainer) return;
+    
+    quillEditor = new Quill('#quillEditor', {
+        theme: 'snow',
+        modules: {
+            toolbar: {
+                container: [
+                    ['bold', 'italic', 'underline'],
+                    [{ 'list': 'ordered'}, { 'list': 'bullet' }],
+                    [{ 'align': [] }],
+                    ['link', 'image', 'clean']
+                ],
+                handlers: {
+                    image: function() {
+                        const input = document.createElement('input');
+                        input.setAttribute('type', 'file');
+                        input.setAttribute('accept', 'image/*');
+                        input.click();
+                        
+                        input.onchange = async () => {
+                            const file = input.files[0];
+                            if (file) {
+                                try {
+                                    showNotification('Сжатие изображения...', 'info');
+                                    const compressedBlob = await compressImage(file);
+                                    
+                                    if (compressedBlob.size > 500 * 1024) {
+                                        showNotification('Изображение всё ещё слишком большое! Попробуйте другое.', 'warning');
+                                        return;
+                                    }
+                                    
+                                    const reader = new FileReader();
+                                    reader.onload = (e) => {
+                                        const range = quillEditor.getSelection();
+                                        const index = range ? range.index : 0;
+                                        quillEditor.insertEmbed(index, 'image', e.target.result);
+                                        showNotification('Изображение вставлено', 'success');
+                                    };
+                                    reader.readAsDataURL(compressedBlob);
+                                } catch (error) {
+                                    showNotification('Ошибка при сжатии', 'error');
+                                }
+                            }
+                        };
+                    }
+                }
+            }
+        },
+        placeholder: 'Введите теоретический материал...'
+    });
+}
+
+async function loadTheorySection(sectionId) {
+    try {       
+        const token = getToken();
+        const response = await fetch(`${apiBaseUrl}/sections/${sectionId}`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            const section = data.section;
+            currentEditingTheorySection = section;
+            
+            // ===== НАХОДИМ И ОБНОВЛЯЕМ ТЕКУЩИЙ БЛОК =====
+            const blockIdFromSection = section.block_id;
+            
+            // Ищем блок в currentCourse
+            for (const theme of currentCourse.themes) {
+                const foundBlock = theme.blocks?.find(b => b.id === blockIdFromSection);
+                if (foundBlock) {
+                    currentBlock = {
+                        id: foundBlock.id,
+                        title: foundBlock.title,
+                        description: foundBlock.description || ''
+                    };
+                    currentSections = foundBlock.sections || [];
+                    break;
+                }
+            }
+            
+            // Обновляем активный блок в сайдбаре
+            document.querySelectorAll('.block-item').forEach(el => el.classList.remove('active'));
+            const activeBlock = document.querySelector(`.block-item[data-block-id="${blockIdFromSection}"]`);
+            if (activeBlock) activeBlock.classList.add('active');
+            
+            // Обновляем заголовок блока в основной области
+            currentBlockTitle.textContent = currentBlock.title;
+            currentBlockDescription.textContent = currentBlock.description;
+            
+            const theoryText = section.theoryContent?.text || '';
+            originalTheoryText = theoryText;
+            
+            if (quillEditor) {
+                quillEditor.root.innerHTML = theoryText;
+            }
+            
+            const editorContainer = document.getElementById('theoryEditorContainer');
+            const sectionsAreaEl = document.getElementById('sectionsArea');
+            const welcomeScreenEl = document.getElementById('welcomeScreen');
+            
+            if (editorContainer) editorContainer.style.display = 'block';
+            if (sectionsAreaEl) sectionsAreaEl.style.display = 'none';
+            if (welcomeScreenEl) welcomeScreenEl.style.display = 'none';
+            
+            hasUnsavedChanges = false;
+        } else {
+            showNotification('Ошибка загрузки раздела', 'error');
+        }
+    } catch (error) {
+        console.error('Ошибка:', error);
+        showNotification('Ошибка загрузки раздела', 'error');
+    }
+}
+
+async function saveTheorySection() {
+    if (!currentEditingTheorySection) {
+        showNotification('Раздел не выбран', 'error');
+        return;
+    }
+    
+    const title = currentEditingTheorySection.title;
+    const text = quillEditor ? quillEditor.root.innerHTML : '';
+    
+    if (!title.trim()) {
+        showNotification('Название раздела не может быть пустым', 'warning');
+        return;
+    }
+    
+    try {
+        const token = getToken();
+        const response = await fetch(`${apiBaseUrl}/sections/${currentEditingTheorySection.id}/theory`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({
+                title: title,
+                text: text,
+                file_url: null
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            showNotification('Теория успешно сохранена!', 'success');
+            
+            // Обновляем исходный текст после сохранения
+            originalTheoryText = text;
+            hasUnsavedChanges = false;
+            
+            if (currentEditingTheorySection.theoryContent) {
+                currentEditingTheorySection.theoryContent.text = text;
+            }
+            
+            renderSections(currentSections);
+            updateSidebarSections(currentBlock.id, currentSections);
+        } else {
+            showNotification('Ошибка при сохранении', 'error');
+        }
+    } catch (error) {
+        console.error('Ошибка:', error);
+        showNotification('Ошибка при сохранении', 'error');
+    }
+}
+
+function backToCourseStructure() {
+    checkUnsavedChanges();
+    
+    if (hasUnsavedChanges) {
+        showUnsavedChangesDialog(
+            'Несохраненные изменения',
+            'У вас есть несохраненные изменения. Вернуться к разделам?',
+            () => {
+                performBackToSections();
+            }
+        );
+        return;
+    }
+    
+    performBackToSections();
+}
+
+function performBackToSections() {
+    const editorContainer = document.getElementById('theoryEditorContainer');
+    const sectionsAreaEl = document.getElementById('sectionsArea');
+    const welcomeScreenEl = document.getElementById('welcomeScreen');
+    
+    if (editorContainer) editorContainer.style.display = 'none';
+    
+    // Показываем область с разделами
+    if (currentBlock && sectionsAreaEl) {
+        sectionsAreaEl.style.display = 'block';
+        welcomeScreenEl.style.display = 'none';
+        
+        // Обновляем заголовок блока
+        currentBlockTitle.textContent = currentBlock.title;
+        currentBlockDescription.textContent = currentBlock.description;
+        
+        // Обновляем список разделов для текущего блока
+        renderSections(currentSections);
+        
+        // Обновляем активный блок в сайдбаре
+        document.querySelectorAll('.block-item').forEach(el => el.classList.remove('active'));
+        const activeBlock = document.querySelector(`.block-item[data-block-id="${currentBlock.id}"]`);
+        if (activeBlock) activeBlock.classList.add('active');
+        
+        // Обновляем URL с ID текущего блока
+        const newUrl = `/teacher/course-constructor?courseId=${courseId}&blockId=${currentBlock.id}&themeId=${themeId}`;
+        window.history.pushState({}, '', newUrl);
+        
+    } else if (welcomeScreenEl) {
+        welcomeScreenEl.style.display = 'flex';
+        sectionsAreaEl.style.display = 'none';
+    }
+    
+    if (quillEditor) {
+        quillEditor.root.innerHTML = '';
+    }
+    
+    currentEditingTheorySection = null;
+    originalTheoryText = '';
+    hasUnsavedChanges = false;
+}
+
+function hideTheoryEditor() {
+    const editorContainer = document.getElementById('theoryEditorContainer');
+    const sectionsAreaEl = document.getElementById('sectionsArea');
+    const welcomeScreenEl = document.getElementById('welcomeScreen');
+    
+    if (editorContainer) editorContainer.style.display = 'none';
+    
+    if (currentBlock && sectionsAreaEl) {
+        sectionsAreaEl.style.display = 'block';
+        welcomeScreenEl.style.display = 'none';
+    } else if (welcomeScreenEl) {
+        welcomeScreenEl.style.display = 'flex';
+        sectionsAreaEl.style.display = 'none';
+    }
+    
+    if (quillEditor) {
+        quillEditor.root.innerHTML = '';
+    }
+    
+    currentEditingTheorySection = null;
+    originalTheoryText = '';
+    hasUnsavedChanges = false;
+}
+
+function performBlockSwitch(clickedBlockId, blockTitle, blockDescription) {
+    hasUnsavedChanges = false;
+    currentEditingTheorySection = null;
+    originalTheoryText = '';
+    
+    if (quillEditor) {
+        quillEditor.root.innerHTML = '';
+    }
+    
+    document.querySelectorAll('.block-item').forEach(el => el.classList.remove('active'));
+    const activeBlock = document.querySelector(`.block-item[data-block-id="${clickedBlockId}"]`);
+    if (activeBlock) activeBlock.classList.add('active');
+    
+    document.querySelectorAll('.block-sections-list').forEach(list => {
+        list.style.display = 'none';
+        const parentWrapper = list.closest('.block-item-wrapper');
+        if (parentWrapper) {
+            const blockToggle = parentWrapper.querySelector('.block-toggle');
+            if (blockToggle && !blockToggle.classList.contains('collapsed')) {
+                blockToggle.classList.add('collapsed');
+            }
+        }
+    });
+    
+    const sectionsListContainer = document.getElementById(`block-sections-${clickedBlockId}`);
+    if (sectionsListContainer) {
+        sectionsListContainer.style.display = 'block';
+        const currentBlockWrapper = document.querySelector(`.block-item-wrapper[data-block-id="${clickedBlockId}"]`);
+        if (currentBlockWrapper) {
+            const blockToggle = currentBlockWrapper.querySelector('.block-toggle');
+            if (blockToggle && blockToggle.classList.contains('collapsed')) {
+                blockToggle.classList.remove('collapsed');
+            }
+        }
+    }
+    
+    const newUrl = `/teacher/course-constructor?courseId=${courseId}&blockId=${clickedBlockId}&themeId=${themeId}`;
+    window.history.pushState({}, '', newUrl);
+    
+    loadBlockSections(clickedBlockId, blockTitle, blockDescription);
+}
+
+function performBackToCourseStructure() {
+    const editorContainer = document.getElementById('theoryEditorContainer');
+    const sectionsAreaEl = document.getElementById('sectionsArea');
+    const welcomeScreenEl = document.getElementById('welcomeScreen');
+    
+    if (editorContainer) editorContainer.style.display = 'none';
+    
+    if (currentBlock && sectionsAreaEl) {
+        sectionsAreaEl.style.display = 'block';
+        welcomeScreenEl.style.display = 'none';
+    } else if (welcomeScreenEl) {
+        welcomeScreenEl.style.display = 'flex';
+        sectionsAreaEl.style.display = 'none';
+    }
+    
+    if (quillEditor) {
+        quillEditor.root.innerHTML = '';
+    }
+    
+    currentEditingTheorySection = null;
+    originalTheoryText = '';
+    hasUnsavedChanges = false;
+}
+
+function showUnsavedChangesDialog(title, message, onConfirm) {
+    addUnsavedDialogStyles();
+    
+    const oldDialog = document.querySelector('.unsaved-dialog-overlay');
+    if (oldDialog) oldDialog.remove();
+    
+    const overlay = document.createElement('div');
+    overlay.className = 'unsaved-dialog-overlay';
+    
+    const dialog = document.createElement('div');
+    dialog.className = 'unsaved-dialog';
+    
+    dialog.innerHTML = `
+        <div class="unsaved-dialog-content">
+            <div class="unsaved-dialog-title">${title}</div>
+            <div class="unsaved-dialog-message">${message}</div>
+            <div class="unsaved-dialog-buttons">
+                <button class="unsaved-dialog-btn unsaved-dialog-btn-cancel">Отмена</button>
+                <button class="unsaved-dialog-btn unsaved-dialog-btn-confirm">Выйти без сохранения</button>
+            </div>
+        </div>
+    `;
+    
+    overlay.appendChild(dialog);
+    document.body.appendChild(overlay);
+    
+    gsap.fromTo(overlay, { opacity: 0 }, { opacity: 1, duration: 0.3, ease: "power2.out" });
+    gsap.fromTo(dialog, { scale: 0.9, opacity: 0 }, { scale: 1, opacity: 1, duration: 0.4, ease: "backOut" });
+    
+    const cancelBtn = dialog.querySelector('.unsaved-dialog-btn-cancel');
+    const confirmBtn = dialog.querySelector('.unsaved-dialog-btn-confirm');
+    
+    cancelBtn.addEventListener('click', () => closeUnsavedDialog(overlay));
+    confirmBtn.addEventListener('click', () => {
+        closeUnsavedDialog(overlay);
+        hasUnsavedChanges = false;
+        if (quillEditor) {
+            quillEditor.root.innerHTML = '';
+        }
+        if (onConfirm) onConfirm();
+    });
+    
+    overlay.addEventListener('click', (e) => {
+        if (e.target === overlay) closeUnsavedDialog(overlay);
+    });
+    
+    const escHandler = (e) => {
+        if (e.key === 'Escape') {
+            closeUnsavedDialog(overlay);
+            document.removeEventListener('keydown', escHandler);
+        }
+    };
+    document.addEventListener('keydown', escHandler);
+}
+
+function closeUnsavedDialog(overlay) {
+    const dialog = overlay.querySelector('.unsaved-dialog');
+    gsap.to(dialog, { scale: 0.9, opacity: 0, duration: 0.3, ease: "power2.in" });
+    gsap.to(overlay, { opacity: 0, duration: 0.3, ease: "power2.in", onComplete: () => overlay.remove() });
+}
+
+function addUnsavedDialogStyles() {
+    if (document.getElementById('unsaved-dialog-styles')) return;
+    
+    const style = document.createElement('style');
+    style.id = 'unsaved-dialog-styles';
+    style.textContent = `
+        .unsaved-dialog-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(4px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 10000;
+            opacity: 0;
+        }
+        .unsaved-dialog {
+            background: white;
+            border-radius: 24px;
+            padding: 32px;
+            max-width: 450px;
+            width: 90%;
+            box-shadow: 0 30px 60px rgba(0, 0, 0, 0.3);
+            transform-origin: center;
+        }
+        .unsaved-dialog-content {
+            text-align: center;
+        }
+        .unsaved-dialog-title {
+            font-size: 28px;
+            font-weight: 500;
+            color: #1D1D1D;
+            margin-bottom: 16px;
+            font-family: 'Ysabeau', 'Inter', sans-serif;
+        }
+        .unsaved-dialog-message {
+            font-size: 18px;
+            color: #4C4C4C;
+            margin-bottom: 32px;
+            line-height: 1.5;
+            font-family: 'Ysabeau', 'Inter', sans-serif;
+        }
+        .unsaved-dialog-buttons {
+            display: flex;
+            gap: 16px;
+            justify-content: center;
+        }
+        .unsaved-dialog-btn {
+            padding: 12px 24px;
+            border-radius: 40px;
+            font-size: 16px;
+            font-weight: 500;
+            font-family: 'Ysabeau', 'Inter', sans-serif;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border: none;
+        }
+        .unsaved-dialog-btn-cancel {
+            background-color: #f0f0f0;
+            color: #4C4C4C;
+        }
+        .unsaved-dialog-btn-cancel:hover {
+            background-color: #e0e0e0;
+            transform: translateY(-2px);
+        }
+        .unsaved-dialog-btn-confirm {
+            background-color: #7651BE;
+            color: white;
+        }
+        .unsaved-dialog-btn-confirm:hover {
+            background-color: #6947ac;
+            transform: translateY(-2px);
+        }
+        @media (max-width: 576px) {
+            .unsaved-dialog {
+                padding: 24px;
+                width: 95%;
+            }
+            .unsaved-dialog-title {
+                font-size: 24px;
+            }
+            .unsaved-dialog-message {
+                font-size: 16px;
+                margin-bottom: 24px;
+            }
+            .unsaved-dialog-buttons {
+                flex-direction: column;
+                gap: 12px;
+            }
+            .unsaved-dialog-btn {
+                width: 100%;
+            }
+        }
+    `;
+    document.head.appendChild(style);
+}
+
+// Инициализация Quill
+initQuillEditor();
+
+// Обработчик для кнопки загрузки файла
+const uploadFileBtn = document.getElementById('uploadFileBtn');
+if (uploadFileBtn) {
+    uploadFileBtn.addEventListener('click', handleFileSelect);
+}
+
+// Обработчики для редактора теории
+const backBtn = document.getElementById('backToStructureBtn');
+const saveBtn = document.getElementById('saveTheoryBtn');
+
+if (backBtn) backBtn.addEventListener('click', backToCourseStructure);
+if (saveBtn) saveBtn.addEventListener('click', saveTheorySection);
+
+// Предупреждение при закрытии страницы
+window.addEventListener('beforeunload', (e) => {
+    checkUnsavedChanges();
+    if (hasUnsavedChanges) {
+        e.preventDefault();
+        e.returnValue = '';
+    }
+});
+
+// Загрузка файла для теории
+async function uploadTheoryFile(file) {
+    if (!currentEditingTheorySection) {
+        showNotification('Сначала выберите раздел', 'warning');
+        return;
+    }
+    
+    const formData = new FormData();
+    formData.append('file', file);
+    
+    try {
+        const token = getToken();
+        const response = await fetch(`${apiBaseUrl}/sections/${currentEditingTheorySection.id}/upload-file`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${token}`
+            },
+            body: formData
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            // Вставляем извлеченный текст в редактор
+            if (quillEditor) {
+                const currentText = quillEditor.root.innerHTML;
+                quillEditor.root.innerHTML = currentText + (currentText ? '<br><br>' : '') + data.extractedText;
+            }
+            
+            // Отмечаем, что есть изменения
+            checkUnsavedChanges();
+            showNotification('Файл успешно загружен и обработан', 'success');
+        } else {
+            showNotification(data.message || 'Ошибка при загрузке файла', 'error');
+        }
+    } catch (error) {
+        console.error('Ошибка:', error);
+        showNotification('Ошибка при загрузке файла', 'error');
+    }
+}
+
+// Обработчик выбора файла
+function handleFileSelect() {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.pdf,.docx,.txt';
+    input.onchange = (e) => {
+        const file = e.target.files[0];
+        if (file) {
+            uploadTheoryFile(file);
+        }
+    };
+    input.click();
 }
 
 loadCourseData();

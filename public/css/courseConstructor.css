@@ -819,6 +819,221 @@ body {
     margin: 0 auto;
 }
 
+/* Редактор теории */
+/* ========== РЕДАКТОР ТЕОРИИ (ДОПОЛНИТЕЛЬНЫЕ СТИЛИ) ========== */
+.theory-editor-container {
+    background: white;
+    border-radius: 24px;
+    padding: 32px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+    animation: fadeIn 0.3s ease;
+}
+
+.theory-editor-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 32px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+/* Стрелка назад - повернута на 180 градусов */
+.back-arrow-icon {
+    transform: rotate(180deg);
+    width: 20px;
+    height: 20px;
+    transition: transform 0.3s ease;
+}
+
+.back-button-editor {
+    background: none;
+    border: none;
+    color: #7651BE;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 16px;
+    font-family: 'Ysabeau', 'Inter', sans-serif;
+    padding: 8px 8px 8px 0;
+    border-radius: 40px;
+    transition: all 0.3s ease;
+}
+
+
+
+
+
+.save-theory-btn {
+    background: #379B34;
+    color: white;
+    border: none;
+    border-radius: 40px;
+    padding: 10px 32px;
+    cursor: pointer;
+    font-size: 16px;
+    font-weight: 500;
+    font-family: 'Ysabeau', 'Inter', sans-serif;
+    transition: all 0.3s ease;
+}
+
+.save-theory-btn:hover {
+    background: #30842d;
+    transform: translateY(-1px);
+}
+
+.theory-title-editor {
+    margin-bottom: 32px;
+}
+
+.theory-title-editor label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: 500;
+    color: #1D1D1D;
+    font-family: 'Ysabeau', 'Inter', sans-serif;
+    font-size: 14px;
+}
+
+.theory-title-input {
+    width: 100%;
+    padding: 14px 18px;
+    border: 1px solid #e5e7eb;
+    border-radius: 16px;
+    font-size: 16px;
+    font-family: 'Ysabeau', 'Inter', sans-serif;
+    transition: all 0.3s ease;
+    background: #faf9fb;
+}
+
+.theory-title-input:focus {
+    outline: none;
+    border-color: #7651BE;
+    background: white;
+    box-shadow: 0 0 0 3px rgba(118, 81, 190, 0.1);
+}
+
+.theory-content-editor {
+    margin-bottom: 24px;
+}
+
+.theory-content-editor label {
+    display: block;
+    margin-bottom: 12px;
+    font-weight: 500;
+    color: #1D1D1D;
+    font-family: 'Ysabeau', 'Inter', sans-serif;
+    font-size: 14px;
+}
+
+/* Quill редактор стили */
+.quill-editor {
+    background: white;
+    border-radius: 16px;
+    overflow: hidden;
+}
+
+.quill-editor .ql-toolbar {
+    border: 1px solid #e5e7eb;
+    border-bottom: none;
+    border-radius: 16px 16px 0 0;
+    background: #faf9fb;
+}
+
+.quill-editor .ql-container {
+    border: 1px solid #e5e7eb;
+    border-top: none;
+    border-radius: 0 0 16px 16px;
+    min-height: 350px;
+    font-family: 'Ysabeau', 'Inter', sans-serif;
+    font-size: 16px;
+}
+
+.quill-editor .ql-editor {
+    min-height: 350px;
+}
+
+/* Стили для текста в редакторе */
+.ql-editor h1 {
+    font-size: 28px;
+    font-weight: 600;
+    margin: 16px 0;
+}
+
+.ql-editor h2 {
+    font-size: 24px;
+    font-weight: 600;
+    margin: 14px 0;
+}
+
+.ql-editor p {
+    margin: 12px 0;
+    line-height: 1.6;
+}
+
+.ql-editor ul, .ql-editor ol {
+    margin: 12px 0;
+    padding-left: 24px;
+}
+
+.ql-editor li {
+    margin: 6px 0;
+    line-height: 1.5;
+}
+
+.ql-editor strong {
+    font-weight: 600;
+}
+
+.ql-editor em {
+    font-style: italic;
+}
+
+.file-upload-area {
+    margin-top: 20px;
+    padding-top: 20px;
+    border-top: 1px solid #e5e7eb;
+}
+
+.upload-file-btn {
+    background: #f0f0f0;
+    border: 1px dashed #ccc;
+    border-radius: 8px;
+    padding: 10px 20px;
+    cursor: pointer;
+    font-size: 14px;
+    font-family: 'Ysabeau', 'Inter', sans-serif;
+    transition: all 0.3s ease;
+}
+
+.upload-file-btn:hover {
+    background: #e8e8e8;
+    border-color: #7651BE;
+}
+
+.file-info {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: #f5f5f5;
+    padding: 8px 12px;
+    border-radius: 8px;
+    margin-top: 10px;
+}
+
+.clear-file-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 16px;
+    color: #999;
+}
+
+.clear-file-btn:hover {
+    color: #ff4444;
+}
+
 /* ========== ANIMATIONS ========== */
 @keyframes fadeIn {
     from { opacity: 0; }

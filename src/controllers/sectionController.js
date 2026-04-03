@@ -1,5 +1,9 @@
 const db = require('../models');
 const { handleError } = require('../utils/errorHandler');
+const fs = require('fs');
+const path = require('path');
+const pdfParse = require('pdf-parse');
+const mammoth = require('mammoth');
 
 module.exports = {
     getSectionsByBlock: async (req, res) => {
@@ -44,6 +48,81 @@ module.exports = {
             
         } catch (error) {
             handleError(res, error, 'Ошибка при получении разделов');
+        }
+    },
+    
+    getSectionById: async (req, res) => {
+        try {
+            const { sectionId } = req.params;
+            
+            const section = await db.Section.findByPk(sectionId, {
+                include: [
+                    { 
+                        model: db.TheoryContent, 
+                        as: 'theoryContent' 
+                    },
+                    { 
+                        model: db.Exercise, 
+                        as: 'exercise' 
+                    },
+                    { 
+                        model: db.Test, 
+                        as: 'test' 
+                    },
+                    {
+                        model: db.Block,
+                        as: 'block',
+                        include: [
+                            {
+                                model: db.Theme,
+                                as: 'theme',
+                                include: [
+                                    {
+                                        model: db.Course,
+                                        as: 'course'
+                                    }
+                                ]
+                            }
+                        ]
+                    }
+                ]
+            });
+            
+            if (!section) {
+                return res.status(404).json({
+                    success: false,
+                    message: 'Раздел не найден'
+                });
+            }
+            
+            // Проверяем права доступа (только преподаватель-владелец курса)
+            if (section.block.theme.course.teacher_id !== req.user.id) {
+                return res.status(403).json({
+                    success: false,
+                    message: 'Нет доступа к этому разделу'
+                });
+            }
+            
+            // Убираем лишние вложенности для чистоты ответа
+            const responseData = {
+                id: section.id,
+                title: section.title,
+                type: section.type,
+                order_index: section.order_index,
+                block_id: section.block_id,
+                theoryContent: section.theoryContent,
+                exercise: section.exercise,
+                test: section.test
+            };
+            
+            res.json({
+                success: true,
+                section: responseData
+            });
+            
+        } catch (error) {
+            console.error('Ошибка при получении раздела:', error);
+            handleError(res, error, 'Ошибка при получении раздела');
         }
     },
     
@@ -183,15 +262,21 @@ module.exports = {
                 });
             }
             
-            if (title) {
+            // Обновляем название, если оно передано
+            if (title !== undefined) {
                 await section.update({ title }, { transaction });
             }
             
+            // Обновляем содержимое теории ТОЛЬКО если оно передано
             if (section.theoryContent) {
-                await section.theoryContent.update({
-                    text: text !== undefined ? text : section.theoryContent.text,
-                    file_url: file_url !== undefined ? file_url : section.theoryContent.file_url
-                }, { transaction });
+                const updateData = {};
+                if (text !== undefined) updateData.text = text;
+                if (file_url !== undefined) updateData.file_url = file_url;
+                
+                // Обновляем только если есть что обновлять
+                if (Object.keys(updateData).length > 0) {
+                    await section.theoryContent.update(updateData, { transaction });
+                }
             }
             
             await transaction.commit();
@@ -208,6 +293,7 @@ module.exports = {
             
         } catch (error) {
             await transaction.rollback();
+            console.error('Ошибка при обновлении раздела теории:', error);
             handleError(res, error, 'Ошибка при обновлении раздела теории');
         }
     },
@@ -458,6 +544,113 @@ module.exports = {
         } catch (error) {
             await transaction.rollback();
             handleError(res, error, 'Ошибка при изменении порядка разделов');
+        }
+    },
+
+    // ===== ЗАГРУЗКА ФАЙЛА ДЛЯ ТЕОРИИ =====
+    uploadTheoryFile: async (req, res) => {
+        try {
+            if (!req.file) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Файл не загружен'
+                });
+            }
+            
+            const filePath = req.file.path;
+            const fileExt = path.extname(req.file.originalname).toLowerCase();
+            let extractedText = '';
+            
+            console.log('Обработка файла:', req.file.originalname, 'Расширение:', fileExt);
+            
+            // Извлекаем текст в зависимости от типа файла
+            if (fileExt === '.txt') {
+                extractedText = fs.readFileSync(filePath, 'utf8');
+            } 
+            else if (fileExt === '.pdf') {
+                try {
+                    const dataBuffer = fs.readFileSync(filePath);
+                    const pdfData = await pdfParse(dataBuffer);
+                    extractedText = pdfData.text;
+                    console.log('PDF обработан, длина текста:', extractedText.length);
+                } catch (pdfError) {
+                    console.error('Ошибка парсинга PDF:', pdfError);
+                    extractedText = 'Не удалось извлечь текст из PDF файла. Пожалуйста, скопируйте текст вручную.';
+                }
+            } 
+            else if (fileExt === '.docx') {
+                try {
+                    const result = await mammoth.extractRawText({ path: filePath });
+                    extractedText = result.value;
+                    console.log('DOCX обработан, длина текста:', extractedText.length);
+                } catch (docxError) {
+                    console.error('Ошибка парсинга DOCX:', docxError);
+                    extractedText = 'Не удалось извлечь текст из DOCX файла. Пожалуйста, скопируйте текст вручную.';
+                }
+            }
+            
+            // Удаляем временный файл
+            try {
+                fs.unlinkSync(filePath);
+            } catch(e) {
+                console.log('Ошибка удаления файла:', e);
+            }
+            
+            // Очищаем текст от лишних символов
+            extractedText = extractedText
+                .replace(/\r\n/g, '\n')
+                .replace(/\r/g, '\n')
+                .trim();
+            
+            // Преобразуем текст в HTML с сохранением структуры
+            let htmlText = '';
+            
+            if (extractedText) {
+                // Разбиваем на параграфы по пустым строкам
+                const paragraphs = extractedText.split(/\n\s*\n/);
+                
+                htmlText = paragraphs.map(para => {
+                    // Обрабатываем строки внутри параграфа
+                    const lines = para.split('\n').filter(line => line.trim());
+                    
+                    // Проверяем, является ли параграф списком
+                    const isList = lines.some(line => line.trim().match(/^[•\-*]\s/));
+                    
+                    if (isList) {
+                        const listItems = lines.map(line => {
+                            const cleanLine = line.replace(/^[•\-*]\s*/, '');
+                            return `<li>${cleanLine}</li>`;
+                        }).join('');
+                        return `<ul>${listItems}</ul>`;
+                    } else {
+                        // Обычный параграф
+                        const paraText = lines.join('<br>');
+                        return `<p>${paraText}</p>`;
+                    }
+                }).join('');
+            } else {
+                htmlText = '<p>Текст не извлечен</p>';
+            }
+            
+            res.json({
+                success: true,
+                message: 'Файл успешно обработан',
+                extractedText: htmlText,
+                fileName: req.file.originalname
+            });
+            
+        } catch (error) {
+            console.error('Ошибка при обработке файла:', error);
+            
+            // Удаляем файл в случае ошибки
+            if (req.file && req.file.path) {
+                try { fs.unlinkSync(req.file.path); } catch(e) {}
+            }
+            
+            res.status(500).json({
+                success: false,
+                message: 'Ошибка при обработке файла: ' + error.message
+            });
         }
     }
 };
