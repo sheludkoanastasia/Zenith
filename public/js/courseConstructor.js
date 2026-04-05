@@ -59,6 +59,46 @@ function getToken() {
     return localStorage.getItem('token');
 }
 
+// Сброс всех данных упражнения
+function resetExerciseData() {
+    // Сброс matching данных
+    matchingItems = [];
+    matchingTargets = [];
+    matchingPairs = [];
+    nextItemId = 1;
+    nextTargetId = 1;
+    
+    // Сброс choice данных
+    choiceStatements = [];
+    nextStatementId = 1;
+    nextAnswerId = 1;
+    
+    // Сброс флагов
+    hasExerciseUnsavedChanges = false;
+    originalExerciseState = null;
+    currentExerciseType = 'matching';
+    
+    // Обновляем UI
+    updateSelectedExerciseType('matching');
+    
+    // Очищаем тексты задач
+    const matchingTaskText = document.getElementById('matchingTaskText');
+    if (matchingTaskText) {
+        matchingTaskText.textContent = 'сопоставьте каждый элемент с его сопоставлением.';
+    }
+    
+    const choiceTaskText = document.getElementById('choiceTaskText');
+    if (choiceTaskText) {
+        choiceTaskText.textContent = 'Сопоставьте каждое утверждение с правильным ответом (правильных ответов может быть несколько).';
+    }
+    
+    // Перерендериваем пустые контейнеры
+    renderMatchingItems();
+    renderMatchingTargets();
+    renderMatchingTable();
+    renderChoiceStatements();
+}
+
 // Проверка наличия несохраненных изменений в теории
 function checkUnsavedChanges() {
     if (!quillEditor || !currentEditingTheorySection) return false;
@@ -114,6 +154,50 @@ function checkExerciseUnsavedChanges() {
     }
     
     return false;
+}
+
+// Подсветка поля с ошибкой для choice
+function highlightChoiceError(targetId) {
+    const element = document.getElementById(targetId);
+    if (element) {
+        element.classList.add('error-highlight');
+    } else {
+        if (targetId.startsWith('statement_')) {
+            const statementId = targetId.replace('statement_', '');
+            const statementCard = document.querySelector(`.statement-card[data-statement-id="${statementId}"]`);
+            if (statementCard) {
+                const input = statementCard.querySelector('.statement-input');
+                if (input) input.classList.add('error-highlight');
+            }
+        } else if (targetId.startsWith('answer_')) {
+            const answerId = targetId.replace('answer_', '');
+            const answerRow = document.querySelector(`.answer-row[data-answer-id="${answerId}"]`);
+            if (answerRow) {
+                const input = answerRow.querySelector('.answer-input');
+                if (input) input.classList.add('error-highlight');
+            }
+        } else if (targetId.startsWith('answers_section_')) {
+            const statementId = targetId.replace('answers_section_', '');
+            const statementCard = document.querySelector(`.statement-card[data-statement-id="${statementId}"]`);
+            if (statementCard) {
+                const answersSection = statementCard.querySelector('.answers-section');
+                if (answersSection) answersSection.classList.add('error-highlight');
+            }
+        }
+    }
+}
+
+// Очистка всех подсветок ошибок
+function clearAllChoiceErrors() {
+    document.querySelectorAll('.statement-input.error-highlight').forEach(el => {
+        el.classList.remove('error-highlight');
+    });
+    document.querySelectorAll('.answer-input.error-highlight').forEach(el => {
+        el.classList.remove('error-highlight');
+    });
+    document.querySelectorAll('.answers-section.error-highlight').forEach(el => {
+        el.classList.remove('error-highlight');
+    });
 }
 
 function showNotification(message, type = 'success') {
@@ -802,6 +886,7 @@ async function createSection(type) {
             break;
         case 'exercise':
             defaultTitle = 'Новое упражнение';
+            resetExerciseData();
             break;
         case 'test':
             defaultTitle = 'Новый итоговый тест';
@@ -1619,8 +1704,88 @@ function addUnsavedDialogStyles() {
 
 // ===== ФУНКЦИИ ДЛЯ РЕДАКТОРА УПРАЖНЕНИЙ =====
 
+// Переключение типа упражнения с проверкой на потерю данных
+function switchExerciseType(newType) {
+    // Проверяем, есть ли данные в текущем типе
+    let hasDataInCurrentType = false;
+    
+    if (currentExerciseType === 'matching') {
+        hasDataInCurrentType = matchingItems.length > 0 || matchingTargets.length > 0 || matchingPairs.length > 0;
+        if (hasExerciseUnsavedChanges) hasDataInCurrentType = true;
+    } else if (currentExerciseType === 'choice') {
+        hasDataInCurrentType = choiceStatements.length > 0 && choiceStatements.some(s => s.text.trim() !== '' || s.answers.some(a => a.text.trim() !== ''));
+        if (hasExerciseUnsavedChanges) hasDataInCurrentType = true;
+    }
+    
+    if (hasDataInCurrentType && currentEditingExerciseSection) {
+        showConfirmDialog(
+            'Смена типа упражнения',
+            'При переключении типа упражнения все данные текущего типа будут потеряны. Вы уверены, что хотите продолжить?',
+            () => {
+                // Очищаем данные текущего типа
+                if (currentExerciseType === 'matching') {
+                    matchingItems = [];
+                    matchingTargets = [];
+                    matchingPairs = [];
+                    renderMatchingItems();
+                    renderMatchingTargets();
+                    renderMatchingTable();
+                } else if (currentExerciseType === 'choice') {
+                    choiceStatements = [];
+                    renderChoiceStatements();
+                }
+                
+                // Обновляем тип
+                updateSelectedExerciseType(newType);
+                
+                // Сбрасываем флаг несохраненных изменений
+                hasExerciseUnsavedChanges = false;
+                
+                // Обновляем originalExerciseState
+                if (newType === 'matching') {
+                    originalExerciseState = {
+                        type: 'matching',
+                        items: [],
+                        targets: [],
+                        pairs: [],
+                        taskText: document.getElementById('matchingTaskText')?.textContent || ''
+                    };
+                } else if (newType === 'choice') {
+                    originalExerciseState = {
+                        type: 'choice',
+                        statements: [],
+                        taskText: document.getElementById('choiceTaskText')?.textContent || ''
+                    };
+                    choiceStatements = [{
+                        id: nextStatementId++,
+                        text: '',
+                        answers: [{ id: nextAnswerId++, text: '', isCorrect: false }]
+                    }];
+                    renderChoiceStatements();
+                }
+                
+                showNotification(`Тип упражнения изменен на "${newType === 'matching' ? 'Сопоставление' : 'Выбор правильного'}"`, 'info');
+            }
+        );
+    } else {
+        // Нет данных - просто переключаем
+        updateSelectedExerciseType(newType);
+        
+        if (newType === 'choice' && choiceStatements.length === 0) {
+            choiceStatements = [{
+                id: nextStatementId++,
+                text: '',
+                answers: [{ id: nextAnswerId++, text: '', isCorrect: false }]
+            }];
+            renderChoiceStatements();
+        }
+    }
+}
+
 // Загрузка раздела упражнения
 async function loadExerciseSection(sectionId) {
+    resetExerciseData();
+    
     try {
         const token = getToken();
         const response = await fetch(`${apiBaseUrl}/sections/${sectionId}`, {
@@ -1682,7 +1847,7 @@ async function loadExerciseSection(sectionId) {
                 
                 const taskText = document.getElementById('matchingTaskText');
                 if (taskText) {
-                    taskText.textContent = exerciseData.question_text || 'сопоставьте каждый элемент с его сопоставлением.';
+                    taskText.textContent = exerciseData.question_text || 'Сопоставьте каждый элемент с его сопоставлением.';
                 }
                 
                 renderMatchingItems();
@@ -1699,11 +1864,6 @@ async function loadExerciseSection(sectionId) {
                 } else {
                     nextStatementId = 1;
                     nextAnswerId = 1;
-                    choiceStatements = [{
-                        id: nextStatementId++,
-                        text: '',
-                        answers: [{ id: nextAnswerId++, text: '', isCorrect: false }]
-                    }];
                 }
                 
                 const taskText = document.getElementById('choiceTaskText');
@@ -1712,9 +1872,6 @@ async function loadExerciseSection(sectionId) {
                 }
                 
                 renderChoiceStatements();
-            }
-            else if (currentExerciseType === 'fill_blanks') {
-                // TODO: реализовать позже
             }
             
             // Сохраняем исходное состояние
@@ -1765,7 +1922,7 @@ async function saveExerciseSection() {
     let taskText = '';
     
     if (currentExerciseType === 'matching') {
-        taskText = document.getElementById('matchingTaskText')?.textContent || 'сопоставьте каждый элемент с его сопоставлением.';
+        taskText = document.getElementById('matchingTaskText')?.textContent || 'Сопоставьте каждый элемент с его сопоставлением.';
         
         if (matchingTargets.length === 0) {
             showNotification('Добавьте хотя бы один элемент сопоставления', 'warning');
@@ -1792,75 +1949,65 @@ async function saveExerciseSection() {
         };
     }
     else if (currentExerciseType === 'choice') {
-            taskText = document.getElementById('choiceTaskText')?.textContent || 'Сопоставьте каждое утверждение с правильным ответом (правильных ответов может быть несколько).';
-            
-            if (choiceStatements.length === 0) {
-                showNotification('Добавьте хотя бы одно утверждение', 'warning');
-                return;
-            }
-            
-            // Сначала убираем все старые подсветки
-            clearAllChoiceErrors();
-            
-            // Валидация каждого утверждения
-            let hasError = false;
-            let errorMessage = '';
-            let errorFields = []; // для хранения полей с ошибками
-            
-            for (let i = 0; i < choiceStatements.length; i++) {
-                const statement = choiceStatements[i];
-                const statementNumber = i + 1;
-                
-                // Проверка на пустое утверждение
-                if (!statement.text.trim()) {
-                    errorMessage = `Утверждение ${statementNumber} не заполнено`;
-                    hasError = true;
-                    // Подсвечиваем поле утверждения
-                    highlightChoiceError(`statement_${statement.id}`);
-                    break;
-                }
-                
-                // Проверка на пустые ответы
-                for (let j = 0; j < statement.answers.length; j++) {
-                    const answer = statement.answers[j];
-                    if (!answer.text.trim()) {
-                        const answerLetter = String.fromCharCode(65 + j);
-                        errorMessage = `У утверждения ${statementNumber} ответ ${answerLetter} не заполнен`;
-                        hasError = true;
-                        // Подсвечиваем поле ответа
-                        highlightChoiceError(`answer_${answer.id}`);
-                        break;
-                    }
-                }
-                if (hasError) break;
-                
-                // Проверка, что выбран хотя бы один правильный ответ
-                const hasCorrectAnswer = statement.answers.some(a => a.isCorrect === true);
-                if (!hasCorrectAnswer) {
-                    errorMessage = `У утверждения ${statementNumber} не выбран правильный ответ`;
-                    hasError = true;
-                    // Подсвечиваем блок ответов
-                    highlightChoiceError(`answers_section_${statement.id}`);
-                    break;
-                }
-            }
-            
-            if (hasError) {
-                showNotification(errorMessage, 'warning');
-                // Убираем подсветку через 3 секунды
-                setTimeout(() => {
-                    clearAllChoiceErrors();
-                }, 3000);
-                return;
-            }
-            
-            exerciseData = {
-                title: currentEditingExerciseSection.title,
-                exercise_type: 'choice',
-                question_text: taskText,
-                options: choiceStatements
-            };
+        taskText = document.getElementById('choiceTaskText')?.textContent || 'Сопоставьте каждое утверждение с правильным ответом (правильных ответов может быть несколько).';
+        
+        if (choiceStatements.length === 0) {
+            showNotification('Добавьте хотя бы одно утверждение', 'warning');
+            return;
         }
+        
+        clearAllChoiceErrors();
+        
+        let hasError = false;
+        let errorMessage = '';
+        
+        for (let i = 0; i < choiceStatements.length; i++) {
+            const statement = choiceStatements[i];
+            const statementNumber = i + 1;
+            
+            if (!statement.text.trim()) {
+                errorMessage = `Утверждение ${statementNumber} не заполнено`;
+                hasError = true;
+                highlightChoiceError(`statement_${statement.id}`);
+                break;
+            }
+            
+            for (let j = 0; j < statement.answers.length; j++) {
+                const answer = statement.answers[j];
+                if (!answer.text.trim()) {
+                    const answerLetter = String.fromCharCode(65 + j);
+                    errorMessage = `У утверждения ${statementNumber} ответ ${answerLetter} не заполнен`;
+                    hasError = true;
+                    highlightChoiceError(`answer_${answer.id}`);
+                    break;
+                }
+            }
+            if (hasError) break;
+            
+            const hasCorrectAnswer = statement.answers.some(a => a.isCorrect === true);
+            if (!hasCorrectAnswer) {
+                errorMessage = `У утверждения ${statementNumber} не выбран правильный ответ`;
+                hasError = true;
+                highlightChoiceError(`answers_section_${statement.id}`);
+                break;
+            }
+        }
+        
+        if (hasError) {
+            showNotification(errorMessage, 'warning');
+            setTimeout(() => {
+                clearAllChoiceErrors();
+            }, 3000);
+            return;
+        }
+        
+        exerciseData = {
+            title: currentEditingExerciseSection.title,
+            exercise_type: 'choice',
+            question_text: taskText,
+            options: choiceStatements
+        };
+    }
     else if (currentExerciseType === 'fill_blanks') {
         showNotification('Редактор "Дополнение" будет реализован позже', 'info');
         return;
@@ -1988,15 +2135,6 @@ function updateSelectedExerciseType(type) {
     if (matchingContainer) matchingContainer.style.display = type === 'matching' ? 'block' : 'none';
     if (choiceContainer) choiceContainer.style.display = type === 'choice' ? 'block' : 'none';
     if (fillBlanksContainer) fillBlanksContainer.style.display = type === 'fill_blanks' ? 'block' : 'none';
-    
-    if (type === 'choice' && choiceStatements.length === 0) {
-        choiceStatements = [{
-            id: nextStatementId++,
-            text: '',
-            answers: [{ id: nextAnswerId++, text: '', isCorrect: false }]
-        }];
-        renderChoiceStatements();
-    }
     
     currentExerciseType = type;
 }
@@ -2244,39 +2382,28 @@ function renderChoiceStatements() {
     }
     
     statementsList.innerHTML = choiceStatements.map((statement, stmtIdx) => {
-        // Проверка на пустое утверждение
-        const statementErrorClass = !statement.text.trim() ? 'error' : '';
-        
-        // Проверка, что выбран хотя бы один правильный ответ
-        const hasCorrectAnswer = statement.answers.some(a => a.isCorrect === true);
-        const answersErrorClass = !hasCorrectAnswer && statement.answers.length > 0 ? 'error-border' : '';
-        
         return `
             <div class="statement-card" data-statement-id="${statement.id}">
                 <div class="statement-header">
                     <div class="statement-number">${stmtIdx + 1}.</div>
-                    <input type="text" class="statement-input ${statementErrorClass}" value="${escapeHtml(statement.text)}" placeholder="Введите утверждение">
+                    <input type="text" class="statement-input" value="${escapeHtml(statement.text)}" placeholder="Введите утверждение">
                     <button class="delete-statement-btn" onclick="deleteChoiceStatement('${statement.id}')">
                         <img src="/images/taskCreationPage/delete.svg" alt="Удалить" class="delete-statement-icon">
                     </button>
                 </div>
-                <div class="answers-section ${answersErrorClass}">
+                <div class="answers-section">
                     <div class="answers-header">Ответы (правильных может быть несколько):</div>
                     <div class="answers-list">
-                        ${statement.answers.map((answer, ansIdx) => {
-                            // Проверка на пустой ответ
-                            const answerErrorClass = !answer.text.trim() ? 'error' : '';
-                            return `
-                                <div class="answer-row" data-answer-id="${answer.id}">
-                                    <div class="radio-btn ${answer.isCorrect ? 'selected' : ''}" data-correct="${answer.isCorrect}" onclick="toggleCorrectAnswer('${statement.id}', '${answer.id}')"></div>
-                                    <div class="answer-number">${String.fromCharCode(65 + ansIdx)}.</div>
-                                    <input type="text" class="answer-input ${answerErrorClass}" value="${escapeHtml(answer.text)}" placeholder="Введите ответ">
-                                    <button class="delete-answer-btn" onclick="deleteChoiceAnswer('${statement.id}', '${answer.id}')">
-                                        <img src="/images/taskCreationPage/delete.svg" alt="Удалить" class="delete-answer-icon">
-                                    </button>
-                                </div>
-                            `;
-                        }).join('')}
+                        ${statement.answers.map((answer, ansIdx) => `
+                            <div class="answer-row" data-answer-id="${answer.id}">
+                                <div class="radio-btn ${answer.isCorrect ? 'selected' : ''}" data-correct="${answer.isCorrect}" onclick="toggleCorrectAnswer('${statement.id}', '${answer.id}')"></div>
+                                <div class="answer-number">${String.fromCharCode(65 + ansIdx)}.</div>
+                                <input type="text" class="answer-input" value="${escapeHtml(answer.text)}" placeholder="Введите ответ">
+                                <button class="delete-answer-btn" onclick="deleteChoiceAnswer('${statement.id}', '${answer.id}')">
+                                    <img src="/images/taskCreationPage/delete.svg" alt="Удалить" class="delete-answer-icon">
+                                </button>
+                            </div>
+                        `).join('')}
                     </div>
                     <button class="add-answer-btn" onclick="addChoiceAnswer('${statement.id}')">
                         <img src="/images/taskCreationPage/plus.svg" alt="+" class="plus-icon"> Добавить ответ
@@ -2286,45 +2413,25 @@ function renderChoiceStatements() {
         `;
     }).join('');
     
-    // Обработчики для полей утверждений
     document.querySelectorAll('.statement-input').forEach((input, idx) => {
-        // Удаляем класс error при вводе
         input.addEventListener('input', (e) => {
-            input.classList.remove('error');
+            input.classList.remove('error-highlight');
         });
         
         input.addEventListener('change', (e) => {
             choiceStatements[idx].text = e.target.value;
-            // Проверяем и обновляем класс error
-            if (!choiceStatements[idx].text.trim()) {
-                input.classList.add('error');
-            } else {
-                input.classList.remove('error');
-            }
-            // Обновляем подсветку блока ответов
-            const statementCard = input.closest('.statement-card');
-            const answersSection = statementCard.querySelector('.answers-section');
-            const statement = choiceStatements[idx];
-            const hasCorrectAnswer = statement.answers.some(a => a.isCorrect === true);
-            if (!hasCorrectAnswer && statement.answers.length > 0) {
-                answersSection.classList.add('error-border');
-            } else {
-                answersSection.classList.remove('error-border');
-            }
             checkExerciseUnsavedChanges();
         });
     });
     
-    // Обработчики для полей ответов
     document.querySelectorAll('.answer-input').forEach((input) => {
         const answerRow = input.closest('.answer-row');
         const statementCard = input.closest('.statement-card');
         const statementId = statementCard.dataset.statementId;
         const answerId = answerRow.dataset.answerId;
         
-        // Удаляем класс error при вводе
         input.addEventListener('input', (e) => {
-            input.classList.remove('error');
+            input.classList.remove('error-highlight');
         });
         
         input.addEventListener('change', (e) => {
@@ -2332,12 +2439,6 @@ function renderChoiceStatements() {
             const answer = statement?.answers.find(a => a.id == answerId);
             if (answer) {
                 answer.text = e.target.value;
-                // Проверяем и обновляем класс error
-                if (!answer.text.trim()) {
-                    input.classList.add('error');
-                } else {
-                    input.classList.remove('error');
-                }
                 checkExerciseUnsavedChanges();
             }
         });
@@ -2461,56 +2562,6 @@ function handleFileSelect() {
     input.click();
 }
 
-// Подсветка поля с ошибкой
-function highlightChoiceError(targetId) {
-    const element = document.getElementById(targetId);
-    if (element) {
-        element.classList.add('error-highlight');
-    } else {
-        // Если элемент не найден по ID, ищем по data-атрибуту или классу
-        if (targetId.startsWith('statement_')) {
-            const statementId = targetId.replace('statement_', '');
-            const statementCard = document.querySelector(`.statement-card[data-statement-id="${statementId}"]`);
-            if (statementCard) {
-                const input = statementCard.querySelector('.statement-input');
-                if (input) input.classList.add('error-highlight');
-            }
-        } else if (targetId.startsWith('answer_')) {
-            const answerId = targetId.replace('answer_', '');
-            const answerRow = document.querySelector(`.answer-row[data-answer-id="${answerId}"]`);
-            if (answerRow) {
-                const input = answerRow.querySelector('.answer-input');
-                if (input) input.classList.add('error-highlight');
-            }
-        } else if (targetId.startsWith('answers_section_')) {
-            const statementId = targetId.replace('answers_section_', '');
-            const statementCard = document.querySelector(`.statement-card[data-statement-id="${statementId}"]`);
-            if (statementCard) {
-                const answersSection = statementCard.querySelector('.answers-section');
-                if (answersSection) answersSection.classList.add('error-highlight');
-            }
-        }
-    }
-}
-
-// Очистка всех подсветок ошибок
-function clearAllChoiceErrors() {
-    // Убираем класс error-highlight со всех полей утверждений
-    document.querySelectorAll('.statement-input.error-highlight').forEach(el => {
-        el.classList.remove('error-highlight');
-    });
-    
-    // Убираем класс error-highlight со всех полей ответов
-    document.querySelectorAll('.answer-input.error-highlight').forEach(el => {
-        el.classList.remove('error-highlight');
-    });
-    
-    // Убираем класс error-highlight со всех блоков ответов
-    document.querySelectorAll('.answers-section.error-highlight').forEach(el => {
-        el.classList.remove('error-highlight');
-    });
-}
-
 // Инициализация Quill
 initQuillEditor();
 
@@ -2572,12 +2623,18 @@ document.addEventListener('click', () => {
 document.querySelectorAll('.type-option').forEach(option => {
     option.addEventListener('click', (e) => {
         e.stopPropagation();
-        const type = option.dataset.type;
-        currentExerciseType = type;
-        updateSelectedExerciseType(type);
+        const newType = option.dataset.type;
+        
+        if (newType === currentExerciseType) {
+            if (typeDropdownMenu) typeDropdownMenu.style.display = 'none';
+            if (typeDropdownBtn) typeDropdownBtn.classList.remove('active');
+            return;
+        }
+        
+        switchExerciseType(newType);
+        
         if (typeDropdownMenu) typeDropdownMenu.style.display = 'none';
         if (typeDropdownBtn) typeDropdownBtn.classList.remove('active');
-        showNotification(`Выбран тип: ${option.textContent}`, 'info');
     });
 });
 
