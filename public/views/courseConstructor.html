@@ -7,7 +7,7 @@
     <link rel="stylesheet" href="/public/css/courseConstructor.css">
     <link href="https://fonts.googleapis.com/css2?family=Ysabeau:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     
-    <!-- Quill CSS - ДОБАВЛЕНО -->
+    <!-- Quill CSS -->
     <link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
     
     <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
@@ -40,7 +40,7 @@
 
         <!-- Основная область контента -->
         <main class="content-area">
-            <!-- Декоративное изображение внизу - перенесли в начало content-area как фон -->
+            <!-- Декоративное изображение внизу -->
             <div class="gradient-decoration">
                 <img src="/images/taskCreationPage/backgroundConstructor.png" alt="background">
             </div>
@@ -72,7 +72,7 @@
                             <span>+</span> Создать раздел
                         </button>
                         
-                        <!-- Меню выбора типа раздела (появляется под кнопкой) -->
+                        <!-- Меню выбора типа раздела -->
                         <div class="create-menu" id="createMenu" style="display: none;">
                             <div class="create-menu-header">
                                 <h3>Выберите тип раздела</h3>
@@ -95,7 +95,7 @@
                     </div>
                 </div>
 
-                <!-- ===== ДОБАВЛЕНО: Контейнер для редактора теории ===== -->
+                <!-- ===== РЕДАКТОР ТЕОРИИ ===== -->
                 <div class="theory-editor-container" id="theoryEditorContainer" style="display: none;">
                     <div class="theory-editor-header">
                         <button class="back-button-editor" id="backToStructureBtn">
@@ -106,7 +106,8 @@
                     </div>
                     
                     <div class="theory-content-editor">
-                        <label>Теоретический материал</label>
+                        <h2 id="currentTheoryTitle" class="current-theory-title">Загрузка...</h2>
+                        <label class="theory-material-label">Теоретический материал</label>
                         <div id="quillEditor" class="quill-editor"></div>
                         <div class="file-upload-area">
                             <button id="uploadFileBtn" class="upload-file-btn">
@@ -115,8 +116,104 @@
                         </div>
                     </div>
                 </div>
-                <!-- ===== КОНЕЦ ДОБАВЛЕННОГО ===== -->
 
+                <!-- ===== РЕДАКТОР УПРАЖНЕНИЙ ===== -->
+                <div class="exercise-editor-container" id="exerciseEditorContainer" style="display: none;">
+                    <div class="exercise-editor-header">
+                        <button class="back-button-editor" id="backToStructureFromExerciseBtn">
+                            <img src="/images/taskCreationPage/rightArrow.svg" alt="Назад" class="back-arrow-icon">
+                            Вернуться к разделам
+                        </button>
+                        <button class="save-exercise-btn" id="saveExerciseBtn">Сохранить</button>
+                    </div>
+                    
+                    <!-- Заголовок и выбор типа в одной строке -->
+                    <div class="exercise-title-row">
+                        <h2 id="currentExerciseTitle" class="current-exercise-title">Загрузка...</h2>
+                        <div class="exercise-type-selector">
+                            <div class="type-dropdown" id="exerciseTypeDropdown">
+                                <button class="type-dropdown-btn" id="selectedTypeBtn">
+                                    Сопоставление
+                                    <img src="/images/taskCreationPage/chevronDown.svg" alt="toggle" class="dropdown-chevron">
+                                </button>
+                                <div class="type-dropdown-menu" id="typeDropdownMenu" style="display: none;">
+                                    <button class="type-option" data-type="matching">Сопоставление</button>
+                                    <button class="type-option" data-type="choice">Выбор правильного</button>
+                                    <button class="type-option" data-type="fill_blanks">Дополнение</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Контейнер для Matching Exercise (Сопоставление) -->
+                    <div id="matchingExerciseContainer" class="matching-exercise-container">
+                        <div class="task-description">
+                            <label>Задача:</label>
+                            <div class="task-text" id="matchingTaskText">Сопоставьте каждый элемент с его сопоставлением.</div>
+                        </div>
+                        
+                        <div class="two-columns">
+                            <!-- Левая колонка: Элементы -->
+                            <div class="left-column">
+                                <div class="column-header">
+                                    <span>Элементы (макс. 17)</span>
+                                </div>
+                                <div id="itemsList" class="items-list">
+                                    <!-- Динамические поля ввода -->
+                                </div>
+                                <button class="add-item-btn" id="addItemBtn">+ Добавить элемент</button>
+                                <div class="items-counter" id="itemsCounter">0/17 элементов</div>
+                            </div>
+                            
+                            <!-- Правая колонка: Элементы сопоставления -->
+                            <div class="right-column">
+                                <div class="column-header">
+                                    <span>Элементы сопоставления (макс. 15)</span>
+                                </div>
+                                <div id="targetsList" class="targets-list">
+                                    <!-- Динамические поля ввода -->
+                                </div>
+                                <button class="add-target-btn" id="addTargetBtn">+ Добавить элемент сопоставления</button>
+                                <div class="targets-counter" id="targetsCounter">0/15 элементов</div>
+                            </div>
+                        </div>
+                        
+                        <!-- Таблица сопоставления -->
+                        <div class="matching-table-section">
+                            <div class="table-label">Таблица сопоставления</div>
+                            <div class="matching-table">
+                                <div class="table-header">
+                                    <div class="table-header-cell">Элемент</div>
+                                    <div class="table-header-cell">Сопоставление</div>
+                                </div>
+                                <div id="matchingRows" class="matching-rows">
+                                    <!-- Строки сопоставления будут здесь -->
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div id="choiceExerciseContainer" class="choice-exercise-container" style="display: none;">
+                        <div class="task-description">
+                            <label>Задача:</label>
+                            <div class="task-text" id="choiceTaskText">Сопоставьте каждое утверждение с правильным ответом (правильных ответов может быть несколько).</div>
+                        </div>
+                        
+                        <!-- Утверждения -->
+                        <div class="statements-section">
+                            <div class="section-header">
+                                <span>Утверждения</span>
+                            </div>
+                            <div id="statementsList" class="statements-list">
+                                <!-- Динамические утверждения -->
+                            </div>
+                            <button class="add-statement-btn" id="addStatementBtn">+ Добавить утверждение</button>
+                        </div>
+                    </div>
+                    <div id="fillBlanksExerciseContainer" style="display: none;">
+                        <p style="text-align: center; padding: 40px; color: #9ca3af;">Редактор "Дополнение" будет реализован позже</p>
+                    </div>
+                </div>
             </div>
         </main>
     </div>
@@ -141,7 +238,7 @@
         </div>
     </div>
 
-    <!-- Quill JS - ДОБАВЛЕНО -->
+    <!-- Quill JS -->
     <script src="https://cdn.quilljs.com/1.3.6/quill.js"></script>
     <script src="/public/js/courseConstructor.js"></script>
 </body>
