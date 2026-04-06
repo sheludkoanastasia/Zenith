@@ -1011,15 +1011,6 @@ body {
 }
 
 /* ========== РЕДАКТОР УПРАЖНЕНИЙ ========== */
-.content-wrapper {
-    position: relative;
-    z-index: 2;
-    padding: 32px 48px 350px 48px;
-    min-height: 100%;
-    display: flex;
-    flex-direction: column;
-}
-
 .exercise-editor-container {
     background: white;
     border-radius: 24px;
@@ -1166,21 +1157,30 @@ body {
 
 .task-description {
     margin-bottom: 32px;
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    flex-wrap: wrap;
 }
 
 .task-description label {
     display: block;
-    margin-bottom: 8px;
+    margin-bottom: 0;
     font-weight: 500;
     color: #1D1D1D;
     font-size: 16px;
+    flex-shrink: 0;
 }
 
 .task-text {
     color: #1D1D1D;
     font-size: 16px;
     line-height: 1.5;
-    padding: 8px 0;
+    padding: 0;
+    white-space: nowrap;
+    overflow-x: auto;
+    flex: 1;
+    font-weight: 500;
 }
 
 .two-columns {
@@ -1226,6 +1226,19 @@ body {
     border-radius: 8px;
     font-size: 14px;
     font-family: 'Ysabeau', 'Inter', sans-serif;
+    font-weight: 400;
+    color: #1D1D1D;
+    transition: all 0.3s ease;
+    background: white;
+}
+
+.item-input:focus, .target-input:focus {
+    outline: none;
+    border-color: #379B34;
+}
+
+.item-input:hover, .target-input:hover {
+    border-color: #379B34;
 }
 
 .delete-item-btn, .delete-target-btn {
@@ -1323,6 +1336,8 @@ body {
 .matching-cell {
     flex: 1;
     padding: 12px 16px;
+    position: relative;
+    overflow: visible !important;
 }
 
 /* Кастомный select для таблицы сопоставления */
@@ -1416,14 +1431,6 @@ body {
     font-weight: 600;
 }
 
-/* Убедимся, что ячейка таблицы не обрезает выпадающий список */
-.matching-cell {
-    flex: 1;
-    padding: 12px 16px;
-    position: relative;
-    overflow: visible !important;
-}
-
 .matching-row {
     display: flex;
     border-bottom: 1px solid #e5e7eb;
@@ -1447,29 +1454,6 @@ body {
     border-top: 1px solid #e5e7eb;
     padding-top: 24px;
     overflow: visible !important;
-}
-
-/* Стили для полей ввода элементов */
-.item-input, .target-input {
-    flex: 1;
-    padding: 10px 12px;
-    border: 1px solid #e5e7eb;
-    border-radius: 8px;
-    font-size: 14px;
-    font-family: 'Ysabeau', 'Inter', sans-serif;
-    font-weight: 400;
-    color: #1D1D1D;
-    transition: all 0.3s ease;
-    background: white;
-}
-
-.item-input:focus, .target-input:focus {
-    outline: none;
-    border-color: #379B34;
-}
-
-.item-input:hover, .target-input:hover {
-    border-color: #379B34;
 }
 
 /* ========== ВЫБОР ПРАВИЛЬНОГО ========== */
@@ -1581,8 +1565,8 @@ body {
 }
 
 .radio-btn {
-    width: 18px;
-    height: 18px;
+    width: 20px;
+    height: 20px;
     border-radius: 50%;
     border: 2px solid #cbd5e1;
     background: white;
@@ -1668,7 +1652,7 @@ body {
 
 .add-answer-btn:hover {
     border-color: #7651BE;
-    background: rgba(118, 81, 190, 0.05);
+    background: rgba(118, numara, 190, 0.05);
     color: #7651BE;
 }
 
@@ -1697,30 +1681,6 @@ body {
     background: rgba(118, 81, 190, 0.05);
 }
 
-.radio-btn {
-    width: 20px;
-    height: 20px;
-    border-radius: 50%;
-    border: 2px solid #cbd5e1;
-    background: white;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: all 0.2s ease;
-    flex-shrink: 0;
-}
-
-.radio-btn.selected {
-    border-color: #379B34;
-    background: #379B34;
-    box-shadow: inset 0 0 0 3px white;
-}
-
-.radio-btn:hover {
-    border-color: #379B34;
-}
-
 /* Временная подсветка ошибок (исчезает через 3 секунды) */
 .statement-input.error-highlight,
 .answer-input.error-highlight {
@@ -1736,10 +1696,529 @@ body {
     animation: errorShake 0.3s ease;
 }
 
+/* ========== ДОПОЛНЕНИЕ (FILL BLANKS) ========== */
+.fillblanks-exercise-container {
+    margin-top: 24px;
+}
+
+/* Слова для справки */
+.words-section {
+    margin-top: 24px;
+    margin-bottom: 32px;
+    padding: 20px;
+    background: #faf9fb;
+    border-radius: 16px;
+    border: 1px solid #e5e7eb;
+}
+
+.words-section .section-header {
+    margin-bottom: 16px;
+    font-weight: 600;
+    color: #1D1D1D;
+    font-size: 16px;
+}
+
+.words-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-bottom: 16px;
+}
+
+.word-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 12px;
+    background: white;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    font-size: 14px;
+    font-family: 'Ysabeau', 'Inter', sans-serif;
+    transition: all 0.2s ease;
+}
+
+.word-chip:hover {
+    border-color: #7651BE;
+}
+
+.word-input {
+    border: none;
+    background: transparent;
+    font-size: 14px;
+    font-family: 'Ysabeau', 'Inter', sans-serif;
+    padding: 4px 0;
+    min-width: 80px;
+    outline: none;
+}
+
+
+.delete-word-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 2px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+}
+
+.delete-word-icon {
+    width: 14px;
+    height: 14px;
+    opacity: 0.6;
+}
+
+.delete-word-icon:hover {
+    opacity: 1;
+}
+
+.add-word-wrapper {
+    margin-bottom: 12px;
+}
+
+/* Кнопка добавления слова - принудительные стили */
+.add-word-btn {
+    background: white !important;
+    border: 2px dashed #cbd5e1 !important;
+    border-radius: 8px;
+    padding: 8px 12px;
+    color: #7651BE;
+    cursor: pointer;
+    font-family: 'Ysabeau', 'Inter', sans-serif;
+    font-size: 14px !important;
+    font-weight: 600 !important;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    transition: all 0.3s ease;
+    flex-shrink: 0;
+    white-space: nowrap;
+}
+
+.add-word-btn:hover {
+    border-color: #7651BE !important;
+}
+
+.add-word-btn .plus-icon {
+    width: 16px !important;
+    height: 16px !important;
+}
+
+.words-counter {
+    font-size: 12px;
+    color: #9ca3af;
+}
+
+/* Предложения */
+.sentences-section {
+    margin-top: 24px;
+}
+
+.sentences-section .section-header {
+    margin-bottom: 16px;
+    font-weight: 600;
+    color: #1D1D1D;
+    font-size: 16px;
+}
+
+.sentences-list {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+    margin-bottom: 20px;
+}
+
+.sentence-card {
+    background: #faf9fb;
+    border: 1px solid #e5e7eb;
+    border-radius: 16px;
+    padding: 20px;
+    transition: all 0.3s ease;
+}
+
+/* Заголовок карточки */
+.sentence-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.sentence-number {
+    font-weight: 600;
+    color: #7651BE;
+    font-size: 16px;
+}
+
+/* Кнопка вставки пропуска - как у добавить ответ в choice */
+.insert-blank-btn {
+    background: white !important;
+    border: 2px dashed #cbd5e1 !important;
+    border-radius: 8px;
+    padding: 8px 12px;
+    color: #7651BE;
+    cursor: pointer;
+    font-family: 'Ysabeau', 'Inter', sans-serif;
+    font-size: 14px !important;
+    font-weight: 600 !important;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    transition: all 0.3s ease;
+    flex-shrink: 0;
+    white-space: nowrap;
+}
+
+.insert-blank-btn:hover {
+    border-color: #7651BE !important;
+}
+
+.insert-blank-btn .plus-icon {
+    width: 16px;
+    height: 16px;
+}
+
+/* Обертка для textarea и кнопки вставки пропуска */
+.sentence-textarea-wrapper {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    margin-bottom: 16px;
+}
+
+.sentence-textarea {
+    width: 100%;
+    padding: 12px 16px;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    font-size: 14px;
+    font-family: 'Ysabeau', 'Inter', sans-serif;
+    resize: none;
+    min-height: 44px;
+    background: white;
+    box-sizing: border-box;
+    overflow-y: hidden;
+    line-height: 1.5;
+}
+
+.sentence-textarea:focus {
+    outline: none;
+    border-color: #7651BE;
+}
+
+.blanks-section {
+    margin-top: 16px;
+    padding-top: 16px;
+    border-top: 1px solid #e5e7eb;
+}
+
+.blanks-title {
+    font-size: 13px;
+    font-weight: 500;
+    color: #4C4C4C;
+    margin-bottom: 12px;
+}
+
+.blanks-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-bottom: 16px;
+}
+
+.blank-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.blank-number {
+    font-size: 13px;
+    color: #4C4C4C;
+    min-width: 70px;
+}
+
+.blank-input {
+    flex: 1;
+    padding: 10px 12px;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    font-size: 14px;
+    font-family: 'Ysabeau', 'Inter', sans-serif;
+    font-weight: 400;
+    color: #1D1D1D;
+    transition: all 0.3s ease;
+}
+
+.blank-input:focus {
+    outline: none;
+    border-color: #379B34;
+    box-shadow: 0 0 0 2px rgba(55, 155, 52, 0.1);
+}
+
+.delete-blank-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.delete-blank-icon {
+    width: 16px;
+    height: 16px;
+    opacity: 0.6;
+    transition: opacity 0.2s;
+}
+
+.delete-blank-icon:hover {
+    opacity: 1;
+}
+
+.delete-sentence-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 4px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+}
+
+.delete-sentence-btn:hover {
+    background: rgba(196, 50, 50, 0.1);
+}
+
+.delete-sentence-btn .delete-icon {
+    width: 18px;
+    height: 18px;
+    opacity: 0.6;
+}
+
+.delete-sentence-btn:hover .delete-icon {
+    opacity: 1;
+}
+
+.add-sentence-btn {
+    background: none;
+    border: 2px dashed #cbd5e1;
+    border-radius: 12px;
+    padding: 12px 16px;
+    color: #7651BE;
+    cursor: pointer;
+    font-family: 'Ysabeau', 'Inter', sans-serif;
+    font-size: 14px;
+    font-weight: 500;
+    width: 100%;
+    transition: all 0.3s ease;
+    margin-top: 8px;
+}
+
+.add-sentence-btn:hover {
+    border-color: #7651BE;
+    background: rgba(118, 81, 190, 0.05);
+}
+
+/* Кастомный select для выбора слова (как у type-dropdown) */
+.blank-select-wrapper {
+    position: relative;
+    flex: 1;
+}
+
+.blank-select-btn {
+    background: white;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    padding: 10px 16px;
+    font-size: 14px;
+    font-family: 'Ysabeau', 'Inter', sans-serif;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    width: 100%;
+    color: #1D1D1D;
+    transition: all 0.3s ease;
+}
+
+.blank-select-btn:hover {
+    background: rgba(118, 81, 190, 0.1);
+    color: #7651BE;
+}
+
+.blank-select-btn .select-chevron {
+    width: 16px;
+    height: 16px;
+    transition: transform 0.3s ease;
+}
+
+.blank-select-btn.active .select-chevron {
+    transform: rotate(180deg);
+}
+
+.blank-select-menu {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: white;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    margin-top: 4px;
+    max-height: 200px;
+    overflow-y: auto;
+    z-index: 100;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+
+.blank-select-option {
+    display: block;
+    width: 100%;
+    padding: 10px 16px;
+    border: none;
+    background: white;
+    text-align: left;
+    cursor: pointer;
+    font-family: 'Ysabeau', 'Inter', sans-serif;
+    font-size: 14px;
+    color: #1D1D1D;
+    transition: all 0.2s ease;
+}
+
+.blank-select-option:hover {
+    background: rgba(118, 81, 190, 0.1);
+    color: #7651BE;
+}
+
+.blank-select-option.selected {
+    color: #7651BE;
+    font-weight: 500;
+}
+
+/* Заголовок и кнопки в одной строке */
+.sentence-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.sentence-actions {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+}
+
+.delete-sentence-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 6px 12px;
+    font-family: 'Ysabeau', 'Inter', sans-serif;
+    font-size: 13px;
+    color: #c43232;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    border-radius: 8px;
+    transition: all 0.3s ease;
+}
+
+
+/* Кнопка вставки пропуска с текстом */
+.insert-blank-btn {
+    background: none;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    cursor: pointer;
+    padding: 8px 12px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    font-family: 'Ysabeau', 'Inter', sans-serif;
+    color: #7651BE;
+    transition: all 0.3s ease;
+    flex-shrink: 0;
+    white-space: nowrap;
+}
+
+.insert-blank-btn:hover {
+    border-color: #7651BE;
+    background: rgba(118, 81, 190, 0.05);
+}
+
+.insert-blank-btn .plus-icon {
+    width: 16px;
+    height: 16px;
+}
+
+/* Кнопка удаления предложения - только иконка */
+.delete-sentence-icon-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+}
+
+
+.delete-sentence-icon-btn .delete-icon {
+    width: 18px;
+    height: 18px;
+    opacity: 0.6;
+}
+
+.delete-sentence-icon-btn:hover .delete-icon {
+    opacity: 1;
+}
+
+/* Временная подсветка ошибок для fill_blanks */
+.word-chip.error-highlight {
+    border-color: #ff4444 !important;
+    background: #fff5f5 !important;
+    animation: errorShake 0.3s ease;
+}
+
+.sentence-textarea.error-highlight {
+    border-color: #ff4444 !important;
+    background: #fff5f5 !important;
+    animation: errorShake 0.3s ease;
+}
+
+.blank-select-btn.error-highlight {
+    border-color: #ff4444 !important;
+    background: #fff5f5 !important;
+    animation: errorShake 0.3s ease;
+}
+
+/* Секция предложений - отступ слева */
+.sentences-section .section-header {
+    margin-bottom: 16px;
+    font-weight: 600;
+    color: #1D1D1D;
+    font-size: 16px;
+    padding-left: 20px;
+}
+
+
 @keyframes errorShake {
     0%, 100% { transform: translateX(0); }
-    25% { transform: translateX(-3px); }
-    75% { transform: translateX(3px); }
+    25% { transform: translateX(-2px); }
+    75% { transform: translateX(2px); }
 }
 
 /* ========== ANIMATIONS ========== */

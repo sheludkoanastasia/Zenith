@@ -55,6 +55,12 @@ let choiceStatements = [];
 let nextStatementId = 1;
 let nextAnswerId = 1;
 
+// Данные для дополнения (fill_blanks)
+let fillBlanksWords = [];
+let fillBlanksSentences = [];
+let nextSentenceId = 1;
+let nextWordId = 1;
+
 function getToken() {
     return localStorage.getItem('token');
 }
@@ -73,6 +79,12 @@ function resetExerciseData() {
     nextStatementId = 1;
     nextAnswerId = 1;
     
+    // Сброс fill_blanks данных
+    fillBlanksWords = [];
+    fillBlanksSentences = [];
+    nextSentenceId = 1;
+    nextWordId = 1;
+    
     // Сброс флагов
     hasExerciseUnsavedChanges = false;
     originalExerciseState = null;
@@ -84,7 +96,7 @@ function resetExerciseData() {
     // Очищаем тексты задач
     const matchingTaskText = document.getElementById('matchingTaskText');
     if (matchingTaskText) {
-        matchingTaskText.textContent = 'сопоставьте каждый элемент с его сопоставлением.';
+        matchingTaskText.textContent = 'Сопоставьте каждый элемент с его сопоставлением.';
     }
     
     const choiceTaskText = document.getElementById('choiceTaskText');
@@ -92,11 +104,18 @@ function resetExerciseData() {
         choiceTaskText.textContent = 'Сопоставьте каждое утверждение с правильным ответом (правильных ответов может быть несколько).';
     }
     
+    const fillBlanksTaskText = document.getElementById('fillBlanksTaskText');
+    if (fillBlanksTaskText) {
+        fillBlanksTaskText.textContent = 'Вставьте подходящее по смыслу слово в каждое предложение.';
+    }
+    
     // Перерендериваем пустые контейнеры
     renderMatchingItems();
     renderMatchingTargets();
     renderMatchingTable();
     renderChoiceStatements();
+    renderFillBlanksWords();
+    renderFillBlanksSentences();
 }
 
 // Проверка наличия несохраненных изменений в теории
@@ -147,6 +166,26 @@ function checkExerciseUnsavedChanges() {
         
         const hasChanges = 
             JSON.stringify(currentState.statements) !== JSON.stringify(originalExerciseState.statements) ||
+            currentState.taskText !== originalExerciseState.taskText;
+        
+        hasExerciseUnsavedChanges = hasChanges;
+        return hasChanges;
+    }
+    else if (currentExerciseType === 'fill_blanks') {
+        const currentState = {
+            words: JSON.parse(JSON.stringify(fillBlanksWords)),
+            sentences: JSON.parse(JSON.stringify(fillBlanksSentences)),
+            taskText: document.getElementById('fillBlanksTaskText')?.textContent || ''
+        };
+        
+        if (!originalExerciseState || originalExerciseState.type !== 'fill_blanks') {
+            hasExerciseUnsavedChanges = true;
+            return true;
+        }
+        
+        const hasChanges = 
+            JSON.stringify(currentState.words) !== JSON.stringify(originalExerciseState.words) ||
+            JSON.stringify(currentState.sentences) !== JSON.stringify(originalExerciseState.sentences) ||
             currentState.taskText !== originalExerciseState.taskText;
         
         hasExerciseUnsavedChanges = hasChanges;
@@ -963,7 +1002,7 @@ function showConfirmDialog(title, message, onConfirm) {
             <div class="confirm-dialog-message">${message}</div>
             <div class="confirm-dialog-buttons">
                 <button class="confirm-dialog-btn confirm-dialog-btn-cancel">Отмена</button>
-                <button class="confirm-dialog-btn confirm-dialog-btn-confirm">Удалить</button>
+                <button class="confirm-dialog-btn confirm-dialog-btn-confirm">Продолжить</button>
             </div>
         </div>
     `;
@@ -1073,11 +1112,11 @@ function addConfirmStyles() {
             transform: translateY(-2px);
         }
         .confirm-dialog-btn-confirm {
-            background-color: #7651BE;
+            background-color: #379B34;
             color: white;
         }
         .confirm-dialog-btn-confirm:hover {
-            background-color: #6947ac;
+            background-color: #30842d;
             transform: translateY(-2px);
         }
         @media (max-width: 576px) {
@@ -1706,7 +1745,6 @@ function addUnsavedDialogStyles() {
 
 // Переключение типа упражнения с проверкой на потерю данных
 function switchExerciseType(newType) {
-    // Проверяем, есть ли данные в текущем типе
     let hasDataInCurrentType = false;
     
     if (currentExerciseType === 'matching') {
@@ -1715,6 +1753,9 @@ function switchExerciseType(newType) {
     } else if (currentExerciseType === 'choice') {
         hasDataInCurrentType = choiceStatements.length > 0 && choiceStatements.some(s => s.text.trim() !== '' || s.answers.some(a => a.text.trim() !== ''));
         if (hasExerciseUnsavedChanges) hasDataInCurrentType = true;
+    } else if (currentExerciseType === 'fill_blanks') {
+        hasDataInCurrentType = fillBlanksWords.length > 0 || fillBlanksSentences.length > 0;
+        if (hasExerciseUnsavedChanges) hasDataInCurrentType = true;
     }
     
     if (hasDataInCurrentType && currentEditingExerciseSection) {
@@ -1722,7 +1763,6 @@ function switchExerciseType(newType) {
             'Смена типа упражнения',
             'При переключении типа упражнения все данные текущего типа будут потеряны. Вы уверены, что хотите продолжить?',
             () => {
-                // Очищаем данные текущего типа
                 if (currentExerciseType === 'matching') {
                     matchingItems = [];
                     matchingTargets = [];
@@ -1733,15 +1773,16 @@ function switchExerciseType(newType) {
                 } else if (currentExerciseType === 'choice') {
                     choiceStatements = [];
                     renderChoiceStatements();
+                } else if (currentExerciseType === 'fill_blanks') {
+                    fillBlanksWords = [];
+                    fillBlanksSentences = [];
+                    renderFillBlanksWords();
+                    renderFillBlanksSentences();
                 }
                 
-                // Обновляем тип
                 updateSelectedExerciseType(newType);
-                
-                // Сбрасываем флаг несохраненных изменений
                 hasExerciseUnsavedChanges = false;
                 
-                // Обновляем originalExerciseState
                 if (newType === 'matching') {
                     originalExerciseState = {
                         type: 'matching',
@@ -1762,13 +1803,21 @@ function switchExerciseType(newType) {
                         answers: [{ id: nextAnswerId++, text: '', isCorrect: false }]
                     }];
                     renderChoiceStatements();
-                }
+                }  else if (newType === 'fill_blanks') {
+                        // Не очищаем данные, просто обновляем отображение
+                        if (fillBlanksWords.length === 0 && fillBlanksSentences.length === 0) {
+                            // Только если нет данных, создаем пустые
+                            fillBlanksWords = [];
+                            fillBlanksSentences = [];
+                        }
+                        renderFillBlanksWords();
+                        renderFillBlanksSentences();
+                    }
                 
-                showNotification(`Тип упражнения изменен на "${newType === 'matching' ? 'Сопоставление' : 'Выбор правильного'}"`, 'info');
+                showNotification(`Тип упражнения изменен на "${newType === 'matching' ? 'Сопоставление' : newType === 'choice' ? 'Выбор правильного' : 'Дополнение'}"`, 'info');
             }
         );
     } else {
-        // Нет данных - просто переключаем
         updateSelectedExerciseType(newType);
         
         if (newType === 'choice' && choiceStatements.length === 0) {
@@ -1784,7 +1833,7 @@ function switchExerciseType(newType) {
 
 // Загрузка раздела упражнения
 async function loadExerciseSection(sectionId) {
-    resetExerciseData();
+
     
     try {
         const token = getToken();
@@ -1873,6 +1922,31 @@ async function loadExerciseSection(sectionId) {
                 
                 renderChoiceStatements();
             }
+            else if (currentExerciseType === 'fill_blanks') {
+                const fillBlanksData = exerciseData.options || {};
+                fillBlanksWords = fillBlanksData.words || [];
+                fillBlanksSentences = fillBlanksData.sentences || [];
+                
+                if (fillBlanksWords.length > 0) {
+                    nextWordId = Math.max(...fillBlanksWords.map(w => parseInt(w.id) || 0)) + 1;
+                } else {
+                    nextWordId = 1;
+                }
+                
+                if (fillBlanksSentences.length > 0) {
+                    nextSentenceId = Math.max(...fillBlanksSentences.map(s => parseInt(s.id) || 0)) + 1;
+                } else {
+                    nextSentenceId = 1;
+                }
+                
+                const taskText = document.getElementById('fillBlanksTaskText');
+                if (taskText) {
+                    taskText.textContent = exerciseData.question_text || 'Вставьте подходящее по смыслу слово в каждое предложение.';
+                }
+                
+                renderFillBlanksWords();
+                renderFillBlanksSentences();
+            }
             
             // Сохраняем исходное состояние
             if (currentExerciseType === 'matching') {
@@ -1888,6 +1962,13 @@ async function loadExerciseSection(sectionId) {
                     type: 'choice',
                     statements: JSON.parse(JSON.stringify(choiceStatements)),
                     taskText: document.getElementById('choiceTaskText')?.textContent || ''
+                };
+            } else if (currentExerciseType === 'fill_blanks') {
+                originalExerciseState = {
+                    type: 'fill_blanks',
+                    words: JSON.parse(JSON.stringify(fillBlanksWords)),
+                    sentences: JSON.parse(JSON.stringify(fillBlanksSentences)),
+                    taskText: document.getElementById('fillBlanksTaskText')?.textContent || ''
                 };
             }
             hasExerciseUnsavedChanges = false;
@@ -1911,6 +1992,7 @@ async function loadExerciseSection(sectionId) {
     }
 }
 
+// Сохранение упражнения
 // Сохранение упражнения
 async function saveExerciseSection() {
     if (!currentEditingExerciseSection) {
@@ -2009,8 +2091,148 @@ async function saveExerciseSection() {
         };
     }
     else if (currentExerciseType === 'fill_blanks') {
-        showNotification('Редактор "Дополнение" будет реализован позже', 'info');
-        return;
+        taskText = document.getElementById('fillBlanksTaskText')?.textContent || 'Вставьте подходящее по смыслу слово в каждое предложение.';
+        
+        // Очищаем старые подсветки
+        clearAllFillBlanksErrors();
+        
+        let hasError = false;
+        let errorMessage = '';
+        
+        // Проверка 1: есть ли слова для справки
+        if (fillBlanksWords.length === 0) {
+            showNotification('Добавьте хотя бы одно слово для справки', 'warning');
+            return;
+        }
+        
+        // Проверка 2: есть ли хотя бы одно предложение
+        if (fillBlanksSentences.length === 0) {
+            showNotification('Добавьте хотя бы одно предложение', 'warning');
+            return;
+        }
+        
+        // Проверка 3: все ли слова заполнены (не пустые)
+        for (let i = 0; i < fillBlanksWords.length; i++) {
+            const word = fillBlanksWords[i];
+            if (!word.text.trim()) {
+                errorMessage = `Слово ${i + 1} не заполнено`;
+                hasError = true;
+                highlightFillBlanksError(`word_${word.id}`);
+                break;
+            }
+        }
+        if (hasError) {
+            showNotification(errorMessage, 'warning');
+            setTimeout(() => clearAllFillBlanksErrors(), 3000);
+            return;
+        }
+        
+        // Проверка 4: все ли предложения имеют текст
+        for (let i = 0; i < fillBlanksSentences.length; i++) {
+            const sentence = fillBlanksSentences[i];
+            if (!sentence.text.trim()) {
+                errorMessage = `Предложение ${i + 1} не заполнено`;
+                hasError = true;
+                highlightFillBlanksError(`sentence_textarea_${sentence.id}`);
+                break;
+            }
+        }
+        if (hasError) {
+            showNotification(errorMessage, 'warning');
+            setTimeout(() => clearAllFillBlanksErrors(), 3000);
+            return;
+        }
+        
+        // Проверка 5: в каждом предложении должен быть хотя бы один пропуск
+        for (let i = 0; i < fillBlanksSentences.length; i++) {
+            const sentence = fillBlanksSentences[i];
+            const blankCountInText = (sentence.text.match(/_______/g) || []).length;
+            
+            if (blankCountInText === 0) {
+                errorMessage = `В предложении ${i + 1} нет ни одного пропуска. Добавьте пропуск с помощью кнопки "Вставить пропуск"`;
+                hasError = true;
+                highlightFillBlanksError(`sentence_textarea_${sentence.id}`);
+                break;
+            }
+        }
+        if (hasError) {
+            showNotification(errorMessage, 'warning');
+            setTimeout(() => clearAllFillBlanksErrors(), 3000);
+            return;
+        }
+        
+        // Проверка 6: количество пропусков в тексте соответствует количеству ответов
+        for (let i = 0; i < fillBlanksSentences.length; i++) {
+            const sentence = fillBlanksSentences[i];
+            const blanks = sentence.correctAnswers || [];
+            const blankCountInText = (sentence.text.match(/_______/g) || []).length;
+            
+            if (blankCountInText !== blanks.length) {
+                errorMessage = `В предложении ${i + 1} количество пропусков (${blankCountInText}) не соответствует количеству ответов (${blanks.length})`;
+                hasError = true;
+                highlightFillBlanksError(`sentence_textarea_${sentence.id}`);
+                break;
+            }
+        }
+        if (hasError) {
+            showNotification(errorMessage, 'warning');
+            setTimeout(() => clearAllFillBlanksErrors(), 3000);
+            return;
+        }
+        
+        // Проверка 7: все ли пропуски имеют выбранное слово
+        for (let i = 0; i < fillBlanksSentences.length; i++) {
+            const sentence = fillBlanksSentences[i];
+            const blanks = sentence.correctAnswers || [];
+            
+            for (let j = 0; j < blanks.length; j++) {
+                if (!blanks[j].trim()) {
+                    errorMessage = `В предложении ${i + 1} пропуск ${j + 1} не выбран (выберите слово из списка)`;
+                    hasError = true;
+                    highlightFillBlanksError(`blank_select_${sentence.id}_${j}`);
+                    break;
+                }
+            }
+            if (hasError) break;
+        }
+        if (hasError) {
+            showNotification(errorMessage, 'warning');
+            setTimeout(() => clearAllFillBlanksErrors(), 3000);
+            return;
+        }
+        
+        // Проверка 8: выбранные слова должны существовать в списке слов для справки
+        const wordTexts = fillBlanksWords.map(w => w.text);
+        for (let i = 0; i < fillBlanksSentences.length; i++) {
+            const sentence = fillBlanksSentences[i];
+            const blanks = sentence.correctAnswers || [];
+            
+            for (let j = 0; j < blanks.length; j++) {
+                const selectedWord = blanks[j];
+                if (!wordTexts.includes(selectedWord)) {
+                    errorMessage = `В предложении ${i + 1} пропуск ${j + 1} содержит слово "${selectedWord}", которого нет в списке слов для справки`;
+                    hasError = true;
+                    highlightFillBlanksError(`blank_select_${sentence.id}_${j}`);
+                    break;
+                }
+            }
+            if (hasError) break;
+        }
+        if (hasError) {
+            showNotification(errorMessage, 'warning');
+            setTimeout(() => clearAllFillBlanksErrors(), 3000);
+            return;
+        }
+        
+        exerciseData = {
+            title: currentEditingExerciseSection.title,
+            exercise_type: 'fill_blanks',
+            question_text: taskText,
+            options: {
+                words: fillBlanksWords,
+                sentences: fillBlanksSentences
+            }
+        };
     }
     
     try {
@@ -2043,6 +2265,13 @@ async function saveExerciseSection() {
                     statements: JSON.parse(JSON.stringify(choiceStatements)),
                     taskText: document.getElementById('choiceTaskText')?.textContent || ''
                 };
+            } else if (currentExerciseType === 'fill_blanks') {
+                originalExerciseState = {
+                    type: 'fill_blanks',
+                    words: JSON.parse(JSON.stringify(fillBlanksWords)),
+                    sentences: JSON.parse(JSON.stringify(fillBlanksSentences)),
+                    taskText: document.getElementById('fillBlanksTaskText')?.textContent || ''
+                };
             }
             hasExerciseUnsavedChanges = false;
         } else {
@@ -2052,6 +2281,63 @@ async function saveExerciseSection() {
         console.error('Ошибка:', error);
         showNotification('Ошибка при сохранении', 'error');
     }
+}
+
+// Подсветка ошибок для fill_blanks
+// Подсветка ошибок для fill_blanks
+function highlightFillBlanksError(targetId) {
+    if (targetId.startsWith('word_')) {
+        const wordId = targetId.replace('word_', '');
+        const wordChip = document.querySelector(`.word-chip[data-word-id="${wordId}"]`);
+        if (wordChip) {
+            wordChip.classList.add('error-highlight');
+        }
+    } else if (targetId.startsWith('sentence_textarea_')) {
+        const sentenceId = targetId.replace('sentence_textarea_', '');
+        const textarea = document.querySelector(`.sentence-textarea[data-sentence-id="${sentenceId}"]`);
+        if (textarea) textarea.classList.add('error-highlight');
+    } else if (targetId.startsWith('blank_select_')) {
+        const [sentenceId, blankIndex] = targetId.replace('blank_select_', '').split('_');
+        const blankSelect = document.querySelector(`.blank-select-wrapper[data-sentence-id="${sentenceId}"][data-blank-index="${blankIndex}"]`);
+        if (blankSelect) {
+            const btn = blankSelect.querySelector('.blank-select-btn');
+            if (btn) btn.classList.add('error-highlight');
+        }
+    }
+}
+
+// Очистка подсветок ошибок для fill_blanks
+function clearAllFillBlanksErrors() {
+    document.querySelectorAll('.word-chip.error-highlight').forEach(el => {
+        el.classList.remove('error-highlight');
+    });
+    document.querySelectorAll('.sentence-textarea.error-highlight').forEach(el => {
+        el.classList.remove('error-highlight');
+    });
+    document.querySelectorAll('.blank-select-btn.error-highlight').forEach(el => {
+        el.classList.remove('error-highlight');
+    });
+}
+
+// Добавление слова
+function addFillBlanksWord() {
+    if (fillBlanksWords.length >= 30) {
+        showNotification('Максимум 30 слов', 'warning');
+        return;
+    }
+    
+    fillBlanksWords.push({
+        id: nextWordId++,
+        text: ''
+    });
+    
+    renderFillBlanksWords();
+    // Фокус на новое поле
+    setTimeout(() => {
+        const lastInput = document.querySelector('.word-chip:last-child .word-input');
+        if (lastInput) lastInput.focus();
+    }, 50);
+    checkExerciseUnsavedChanges();
 }
 
 // Возврат к разделам из редактора упражнений
@@ -2135,6 +2421,22 @@ function updateSelectedExerciseType(type) {
     if (matchingContainer) matchingContainer.style.display = type === 'matching' ? 'block' : 'none';
     if (choiceContainer) choiceContainer.style.display = type === 'choice' ? 'block' : 'none';
     if (fillBlanksContainer) fillBlanksContainer.style.display = type === 'fill_blanks' ? 'block' : 'none';
+    
+    if (type === 'choice' && choiceStatements.length === 0 && currentEditingExerciseSection === null) {
+        choiceStatements = [{
+            id: nextStatementId++,
+            text: '',
+            answers: [{ id: nextAnswerId++, text: '', isCorrect: false }]
+        }];
+        renderChoiceStatements();
+    }
+    
+    if (type === 'fill_blanks' && fillBlanksWords.length === 0 && fillBlanksSentences.length === 0 && currentEditingExerciseSection === null) {
+        fillBlanksWords = [];
+        fillBlanksSentences = [];
+        renderFillBlanksWords();
+        renderFillBlanksSentences();
+    }
     
     currentExerciseType = type;
 }
@@ -2510,6 +2812,553 @@ window.toggleCorrectAnswer = function(statementId, answerId) {
     }
 };
 
+// ===== ФУНКЦИИ ДЛЯ ДОПОЛНЕНИЯ (FILL BLANKS) =====
+
+// Рендер слов для справки
+function renderFillBlanksWords() {
+    const wordsList = document.getElementById('fillBlanksWordsList');
+    const wordsCounter = document.getElementById('wordsCounter');
+    
+    if (!wordsList) return;
+    
+    if (fillBlanksWords.length === 0) {
+        wordsList.innerHTML = '<div class="empty-message" style="padding: 20px; text-align: center;">Нет слов. Добавьте первое слово.</div>';
+        return;
+    }
+    
+    wordsList.innerHTML = fillBlanksWords.map((word) => `
+        <div class="word-chip" data-word-id="${word.id}">
+            <input type="text" class="word-input" value="${escapeHtml(word.text)}" placeholder="Введите слово">
+            <button class="delete-word-btn" onclick="deleteFillBlanksWord('${word.id}')">
+                <img src="/images/taskCreationPage/delete.svg" alt="Удалить" class="delete-word-icon">
+            </button>
+        </div>
+    `).join('');
+    
+    document.querySelectorAll('.word-input').forEach((input, idx) => {
+        input.addEventListener('change', (e) => {
+            const value = e.target.value.trim();
+            if (value) {
+                fillBlanksWords[idx].text = value;
+                renderFillBlanksSentences();
+                checkExerciseUnsavedChanges();
+            } else {
+                // Если поле пустое, восстанавливаем предыдущее значение или удаляем слово
+                if (fillBlanksWords[idx].text) {
+                    e.target.value = fillBlanksWords[idx].text;
+                } else {
+                    // Если слово было пустым и пользователь не ввел текст - удаляем его
+                    if (fillBlanksWords.length > 1) {
+                        fillBlanksWords.splice(idx, 1);
+                        renderFillBlanksWords();
+                        renderFillBlanksSentences();
+                    } else {
+                        showNotification('Должно быть хотя бы одно слово для справки', 'warning');
+                        e.target.value = '';
+                    }
+                }
+                checkExerciseUnsavedChanges();
+            }
+        });
+        
+        // Добавляем проверку при потере фокуса
+        input.addEventListener('blur', (e) => {
+            const value = e.target.value.trim();
+            if (!value && fillBlanksWords.length > 1) {
+                fillBlanksWords.splice(idx, 1);
+                renderFillBlanksWords();
+                renderFillBlanksSentences();
+                checkExerciseUnsavedChanges();
+            } else if (!value && fillBlanksWords.length === 1) {
+                showNotification('Должно быть хотя бы одно слово для справки', 'warning');
+                if (fillBlanksWords[idx].text) {
+                    e.target.value = fillBlanksWords[idx].text;
+                }
+            }
+        });
+    });
+    
+    if (wordsCounter) {
+        wordsCounter.textContent = `${fillBlanksWords.length}/30 слов`;
+    }
+}
+
+// Добавление слова
+function addFillBlanksWord() {
+    if (fillBlanksWords.length >= 30) {
+        showNotification('Максимум 30 слов', 'warning');
+        return;
+    }
+    
+    fillBlanksWords.push({
+        id: nextWordId++,
+        text: ''
+    });
+    
+    renderFillBlanksWords();
+    checkExerciseUnsavedChanges();
+}
+
+// Удаление слова (без подтверждения)
+window.deleteFillBlanksWord = function(wordId) {
+    const wordIndex = fillBlanksWords.findIndex(w => w.id == wordId);
+    if (wordIndex === -1) return;
+    
+    const deletedWordText = fillBlanksWords[wordIndex].text;
+    
+    fillBlanksWords.splice(wordIndex, 1);
+    
+    for (const sentence of fillBlanksSentences) {
+        if (sentence.correctAnswers) {
+            for (let i = 0; i < sentence.correctAnswers.length; i++) {
+                if (sentence.correctAnswers[i] === deletedWordText) {
+                    sentence.correctAnswers[i] = '';
+                }
+            }
+        }
+    }
+    
+    renderFillBlanksWords();
+    renderFillBlanksSentences();
+    checkExerciseUnsavedChanges();
+};
+
+// Рендер списка пропусков для предложения
+function renderBlanksList(sentence) {
+    const blanks = sentence.correctAnswers || [];
+    
+    if (blanks.length === 0) {
+        return '<div class="empty-message" style="padding: 10px; text-align: center; font-size: 13px;">Нет пропусков. Нажмите "Вставить пропуск" чтобы добавить.</div>';
+    }
+    
+    return blanks.map((answer, idx) => {
+        const selectedWord = answer || '';
+        return `
+            <div class="blank-row" data-blank-index="${idx}">
+                <div class="blank-number">Пропуск ${idx + 1}:</div>
+                <div class="blank-select-wrapper" data-sentence-id="${sentence.id}" data-blank-index="${idx}">
+                    <button class="blank-select-btn" data-sentence-id="${sentence.id}" data-blank-index="${idx}">
+                        <span class="selected-text">${selectedWord ? escapeHtml(selectedWord) : '-- выберите слово --'}</span>
+                        <img src="/images/taskCreationPage/chevronDown.svg" alt="toggle" class="select-chevron">
+                    </button>
+                    <div class="blank-select-menu" style="display: none;">
+                        <button class="blank-select-option" data-value="">-- выберите слово --</button>
+                        ${fillBlanksWords.map(word => `
+                            <button class="blank-select-option ${selectedWord === word.text ? 'selected' : ''}" data-value="${escapeHtml(word.text)}">
+                                ${escapeHtml(word.text)}
+                            </button>
+                        `).join('')}
+                    </div>
+                </div>
+                <button class="delete-blank-btn" onclick="deleteBlankInSentence('${sentence.id}', ${idx})">
+                    <img src="/images/taskCreationPage/delete.svg" alt="Удалить" class="delete-blank-icon">
+                </button>
+            </div>
+        `;
+    }).join('');
+}
+
+// Рендер предложений
+function renderFillBlanksSentences() {
+    const sentencesList = document.getElementById('fillBlanksSentencesList');
+    if (!sentencesList) return;
+    
+    if (fillBlanksSentences.length === 0) {
+        sentencesList.innerHTML = '<div class="empty-message" style="padding: 40px; text-align: center;">Нет предложений. Добавьте первое предложение.</div>';
+        return;
+    }
+    
+    sentencesList.innerHTML = fillBlanksSentences.map((sentence, idx) => {
+        return `
+            <div class="sentence-card" data-sentence-id="${sentence.id}">
+                <div class="sentence-header">
+                    <div class="sentence-number">Предложение ${idx + 1}</div>
+                    <button class="delete-sentence-icon-btn" onclick="deleteFillBlanksSentence('${sentence.id}')" title="Удалить предложение">
+                        <img src="/images/taskCreationPage/delete.svg" alt="Удалить" class="delete-icon">
+                    </button>
+                </div>
+                <div class="sentence-textarea-wrapper">
+                    <textarea class="sentence-textarea" data-sentence-id="${sentence.id}" placeholder="Введите текст предложения...">${escapeHtml(sentence.text)}</textarea>
+                    <button class="insert-blank-btn" onclick="insertBlankInSentence('${sentence.id}')">
+                        <img src="/images/taskCreationPage/plus.svg" alt="+" class="plus-icon"> Вставить пропуск
+                    </button>
+                </div>
+                <div class="blanks-section">
+                    <div class="blanks-title">Выберите правильные слова для каждого пропуска:</div>
+                    <div class="blanks-list" id="blanks-list-${sentence.id}">
+                        ${renderBlanksList(sentence)}
+                    </div>
+                </div>
+            </div>
+        `;
+    }).join('');
+    
+    document.querySelectorAll('.sentence-textarea').forEach(textarea => {
+        const sentenceId = textarea.dataset.sentenceId;
+        
+        autoResizeTextarea(textarea);
+        
+        // Сохраняем исходный текст для проверки
+        let lastValidText = fillBlanksSentences.find(s => s.id == sentenceId)?.text || '';
+        
+        textarea.addEventListener('input', (e) => {
+            const sentence = fillBlanksSentences.find(s => s.id == sentenceId);
+            if (!sentence) return;
+            
+            const newText = e.target.value;
+            const oldText = sentence.text;
+            
+            // Проверяем, не были ли удалены пропуски
+            const oldBlankCount = (oldText.match(/_______/g) || []).length;
+            const newBlankCount = (newText.match(/_______/g) || []).length;
+            
+            if (newBlankCount < oldBlankCount) {
+                // Попытка удалить пропуск - восстанавливаем старый текст
+                e.target.value = oldText;
+                showNotification('Пропуск можно удалить только через кнопку "Удалить"', 'warning');
+                return;
+            }
+            
+            // Проверяем, не изменились ли существующие пропуски
+            const oldBlanks = [];
+            const newBlanks = [];
+            let match;
+            const blankPattern = /_______/g;
+            
+            while ((match = blankPattern.exec(oldText)) !== null) {
+                oldBlanks.push(match.index);
+            }
+            while ((match = blankPattern.exec(newText)) !== null) {
+                newBlanks.push(match.index);
+            }
+            
+            // Если количество пропусков совпадает, но позиции изменились - восстанавливаем
+            if (oldBlankCount === newBlankCount && oldBlankCount > 0) {
+                let positionsChanged = false;
+                for (let i = 0; i < oldBlankCount; i++) {
+                    if (Math.abs(oldBlanks[i] - newBlanks[i]) > 10) {
+                        positionsChanged = true;
+                        break;
+                    }
+                }
+                if (positionsChanged) {
+                    e.target.value = oldText;
+                    showNotification('Нельзя перемещать или изменять пропуски. Используйте кнопку "Удалить" для удаления пропуска.', 'warning');
+                    return;
+                }
+            }
+            
+            sentence.text = newText;
+            lastValidText = newText;
+            checkExerciseUnsavedChanges();
+            autoResizeTextarea(textarea);
+        });
+        
+        textarea.addEventListener('blur', (e) => {
+            const sentence = fillBlanksSentences.find(s => s.id == sentenceId);
+            if (sentence) {
+                let text = sentence.text;
+                let changed = false;
+                
+                text = text.replace(/([^\s])_______/g, '$1 _______');
+                text = text.replace(/_______([^\s])/g, '_______ $1');
+                text = text.replace(/\s+/g, ' ');
+                
+                if (text !== sentence.text) {
+                    sentence.text = text;
+                    e.target.value = text;
+                    renderFillBlanksSentences();
+                    checkExerciseUnsavedChanges();
+                }
+            }
+            autoResizeTextarea(textarea);
+        });
+    });
+    
+    setTimeout(() => {
+        initFillBlanksInputHandlers();
+    }, 0);
+}
+
+// Добавление предложения
+function addFillBlanksSentence() {
+    if (fillBlanksSentences.length >= 10) {
+        showNotification('Максимум 10 предложений', 'warning');
+        return;
+    }
+    
+    fillBlanksSentences.push({
+        id: nextSentenceId++,
+        text: '',
+        correctAnswers: []
+    });
+    
+    renderFillBlanksSentences();
+    checkExerciseUnsavedChanges();
+}
+
+// Удаление предложения (без подтверждения)
+window.deleteFillBlanksSentence = function(sentenceId) {
+    const sentenceIndex = fillBlanksSentences.findIndex(s => s.id == sentenceId);
+    if (sentenceIndex !== -1) {
+        fillBlanksSentences.splice(sentenceIndex, 1);
+        renderFillBlanksSentences();
+        checkExerciseUnsavedChanges();
+    }
+};
+
+// Автоматическое изменение высоты textarea
+function autoResizeTextarea(textarea) {
+    if (!textarea) return;
+    
+    // Сбрасываем высоту, чтобы получить правильную scrollHeight
+    textarea.style.height = 'auto';
+    // Устанавливаем новую высоту
+    const newHeight = Math.max(44, textarea.scrollHeight);
+    textarea.style.height = newHeight + 'px';
+}
+
+// Вставка пропуска в предложение
+// Вставка пропуска в предложение
+window.insertBlankInSentence = function(sentenceId) {
+    const sentence = fillBlanksSentences.find(s => s.id == sentenceId);
+    if (!sentence) return;
+    
+    const currentBlanks = sentence.correctAnswers || [];
+    if (currentBlanks.length >= 3) {
+        showNotification('Максимум 3 пропуска в одном предложении', 'warning');
+        return;
+    }
+    
+    const textarea = document.querySelector(`.sentence-textarea[data-sentence-id="${sentenceId}"]`);
+    if (!textarea) return;
+    
+    const cursorPos = textarea.selectionStart;
+    let textBefore = sentence.text.substring(0, cursorPos);
+    let textAfter = sentence.text.substring(cursorPos);
+    
+    if (textBefore.length > 0 && textBefore[textBefore.length - 1] !== ' ') {
+        textBefore += ' ';
+    }
+    
+    if (textAfter.length > 0 && textAfter[0] !== ' ') {
+        textAfter = ' ' + textAfter;
+    }
+    
+    sentence.text = textBefore + '_______' + textAfter;
+    
+    if (!sentence.correctAnswers) sentence.correctAnswers = [];
+    sentence.correctAnswers.push('');
+    
+    textarea.value = sentence.text;
+    
+    const newCursorPos = textBefore.length + 7;
+    setTimeout(() => {
+        textarea.focus();
+        textarea.setSelectionRange(newCursorPos, newCursorPos);
+        autoResizeTextarea(textarea);
+    }, 10);
+    
+    renderFillBlanksSentences();
+    checkExerciseUnsavedChanges();
+};
+
+// Проверка и исправление пробелов вокруг всех пропусков в предложении
+function normalizeBlanksSpacing(sentenceId) {
+    const sentence = fillBlanksSentences.find(s => s.id == sentenceId);
+    if (!sentence) return;
+    
+    let text = sentence.text;
+    let changed = false;
+    
+    // Проверяем каждый пропуск
+    let searchPos = 0;
+    let blankIndex = 0;
+    const blankPattern = /_______/g;
+    let match;
+    const matches = [];
+    
+    while ((match = blankPattern.exec(text)) !== null) {
+        matches.push({ index: match.index, length: 7 });
+    }
+    
+    // Проходим с конца, чтобы не сбивать индексы
+    for (let i = matches.length - 1; i >= 0; i--) {
+        const pos = matches[i].index;
+        const beforeChar = pos > 0 ? text[pos - 1] : null;
+        const afterChar = pos + 7 < text.length ? text[pos + 7] : null;
+        
+        let newText = text;
+        
+        // Добавляем пробел слева если нужно
+        if (beforeChar && beforeChar !== ' ') {
+            newText = newText.substring(0, pos) + ' ' + newText.substring(pos);
+            changed = true;
+        }
+        // Добавляем пробел справа если нужно
+        if (afterChar && afterChar !== ' ') {
+            const adjustedPos = pos + (changed ? 8 : 7);
+            newText = newText.substring(0, adjustedPos) + ' ' + newText.substring(adjustedPos);
+            changed = true;
+        }
+        
+        text = newText;
+    }
+    
+    // Удаляем двойные пробелы если появились
+    text = text.replace(/\s+/g, ' ');
+    
+    if (changed) {
+        sentence.text = text;
+        const textarea = document.querySelector(`.sentence-textarea[data-sentence-id="${sentenceId}"]`);
+        if (textarea) {
+            textarea.value = text;
+        }
+        renderFillBlanksSentences();
+        checkExerciseUnsavedChanges();
+    }
+}
+
+// Удаление пропуска из предложения (без подтверждения)
+window.deleteBlankInSentence = function(sentenceId, blankIndex) {
+    const sentence = fillBlanksSentences.find(s => s.id == sentenceId);
+    if (!sentence) return;
+    
+    const blanks = sentence.correctAnswers || [];
+    if (blankIndex >= blanks.length) return;
+    
+    let blankCount = 0;
+    let newText = sentence.text;
+    let foundIndex = -1;
+    
+    for (let i = 0; i < newText.length; i++) {
+        if (newText.substring(i, i + 7) === '_______') {
+            if (blankCount === blankIndex) {
+                foundIndex = i;
+                break;
+            }
+            blankCount++;
+            i += 6;
+        }
+    }
+    
+    if (foundIndex !== -1) {
+        let before = newText.substring(0, foundIndex);
+        let after = newText.substring(foundIndex + 7);
+        
+        if (before.endsWith(' ') && after.startsWith(' ')) {
+            before = before.slice(0, -1);
+        } else if (before.endsWith(' ')) {
+            before = before.slice(0, -1);
+        } else if (after.startsWith(' ')) {
+            after = after.slice(1);
+        }
+        
+        newText = before + after;
+        sentence.text = newText;
+    }
+    
+    blanks.splice(blankIndex, 1);
+    sentence.correctAnswers = blanks;
+    
+    const textarea = document.querySelector(`.sentence-textarea[data-sentence-id="${sentenceId}"]`);
+    if (textarea) {
+        textarea.value = newText;
+        autoResizeTextarea(textarea);
+    }
+    
+    renderFillBlanksSentences();
+    checkExerciseUnsavedChanges();
+};
+
+// Обновление обработчиков для blank-select
+function initFillBlanksInputHandlers() {
+    // Обработчики для кастомных select'ов
+    document.querySelectorAll('.blank-select-btn').forEach(btn => {
+        // Удаляем старые обработчики
+        btn.removeEventListener('click', handleBlankSelectClick);
+        btn.addEventListener('click', handleBlankSelectClick);
+    });
+    
+    // Обработчики для опций
+    document.querySelectorAll('.blank-select-option').forEach(option => {
+        option.removeEventListener('click', handleBlankSelectOptionClick);
+        option.addEventListener('click', handleBlankSelectOptionClick);
+    });
+}
+
+function handleBlankSelectClick(e) {
+    e.stopPropagation();
+    const wrapper = this.closest('.blank-select-wrapper');
+    const menu = wrapper.querySelector('.blank-select-menu');
+    const isOpen = menu.style.display === 'block';
+    
+    // Закрываем все другие меню
+    document.querySelectorAll('.blank-select-menu').forEach(m => {
+        m.style.display = 'none';
+    });
+    document.querySelectorAll('.blank-select-btn').forEach(b => {
+        b.classList.remove('active');
+    });
+    
+    if (!isOpen) {
+        menu.style.display = 'block';
+        this.classList.add('active');
+    }
+}
+
+function handleBlankSelectOptionClick(e) {
+    e.stopPropagation();
+    const option = this;
+    const value = option.dataset.value;
+    const text = option.textContent;
+    const wrapper = option.closest('.blank-select-wrapper');
+    const btn = wrapper.querySelector('.blank-select-btn');
+    const menu = wrapper.querySelector('.blank-select-menu');
+    const sentenceId = wrapper.dataset.sentenceId;
+    const blankIndex = parseInt(wrapper.dataset.blankIndex);
+    
+    // Обновляем текст кнопки
+    btn.querySelector('.selected-text').textContent = text;
+    
+    // Закрываем меню
+    menu.style.display = 'none';
+    btn.classList.remove('active');
+    
+    // Обновляем данные
+    const sentence = fillBlanksSentences.find(s => s.id == sentenceId);
+    if (sentence && sentence.correctAnswers) {
+        sentence.correctAnswers[blankIndex] = value;
+        checkExerciseUnsavedChanges();
+    }
+    
+    // Обновляем класс selected для опций
+    wrapper.querySelectorAll('.blank-select-option').forEach(opt => {
+        opt.classList.remove('selected');
+    });
+    option.classList.add('selected');
+}
+
+// Закрытие всех меню при клике вне
+document.addEventListener('click', () => {
+    document.querySelectorAll('.blank-select-menu').forEach(menu => {
+        menu.style.display = 'none';
+    });
+    document.querySelectorAll('.blank-select-btn').forEach(btn => {
+        btn.classList.remove('active');
+    });
+});
+
+function handleBlankSelectChange(e) {
+    const sentenceId = e.target.dataset.sentenceId;
+    const blankIndex = parseInt(e.target.dataset.blankIndex);
+    const sentence = fillBlanksSentences.find(s => s.id == sentenceId);
+    if (sentence && sentence.correctAnswers) {
+        sentence.correctAnswers[blankIndex] = e.target.value;
+        checkExerciseUnsavedChanges();
+    }
+}
+
 // Загрузка файла для теории
 async function uploadTheoryFile(file) {
     if (!currentEditingTheorySection) {
@@ -2584,6 +3433,8 @@ const saveExerciseBtn = document.getElementById('saveExerciseBtn');
 const addItemBtn = document.getElementById('addItemBtn');
 const addTargetBtn = document.getElementById('addTargetBtn');
 const addStatementBtn = document.getElementById('addStatementBtn');
+const addFillBlanksWordBtn = document.getElementById('addFillBlanksWordBtn');
+const addFillBlanksSentenceBtn = document.getElementById('addFillBlanksSentenceBtn');
 const typeDropdownBtn = document.getElementById('selectedTypeBtn');
 const typeDropdownMenu = document.getElementById('typeDropdownMenu');
 
@@ -2601,6 +3452,12 @@ if (addTargetBtn) {
 }
 if (addStatementBtn) {
     addStatementBtn.addEventListener('click', addChoiceStatement);
+}
+if (addFillBlanksWordBtn) {
+    addFillBlanksWordBtn.addEventListener('click', addFillBlanksWord);
+}
+if (addFillBlanksSentenceBtn) {
+    addFillBlanksSentenceBtn.addEventListener('click', addFillBlanksSentence);
 }
 
 if (typeDropdownBtn) {

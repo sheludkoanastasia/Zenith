@@ -210,9 +210,37 @@
                             <button class="add-statement-btn" id="addStatementBtn">+ Добавить утверждение</button>
                         </div>
                     </div>
-                    <div id="fillBlanksExerciseContainer" style="display: none;">
-                        <p style="text-align: center; padding: 40px; color: #9ca3af;">Редактор "Дополнение" будет реализован позже</p>
+                    <div id="fillBlanksExerciseContainer" class="fillblanks-exercise-container" style="display: none;">
+                    <div class="task-description">
+                        <label>Задача:</label>
+                        <div class="task-text" id="fillBlanksTaskText">вставьте подходящее по смыслу слово в каждое предложение.</div>
                     </div>
+                    
+                    <!-- Слова для справки -->
+                    <div class="words-section">
+                        <div class="section-header">
+                            <span>Слова для справки:</span>
+                        </div>
+                        <div class="words-list" id="fillBlanksWordsList">
+                            <!-- Динамические чипсы слов -->
+                        </div>
+                        <div class="add-word-wrapper">
+                            <button class="add-word-btn" id="addFillBlanksWordBtn">
+                                <img src="/images/taskCreationPage/plus.svg" alt="+" class="plus-icon"> Добавить слово
+                            </button>
+                        </div>
+                        <div class="words-counter" id="wordsCounter">0/30 слов</div>
+                    </div>
+                    
+                    <!-- Предложения -->
+                    <div class="sentences-section">
+                        
+                        <div class="sentences-list" id="fillBlanksSentencesList">
+                            <!-- Динамические карточки предложений -->
+                        </div>
+                        <button class="add-sentence-btn" id="addFillBlanksSentenceBtn">+ Добавить предложение</button>
+                    </div>
+                </div>
                 </div>
             </div>
         </main>
