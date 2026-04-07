@@ -17,7 +17,7 @@ module.exports = (sequelize) => {
         key: 'id'
       }
     },
-    questions: {
+    exercises: {
       type: DataTypes.JSONB,
       allowNull: false,
       defaultValue: []
@@ -27,6 +27,10 @@ module.exports = (sequelize) => {
       allowNull: false,
       defaultValue: 70,
       field: 'passing_score'
+    },
+    deadline: {
+      type: DataTypes.DATE,
+      allowNull: true
     },
     time_limit: {
       type: DataTypes.INTEGER,

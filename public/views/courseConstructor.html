@@ -193,13 +193,13 @@
                         </div>
                     </div>
                     
+                    <!-- Контейнер для Choice Exercise (Выбор правильного) -->
                     <div id="choiceExerciseContainer" class="choice-exercise-container" style="display: none;">
                         <div class="task-description">
                             <label>Задача:</label>
                             <div class="task-text" id="choiceTaskText">Сопоставьте каждое утверждение с правильным ответом (правильных ответов может быть несколько).</div>
                         </div>
                         
-                        <!-- Утверждения -->
                         <div class="statements-section">
                             <div class="section-header">
                                 <span>Утверждения</span>
@@ -210,37 +210,94 @@
                             <button class="add-statement-btn" id="addStatementBtn">+ Добавить утверждение</button>
                         </div>
                     </div>
+                    
+                    <!-- Контейнер для Fill Blanks (Дополнение) -->
                     <div id="fillBlanksExerciseContainer" class="fillblanks-exercise-container" style="display: none;">
-                    <div class="task-description">
-                        <label>Задача:</label>
-                        <div class="task-text" id="fillBlanksTaskText">вставьте подходящее по смыслу слово в каждое предложение.</div>
-                    </div>
-                    
-                    <!-- Слова для справки -->
-                    <div class="words-section">
-                        <div class="section-header">
-                            <span>Слова для справки:</span>
+                        <div class="task-description">
+                            <label>Задача:</label>
+                            <div class="task-text" id="fillBlanksTaskText">Вставьте подходящее по смыслу слово в каждое предложение.</div>
                         </div>
-                        <div class="words-list" id="fillBlanksWordsList">
-                            <!-- Динамические чипсы слов -->
-                        </div>
-                        <div class="add-word-wrapper">
-                            <button class="add-word-btn" id="addFillBlanksWordBtn">
-                                <img src="/images/taskCreationPage/plus.svg" alt="+" class="plus-icon"> Добавить слово
-                            </button>
-                        </div>
-                        <div class="words-counter" id="wordsCounter">0/30 слов</div>
-                    </div>
-                    
-                    <!-- Предложения -->
-                    <div class="sentences-section">
                         
-                        <div class="sentences-list" id="fillBlanksSentencesList">
-                            <!-- Динамические карточки предложений -->
+                        <div class="words-section">
+                            <div class="section-header">
+                                <span>Слова для справки:</span>
+                            </div>
+                            <div class="words-list" id="fillBlanksWordsList">
+                                <!-- Динамические чипсы слов -->
+                            </div>
+                            <div class="add-word-wrapper">
+                                <button class="add-word-btn" id="addFillBlanksWordBtn">
+                                    <img src="/images/taskCreationPage/plus.svg" alt="+" class="plus-icon"> Добавить слово
+                                </button>
+                            </div>
+                            <div class="words-counter" id="wordsCounter">0/30 слов</div>
                         </div>
-                        <button class="add-sentence-btn" id="addFillBlanksSentenceBtn">+ Добавить предложение</button>
+                        
+                        <div class="sentences-section">
+                            <div class="sentences-list" id="fillBlanksSentencesList">
+                                <!-- Динамические карточки предложений -->
+                            </div>
+                            <button class="add-sentence-btn" id="addFillBlanksSentenceBtn">+ Добавить предложение</button>
+                        </div>
                     </div>
                 </div>
+
+                <!-- ===== РЕДАКТОР ИТОГОВОГО ТЕСТА ===== -->
+                <div class="test-editor-container" id="testEditorContainer" style="display: none;">
+                    <div class="test-editor-header">
+                        <button class="back-button-editor" id="backToStructureFromTestBtn">
+                            <img src="/images/taskCreationPage/rightArrow.svg" alt="Назад" class="back-arrow-icon">
+                            Вернуться к разделам
+                        </button>
+                        <button class="save-test-btn" id="saveTestBtn">Сохранить</button>
+                    </div>
+                    
+                    <h2 id="currentTestTitle" class="current-test-title">Загрузка...</h2>
+                    
+                    <!-- Настройки теста -->
+                    <div class="test-settings">
+                        <div class="settings-row">
+                            <div class="deadline-setting">
+                                <label>Назначить дедлайн:</label>
+                                <input type="datetime-local" id="testDeadline" class="deadline-input">
+                            </div>
+                            <div class="timelimit-setting">
+                                <label>Время прохождения:</label>
+                                <div class="timelimit-controls">
+                                    <label class="checkbox-label">
+                                        <input type="checkbox" id="timelimitEnabled" class="timelimit-checkbox">
+                                        <span>без времени</span>
+                                    </label>
+                                    <div class="timelimit-fields" id="timelimitFields" style="display: none;">
+                                        <div class="time-field">
+                                            <input type="number" id="timelimitDays" class="time-input" min="0" max="2" value="0" placeholder="0">
+                                            <span>дн.</span>
+                                        </div>
+                                        <div class="time-field">
+                                            <input type="number" id="timelimitHours" class="time-input" min="0" max="23" value="1" placeholder="1">
+                                            <span>ч.</span>
+                                        </div>
+                                        <div class="time-field">
+                                            <input type="number" id="timelimitMinutes" class="time-input" min="0" max="59" value="0" placeholder="0">
+                                            <span>мин.</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Список упражнений в тесте -->
+                    <div class="test-exercises-section">
+                        <div class="section-header">
+                            <span>Тестирования:</span>
+                        </div>
+                        <div id="testExercisesList" class="test-exercises-list">
+                            <!-- Динамические карточки упражнений -->
+                        </div>
+                        <button class="add-test-exercise-btn" id="addTestExerciseBtn">+ Добавить тестирование</button>
+                        <div class="exercises-counter" id="exercisesCounter">0/9 тестирований</div>
+                    </div>
                 </div>
             </div>
         </main>

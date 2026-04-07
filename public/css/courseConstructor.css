@@ -2221,6 +2221,503 @@ body {
     75% { transform: translateX(2px); }
 }
 
+/* ========== РЕДАКТОР ИТОГОВОГО ТЕСТА ========== */
+.test-editor-container {
+    background: white;
+    border-radius: 24px;
+    padding: 32px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+    animation: fadeIn 0.3s ease;
+}
+
+.test-editor-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 24px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.save-test-btn {
+    background: #379B34;
+    color: white;
+    border: none;
+    border-radius: 40px;
+    padding: 10px 32px;
+    cursor: pointer;
+    font-size: 16px;
+    font-weight: 500;
+    font-family: 'Ysabeau', 'Inter', sans-serif;
+    transition: all 0.3s ease;
+}
+
+.save-test-btn:hover {
+    background: #30842d;
+    transform: translateY(-1px);
+}
+
+.current-test-title {
+    font-size: 28px;
+    font-weight: 600;
+    color: #7651BE;
+    margin-bottom: 24px;
+    font-family: 'Ysabeau', 'Inter', sans-serif;
+}
+
+/* Настройки теста */
+.test-settings {
+    background: #faf9fb;
+    border: 1px solid #e5e7eb;
+    border-radius: 16px;
+    padding: 20px;
+    margin-bottom: 32px;
+}
+
+.settings-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 20px;
+}
+
+.deadline-setting {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.deadline-setting label {
+    font-weight: 500;
+    color: #1D1D1D;
+    font-size: 14px;
+}
+
+.deadline-input {
+    padding: 8px 12px;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    font-family: 'Ysabeau', 'Inter', sans-serif;
+    font-size: 14px;
+    background: white;
+}
+
+.deadline-input:focus {
+    outline: none;
+    border-color: #7651BE;
+}
+
+.timelimit-setting {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.timelimit-setting label {
+    font-weight: 500;
+    color: #1D1D1D;
+    font-size: 14px;
+}
+
+.timelimit-controls {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+.checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+    font-size: 14px;
+    color: #4C4C4C;
+}
+
+.timelimit-fields {
+    display: flex;
+    gap: 12px;
+}
+
+.time-field {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.time-input {
+    width: 60px;
+    padding: 6px 8px;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    font-family: 'Ysabeau', 'Inter', sans-serif;
+    font-size: 14px;
+    text-align: center;
+}
+
+.time-input:focus {
+    outline: none;
+    border-color: #7651BE;
+}
+
+.time-field span {
+    font-size: 14px;
+    color: #4C4C4C;
+}
+
+/* Список упражнений в тесте */
+.test-exercises-section {
+    margin-top: 24px;
+}
+
+.test-exercises-section .section-header {
+    margin-bottom: 16px;
+    font-weight: 600;
+    color: #1D1D1D;
+    font-size: 16px;
+    padding-left: 0;
+}
+
+.test-exercises-list {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+    margin-bottom: 20px;
+}
+
+.test-exercise-card {
+    background: #faf9fb;
+    border: 1px solid #e5e7eb;
+    border-radius: 16px;
+    padding: 20px;
+    transition: all 0.3s ease;
+    position: relative;
+}
+
+.test-exercise-card.dragging {
+    opacity: 0.5;
+}
+
+.drag-handle {
+    cursor: grab;
+    padding: 8px;
+    color: #9ca3af;
+    font-size: 20px;
+    user-select: none;
+}
+
+.drag-handle:active {
+    cursor: grabbing;
+}
+
+.test-exercise-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 20px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.exercise-number {
+    font-weight: 600;
+    color: #7651BE;
+    font-size: 16px;
+    min-width: 30px;
+}
+
+.exercise-title-input {
+    flex: 2;
+    padding: 8px 12px;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    font-size: 14px;
+    font-family: 'Ysabeau', 'Inter', sans-serif;
+}
+
+.exercise-title-input:focus {
+    outline: none;
+    border-color: #7651BE;
+}
+
+/* Кастомный dropdown для теста */
+.test-type-dropdown {
+    position: relative;
+    display: inline-block;
+}
+
+.test-type-dropdown-btn {
+    background: white;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    padding: 10px 20px;
+    font-size: 14px;
+    font-family: 'Ysabeau', 'Inter', sans-serif;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-width: 200px;
+    justify-content: space-between;
+    color: #1D1D1D;
+    transition: all 0.3s ease;
+}
+
+.test-type-dropdown-btn:hover {
+    background: rgba(118, 81, 190, 0.1);
+    color: #7651BE;
+}
+
+.test-type-dropdown-btn.active .dropdown-chevron {
+    transform: rotate(180deg);
+}
+
+.test-type-dropdown-btn .dropdown-chevron {
+    width: 20px;
+    height: 20px;
+    transition: transform 0.3s ease;
+}
+
+.test-type-dropdown-menu {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    background: white;
+    border: 1px solid #e5e7eb;
+    border-radius: 16px;
+    margin-top: 8px;
+    min-width: 200px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    z-index: 100;
+    overflow: hidden;
+}
+
+.test-type-option {
+    display: block;
+    width: 100%;
+    padding: 12px 20px;
+    border: none;
+    background: white;
+    text-align: left;
+    cursor: pointer;
+    font-family: 'Ysabeau', 'Inter', sans-serif;
+    font-size: 14px;
+    color: #1D1D1D;
+    transition: all 0.2s ease;
+}
+
+.test-type-option:hover {
+    background: rgba(118, 81, 190, 0.1);
+    color: #7651BE;
+}
+
+.delete-exercise-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+}
+
+.delete-exercise-icon {
+    width: 18px;
+    height: 18px;
+    opacity: 0.6;
+}
+
+.delete-exercise-icon:hover {
+    opacity: 1;
+}
+
+/* Редактор упражнения внутри теста */
+.test-exercise-editor {
+    margin-bottom: 20px;
+    padding: 16px;
+    background: white;
+    border-radius: 12px;
+}
+
+/* Баллы за попытки */
+.test-scoring-section {
+    margin-top: 16px;
+    padding-top: 16px;
+    border-top: 1px solid #e5e7eb;
+}
+
+.scoring-title {
+    font-size: 14px;
+    font-weight: 500;
+    color: #1D1D1D;
+    margin-bottom: 12px;
+}
+
+.scoring-row {
+    display: flex;
+    gap: 20px;
+    flex-wrap: wrap;
+}
+
+.scoring-field {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.scoring-field label {
+    font-size: 13px;
+    color: #4C4C4C;
+}
+
+.scoring-input {
+    width: 70px;
+    padding: 6px 8px;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    font-size: 14px;
+    font-family: 'Ysabeau', 'Inter', sans-serif;
+    text-align: center;
+}
+
+.scoring-input:focus {
+    outline: none;
+    border-color: #7651BE;
+}
+
+.scoring-input.error {
+    border-color: #ff4444;
+    background: rgba(255, 68, 68, 0.05);
+}
+
+/* Кнопка добавления тестирования */
+.add-test-exercise-btn {
+    background: none;
+    border: 2px dashed #cbd5e1;
+    border-radius: 12px;
+    padding: 12px 16px;
+    color: #7651BE;
+    cursor: pointer;
+    font-family: 'Ysabeau', 'Inter', sans-serif;
+    font-size: 14px;
+    font-weight: 500;
+    width: 100%;
+    transition: all 0.3s ease;
+    margin-top: 8px;
+}
+
+.add-test-exercise-btn:hover {
+    border-color: #7651BE;
+    background: rgba(118, 81, 190, 0.05);
+}
+
+.exercises-counter {
+    font-size: 12px;
+    color: #9ca3af;
+    margin-top: 12px;
+    text-align: right;
+}
+
+/* Дополнительные стили для редактора теста */
+.test-editor-container {
+    background: white;
+    border-radius: 24px;
+    padding: 32px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+    animation: fadeIn 0.3s ease;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.test-editor-container .test-settings {
+    background: #faf9fb;
+    border: 1px solid #e5e7eb;
+    border-radius: 16px;
+    padding: 20px;
+    margin-bottom: 32px;
+}
+
+.test-editor-container .test-exercises-section {
+    margin-top: 24px;
+}
+
+.test-editor-container .add-test-exercise-btn {
+    background: none;
+    border: 2px dashed #cbd5e1;
+    border-radius: 12px;
+    padding: 12px 16px;
+    color: #7651BE;
+    cursor: pointer;
+    font-family: 'Ysabeau', 'Inter', sans-serif;
+    font-size: 14px;
+    font-weight: 500;
+    width: 100%;
+    transition: all 0.3s ease;
+    margin-top: 8px;
+}
+
+.test-editor-container .add-test-exercise-btn:hover {
+    border-color: #7651BE;
+    background: rgba(118, 81, 190, 0.05);
+}
+
+.test-editor-container .exercises-counter {
+    font-size: 12px;
+    color: #9ca3af;
+    margin-top: 12px;
+    text-align: right;
+}
+
+.test-editor-container .empty-message {
+    text-align: center;
+    padding: 40px;
+    color: #9ca3af;
+}
+
+.test-exercise-card {
+    cursor: pointer;
+}
+
+.test-exercise-card.dragging {
+    opacity: 0.5;
+    background: #f0f0f0;
+}
+
+.move-buttons {
+    display: flex;
+    gap: 4px;
+    margin-left: auto;
+    margin-right: 8px;
+}
+
+.move-up-btn, .move-down-btn {
+    width: 28px;
+    height: 28px;
+    border-radius: 6px;
+    border: 1px solid #e2e8f0;
+    background: white;
+    cursor: pointer;
+    font-size: 16px;
+    font-weight: bold;
+    color: #4a5568;
+    transition: all 0.2s;
+}
+
+.move-up-btn:hover:not(:disabled), 
+.move-down-btn:hover:not(:disabled) {
+    background: #ffffff;
+    border-color: #7651BE;
+    color: #7651BE;
+}
+
+.move-up-btn:disabled,
+.move-down-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
 /* ========== ANIMATIONS ========== */
 @keyframes fadeIn {
     from { opacity: 0; }

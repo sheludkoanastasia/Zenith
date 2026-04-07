@@ -189,7 +189,10 @@ module.exports = {
                 case 'test':
                     content = await db.Test.create({
                         section_id: section.id,
-                        questions: []
+                        exercises: [],  // ← поменять с questions на exercises
+                        passing_score: 70,
+                        time_limit: null,
+                        deadline: null
                     }, { transaction });
                     break;
                 default:
@@ -372,12 +375,12 @@ module.exports = {
         }
     },
     
-    updateTestSection: async (req, res) => {
+        updateTestSection: async (req, res) => {
         const transaction = await db.sequelize.transaction();
         
         try {
             const { sectionId } = req.params;
-            const { title, questions, passing_score, time_limit } = req.body;
+            const { title, exercises, passing_score, time_limit, deadline } = req.body;
             
             const section = await db.Section.findByPk(sectionId, {
                 include: [
@@ -417,11 +420,20 @@ module.exports = {
             }
             
             if (section.test) {
-                await section.test.update({
-                    questions: questions !== undefined ? questions : section.test.questions,
-                    passing_score: passing_score !== undefined ? passing_score : section.test.passing_score,
-                    time_limit: time_limit !== undefined ? time_limit : section.test.time_limit
-                }, { transaction });
+                const updateData = {};
+                
+                if (exercises !== undefined) updateData.exercises = exercises;
+                if (passing_score !== undefined) updateData.passing_score = passing_score;
+                if (time_limit !== undefined) updateData.time_limit = time_limit;
+                
+                // Исправление: преобразуем пустую строку в null
+                if (deadline !== undefined) {
+                    updateData.deadline = deadline && deadline.trim() !== '' ? deadline : null;
+                }
+                
+                console.log('Updating test with data:', updateData);
+                
+                await section.test.update(updateData, { transaction });
             }
             
             await transaction.commit();
@@ -438,112 +450,8 @@ module.exports = {
             
         } catch (error) {
             await transaction.rollback();
+            console.error('Ошибка при обновлении итогового теста:', error);
             handleError(res, error, 'Ошибка при обновлении итогового теста');
-        }
-    },
-    
-    deleteSection: async (req, res) => {
-        const transaction = await db.sequelize.transaction();
-        
-        try {
-            const { sectionId } = req.params;
-            
-            const section = await db.Section.findByPk(sectionId, {
-                include: [
-                    {
-                        model: db.Block,
-                        as: 'block',
-                        include: [
-                            {
-                                model: db.Theme,
-                                as: 'theme',
-                                include: [{ model: db.Course, as: 'course' }]
-                            }
-                        ]
-                    }
-                ]
-            });
-            
-            if (!section) {
-                await transaction.rollback();
-                return res.status(404).json({
-                    success: false,
-                    message: 'Раздел не найден'
-                });
-            }
-            
-            if (section.block.theme.course.teacher_id !== req.user.id) {
-                await transaction.rollback();
-                return res.status(403).json({
-                    success: false,
-                    message: 'Нет прав на удаление этого раздела'
-                });
-            }
-            
-            await section.destroy({ transaction });
-            await transaction.commit();
-            
-            res.json({
-                success: true,
-                message: 'Раздел успешно удален'
-            });
-            
-        } catch (error) {
-            await transaction.rollback();
-            handleError(res, error, 'Ошибка при удалении раздела');
-        }
-    },
-    
-    reorderSections: async (req, res) => {
-        const transaction = await db.sequelize.transaction();
-        
-        try {
-            const { blockId } = req.params;
-            const { sectionOrders } = req.body;
-            
-            const block = await db.Block.findByPk(blockId, {
-                include: [
-                    {
-                        model: db.Theme,
-                        as: 'theme',
-                        include: [{ model: db.Course, as: 'course' }]
-                    }
-                ]
-            });
-            
-            if (!block) {
-                await transaction.rollback();
-                return res.status(404).json({
-                    success: false,
-                    message: 'Блок не найден'
-                });
-            }
-            
-            if (block.theme.course.teacher_id !== req.user.id) {
-                await transaction.rollback();
-                return res.status(403).json({
-                    success: false,
-                    message: 'Нет прав на изменение порядка разделов'
-                });
-            }
-            
-            for (const item of sectionOrders) {
-                await db.Section.update(
-                    { order_index: item.order_index },
-                    { where: { id: item.id, block_id: blockId }, transaction }
-                );
-            }
-            
-            await transaction.commit();
-            
-            res.json({
-                success: true,
-                message: 'Порядок разделов успешно обновлен'
-            });
-            
-        } catch (error) {
-            await transaction.rollback();
-            handleError(res, error, 'Ошибка при изменении порядка разделов');
         }
     },
 
@@ -651,6 +559,118 @@ module.exports = {
                 success: false,
                 message: 'Ошибка при обработке файла: ' + error.message
             });
+        }
+    },
+
+    // Добавьте эти функции в module.exports перед uploadTheoryFile
+
+    deleteSection: async (req, res) => {
+        const transaction = await db.sequelize.transaction();
+        
+        try {
+            const { sectionId } = req.params;
+            
+            const section = await db.Section.findByPk(sectionId, {
+                include: [
+                    {
+                        model: db.Block,
+                        as: 'block',
+                        include: [
+                            {
+                                model: db.Theme,
+                                as: 'theme',
+                                include: [{ model: db.Course, as: 'course' }]
+                            }
+                        ]
+                    }
+                ]
+            });
+            
+            if (!section) {
+                await transaction.rollback();
+                return res.status(404).json({
+                    success: false,
+                    message: 'Раздел не найден'
+                });
+            }
+            
+            // Проверяем права доступа
+            if (section.block.theme.course.teacher_id !== req.user.id) {
+                await transaction.rollback();
+                return res.status(403).json({
+                    success: false,
+                    message: 'Нет прав на удаление этого раздела'
+                });
+            }
+            
+            // Удаляем раздел (связанные данные удалятся каскадно благодаря настройкам БД)
+            await section.destroy({ transaction });
+            
+            await transaction.commit();
+            
+            res.json({
+                success: true,
+                message: 'Раздел успешно удален'
+            });
+            
+        } catch (error) {
+            await transaction.rollback();
+            console.error('Ошибка при удалении раздела:', error);
+            handleError(res, error, 'Ошибка при удалении раздела');
+        }
+    },
+
+    reorderSections: async (req, res) => {
+        const transaction = await db.sequelize.transaction();
+        
+        try {
+            const { blockId } = req.params;
+            const { sectionOrders } = req.body;
+            
+            const block = await db.Block.findByPk(blockId, {
+                include: [
+                    {
+                        model: db.Theme,
+                        as: 'theme',
+                        include: [{ model: db.Course, as: 'course' }]
+                    }
+                ]
+            });
+            
+            if (!block) {
+                await transaction.rollback();
+                return res.status(404).json({
+                    success: false,
+                    message: 'Блок не найден'
+                });
+            }
+            
+            if (block.theme.course.teacher_id !== req.user.id) {
+                await transaction.rollback();
+                return res.status(403).json({
+                    success: false,
+                    message: 'Нет прав на изменение порядка разделов'
+                });
+            }
+            
+            for (const item of sectionOrders) {
+                await db.Section.update(
+                    { order_index: item.order_index },
+                    { where: { id: item.id, block_id: blockId }, transaction }
+                );
+            }
+            
+            await transaction.commit();
+            
+            res.json({
+                success: true,
+                message: 'Порядок разделов успешно обновлен'
+            });
+            
+        } catch (error) {
+            await transaction.rollback();
+            console.error('Ошибка при изменении порядка разделов:', error);
+            handleError(res, error, 'Ошибка при изменении порядка разделов');
         }
     }
 };
