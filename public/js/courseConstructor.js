@@ -1603,9 +1603,14 @@ function performBlockSwitch(clickedBlockId, blockTitle, blockDescription) {
     currentEditingTheorySection = null;
     originalTheoryText = '';
     
-    // НЕ сбрасываем состояние для теста!
-    // hasExerciseUnsavedChanges = false;
-    // currentEditingExerciseSection = null;
+    // Скрываем все редакторы
+    const theoryEditorContainer = document.getElementById('theoryEditorContainer');
+    const exerciseEditorContainer = document.getElementById('exerciseEditorContainer');
+    const testEditorContainer = document.getElementById('testEditorContainer');
+    
+    if (theoryEditorContainer) theoryEditorContainer.style.display = 'none';
+    if (exerciseEditorContainer) exerciseEditorContainer.style.display = 'none';
+    if (testEditorContainer) testEditorContainer.style.display = 'none';
     
     if (quillEditor) {
         quillEditor.root.innerHTML = '';
@@ -3629,7 +3634,22 @@ async function loadTestSection(sectionId) {
             // Заполняем поля формы
             const deadlineInput = document.getElementById('testDeadline');
             if (deadlineInput) {
-                deadlineInput.value = formattedDeadline;
+                if (window.customDateTimePicker && formattedDeadline) {
+                    window.customDateTimePicker.hiddenInput.value = formattedDeadline;
+                    // Обновляем отображение
+                    const [datePart, timePart] = formattedDeadline.split('T');
+                    const [year, month, day] = datePart.split('-');
+                    const [hours, minutes] = timePart.split(':');
+                    const dateStr = `${day}.${month}.${year} ${hours}:${minutes}`;
+                    const span = document.querySelector('#datetimeTrigger span');
+                    if (span) span.textContent = dateStr;
+                    window.customDateTimePicker.selectedDate = new Date(year, month - 1, day);
+                    window.customDateTimePicker.selectedHour = parseInt(hours);
+                    window.customDateTimePicker.selectedMinute = parseInt(minutes);
+                } else {
+                    // Если нет кастомного пикера, используем обычный input
+                    deadlineInput.value = formattedDeadline;
+                }
             }
             
             const noTimeLimitCheckbox = document.getElementById('timelimitEnabled');
@@ -5548,7 +5568,9 @@ async function saveTestSection() {
     }
     
     // Получаем данные из формы
-    const deadline = document.getElementById('testDeadline')?.value || '';
+    const deadline = window.customDateTimePicker ? 
+    window.customDateTimePicker.getValue() : 
+    document.getElementById('testDeadline')?.value || '';
     const noTimeLimitCheckbox = document.getElementById('timelimitEnabled');
     const timelimitDays = parseInt(document.getElementById('timelimitDays')?.value) || 0;
     const timelimitHours = parseInt(document.getElementById('timelimitHours')?.value) || 0;
@@ -5731,6 +5753,257 @@ async function saveTestSection() {
         showNotification('Ошибка при сохранении', 'error');
     }
 }
+
+// ===== КАСТОМНЫЙ DATETIME PICKER =====
+class CustomDateTimePicker {
+    constructor(triggerId, hiddenInputId, popupId) {
+        this.trigger = document.getElementById(triggerId);
+        this.hiddenInput = document.getElementById(hiddenInputId);
+        this.popup = document.getElementById(popupId);
+        
+        this.currentDate = new Date();
+        this.selectedDate = null;
+        this.selectedHour = 12;
+        this.selectedMinute = 0;
+        
+        this.init();
+    }
+    
+    init() {
+        if (!this.trigger || !this.popup) return;
+        
+        // Открытие/закрытие попапа
+        this.trigger.addEventListener('click', (e) => {
+            e.stopPropagation();
+            this.togglePopup();
+        });
+        
+        // Закрытие при клике вне
+        document.addEventListener('click', (e) => {
+            if (!this.popup.contains(e.target) && e.target !== this.trigger) {
+                this.popup.style.display = 'none';
+                this.trigger.classList.remove('active');
+            }
+        });
+        
+        // Инициализация календаря
+        this.renderCalendar();
+        
+        // Обработчики навигации
+        document.getElementById('prevMonth')?.addEventListener('click', () => {
+            this.currentDate.setMonth(this.currentDate.getMonth() - 1);
+            this.renderCalendar();
+        });
+        
+        document.getElementById('nextMonth')?.addEventListener('click', () => {
+            this.currentDate.setMonth(this.currentDate.getMonth() + 1);
+            this.renderCalendar();
+        });
+        
+        // Обработчики времени
+        const hourInput = document.getElementById('hourInput');
+        const minuteInput = document.getElementById('minuteInput');
+        
+        hourInput?.addEventListener('change', (e) => {
+            this.selectedHour = parseInt(e.target.value) || 0;
+        });
+        
+        minuteInput?.addEventListener('change', (e) => {
+            this.selectedMinute = parseInt(e.target.value) || 0;
+        });
+        
+        // Очистка
+        document.getElementById('clearDatetime')?.addEventListener('click', () => {
+            this.clear();
+        });
+        
+        // Отмена
+        document.getElementById('cancelDatetime')?.addEventListener('click', () => {
+            this.popup.style.display = 'none';
+            this.trigger.classList.remove('active');
+        });
+        
+        // Применение
+        document.getElementById('confirmDatetime')?.addEventListener('click', () => {
+            this.apply();
+        });
+        
+        // Загрузка сохраненного значения
+        this.loadSavedValue();
+    }
+    
+    togglePopup() {
+        const isVisible = this.popup.style.display === 'block';
+        this.popup.style.display = isVisible ? 'none' : 'block';
+        this.trigger.classList.toggle('active', !isVisible);
+        
+        if (!isVisible) {
+            this.renderCalendar();
+        }
+    }
+    
+    renderCalendar() {
+        const year = this.currentDate.getFullYear();
+        const month = this.currentDate.getMonth();
+        
+        // Обновляем заголовок
+        const monthNames = ['Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь',
+                           'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'];
+        document.getElementById('currentMonth').textContent = `${monthNames[month]} ${year}`;
+        
+        // Получаем первый день месяца и количество дней
+        const firstDay = new Date(year, month, 1);
+        const startDay = firstDay.getDay() || 7; // Преобразуем воскресенье (0) в 7
+        const daysInMonth = new Date(year, month + 1, 0).getDate();
+        
+        // Дни предыдущего месяца
+        const prevMonthDays = new Date(year, month, 0).getDate();
+        
+        const daysContainer = document.getElementById('calendarDays');
+        daysContainer.innerHTML = '';
+        
+        // Заполняем дни предыдущего месяца
+        for (let i = startDay - 1; i > 0; i--) {
+            const day = prevMonthDays - i + 1;
+            const dayBtn = this.createDayButton(day, true);
+            daysContainer.appendChild(dayBtn);
+        }
+        
+        // Заполняем дни текущего месяца
+        for (let day = 1; day <= daysInMonth; day++) {
+            const dayBtn = this.createDayButton(day, false);
+            daysContainer.appendChild(dayBtn);
+        }
+        
+        // Заполняем дни следующего месяца (чтобы было 6 строк)
+        const totalCells = Math.ceil((startDay - 1 + daysInMonth) / 7) * 7;
+        const remainingCells = totalCells - (startDay - 1 + daysInMonth);
+        
+        for (let day = 1; day <= remainingCells; day++) {
+            const dayBtn = this.createDayButton(day, true);
+            daysContainer.appendChild(dayBtn);
+        }
+    }
+    
+    createDayButton(day, isOtherMonth) {
+        const btn = document.createElement('button');
+        btn.className = 'calendar-day';
+        if (isOtherMonth) btn.classList.add('other-month');
+        btn.textContent = day;
+        
+        // Проверка, выбран ли этот день
+        if (this.selectedDate && !isOtherMonth && 
+            this.selectedDate.getDate() === day && 
+            this.selectedDate.getMonth() === this.currentDate.getMonth() &&
+            this.selectedDate.getFullYear() === this.currentDate.getFullYear()) {
+            btn.classList.add('selected');
+        }
+        
+        // Проверка, сегодняшний ли день
+        const today = new Date();
+        if (!isOtherMonth && 
+            today.getDate() === day && 
+            today.getMonth() === this.currentDate.getMonth() &&
+            today.getFullYear() === this.currentDate.getFullYear()) {
+            btn.classList.add('today');
+        }
+        
+        btn.addEventListener('click', () => {
+            if (!isOtherMonth) {
+                // Убираем выделение с других дней
+                document.querySelectorAll('.calendar-day.selected').forEach(el => {
+                    el.classList.remove('selected');
+                });
+                btn.classList.add('selected');
+                
+                this.selectedDate = new Date(this.currentDate.getFullYear(), 
+                                            this.currentDate.getMonth(), day);
+            }
+        });
+        
+        return btn;
+    }
+    
+    apply() {
+        if (this.selectedDate) {
+            // Устанавливаем время
+            this.selectedDate.setHours(this.selectedHour, this.selectedMinute);
+            
+            // Форматируем для datetime-local
+            const year = this.selectedDate.getFullYear();
+            const month = String(this.selectedDate.getMonth() + 1).padStart(2, '0');
+            const day = String(this.selectedDate.getDate()).padStart(2, '0');
+            const hours = String(this.selectedDate.getHours()).padStart(2, '0');
+            const minutes = String(this.selectedDate.getMinutes()).padStart(2, '0');
+            
+            const formattedValue = `${year}-${month}-${day}T${hours}:${minutes}`;
+            this.hiddenInput.value = formattedValue;
+            
+            // Обновляем текст на кнопке
+            const dateStr = `${day}.${month}.${year} ${hours}:${minutes}`;
+            const span = this.trigger.querySelector('span');
+            if (span) span.textContent = dateStr;
+        }
+        
+        this.popup.style.display = 'none';
+        this.trigger.classList.remove('active');
+        
+        // Триггерим событие change для совместимости
+        this.hiddenInput.dispatchEvent(new Event('change'));
+    }
+    
+    clear() {
+        this.selectedDate = null;
+        this.selectedHour = 12;
+        this.selectedMinute = 0;
+        this.hiddenInput.value = '';
+        
+        const span = this.trigger.querySelector('span');
+        if (span) span.textContent = 'Выберите дату и время';
+        
+        document.getElementById('hourInput').value = 12;
+        document.getElementById('minuteInput').value = 0;
+        
+        this.renderCalendar();
+    }
+    
+    loadSavedValue() {
+        const savedValue = this.hiddenInput.value;
+        if (savedValue) {
+            const [datePart, timePart] = savedValue.split('T');
+            const [year, month, day] = datePart.split('-');
+            const [hours, minutes] = timePart.split(':');
+            
+            this.selectedDate = new Date(year, month - 1, day);
+            this.selectedHour = parseInt(hours);
+            this.selectedMinute = parseInt(minutes);
+            
+            // Обновляем отображение
+            const dateStr = `${day}.${month}.${year} ${hours}:${minutes}`;
+            const span = this.trigger.querySelector('span');
+            if (span) span.textContent = dateStr;
+            
+            document.getElementById('hourInput').value = this.selectedHour;
+            document.getElementById('minuteInput').value = this.selectedMinute;
+        }
+    }
+    
+    getValue() {
+        return this.hiddenInput.value;
+    }
+}
+
+// Инициализация после загрузки страницы
+document.addEventListener('DOMContentLoaded', () => {
+    // Инициализируем кастомный datetime picker
+    if (document.getElementById('datetimeTrigger')) {
+        window.customDateTimePicker = new CustomDateTimePicker(
+            'datetimeTrigger', 
+            'testDeadline', 
+            'datetimePopup'
+        );
+    }
+});
 
 // Инициализация Quill
 initQuillEditor();

@@ -259,7 +259,45 @@
                         <div class="settings-row">
                             <div class="deadline-setting">
                                 <label>Назначить дедлайн:</label>
-                                <input type="datetime-local" id="testDeadline" class="deadline-input">
+                                <div class="custom-datetime-picker">
+                                    <button type="button" class="datetime-trigger" id="datetimeTrigger">
+                                        <img src="/images/taskCreationPage/calendar.svg" alt="calendar" width="18" height="18">
+                                        <span id="selectedDatetime">Выберите дату и время</span>
+                                        <img src="/images/taskCreationPage/chevronDown.svg" alt="toggle" class="dropdown-chevron">
+                                    </button>
+                                    
+                                    <!-- Календарь -->
+                                    <div class="datetime-popup" id="datetimePopup" style="display: none;">
+                                        <div class="calendar-header">
+                                            <button type="button" class="month-nav" id="prevMonth">←</button>
+                                            <span class="current-month" id="currentMonth">Январь 2024</span>
+                                            <button type="button" class="month-nav" id="nextMonth">→</button>
+                                        </div>
+                                        <div class="calendar-weekdays">
+                                            <span>Пн</span><span>Вт</span><span>Ср</span><span>Чт</span><span>Пт</span><span>Сб</span><span>Вс</span>
+                                        </div>
+                                        <div class="calendar-days" id="calendarDays"></div>
+                                        
+                                        <div class="time-selector">
+                                            <div class="time-column">
+                                                <label>Часы</label>
+                                                <input type="number" id="hourInput" min="0" max="23" value="12" class="time-input-small">
+                                            </div>
+                                            <div class="time-column">
+                                                <label>Минуты</label>
+                                                <input type="number" id="minuteInput" min="0" max="59" value="0" class="time-input-small">
+                                            </div>
+                                            <button type="button" class="clear-datetime" id="clearDatetime">Очистить</button>
+                                        </div>
+                                        
+                                        <div class="datetime-actions">
+                                            <button type="button" class="cancel-datetime" id="cancelDatetime">Отмена</button>
+                                            <button type="button" class="confirm-datetime" id="confirmDatetime">Применить</button>
+                                        </div>
+                                    </div>
+                                </div>
+                                <!-- Скрытый input для сохранения значения -->
+                                <input type="hidden" id="testDeadline" value="">
                             </div>
                             <div class="timelimit-setting">
                                 <label>Время прохождения:</label>
