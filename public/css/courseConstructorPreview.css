@@ -85,6 +85,77 @@ body {
     flex-shrink: 0;
     z-index: 1;
     height: 100%;
+    transition: width 0.3s ease;
+}
+
+.sidebar.collapsed {
+    width: 64px;
+    overflow-y: hidden;
+}
+
+.sidebar.collapsed:hover {
+    overflow-y: auto;
+}
+
+.sidebar.collapsed .sidebar-content {
+    padding: 32px 12px;
+}
+
+.sidebar.collapsed .course-header {
+    justify-content: center;
+}
+
+.sidebar.collapsed .course-title {
+    opacity: 0;
+    visibility: hidden;
+    width: 0;
+    margin: 0;
+    transition: opacity 0.2s ease, visibility 0s 0.3s, width 0s 0.3s;
+}
+
+.sidebar:not(.collapsed) .course-title {
+    opacity: 1;
+    visibility: visible;
+    width: auto;
+    transition: opacity 0.2s ease 0.15s, visibility 0s 0s, width 0s 0s;
+}
+
+.sidebar.collapsed .collapse-icon {
+    transform: rotate(180deg);
+}
+
+.sidebar.collapsed .themes-list-wrapper {
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.2s ease, visibility 0s 0.3s;
+}
+
+.sidebar:not(.collapsed) .themes-list-wrapper {
+    opacity: 1;
+    visibility: visible;
+    transition: opacity 0.2s ease 0.15s, visibility 0s 0s;
+}
+
+/* Скрываем скроллбар у свернутого сайдбара */
+.sidebar.collapsed::-webkit-scrollbar {
+    width: 0;
+    display: none;
+}
+
+.sidebar.collapsed {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+}
+
+/* При наведении на свернутый сайдбар показываем скролл */
+.sidebar.collapsed:hover::-webkit-scrollbar {
+    width: 6px;
+    display: block;
+}
+
+.sidebar.collapsed:hover {
+    -ms-overflow-style: auto;
+    scrollbar-width: thin;
 }
 
 .sidebar::-webkit-scrollbar {
@@ -109,18 +180,63 @@ body {
     padding: 32px 40px;
 }
 
+.sidebar.collapsed .sidebar-content {
+    padding: 32px 12px;
+}
+
+/* Course header with collapse button */
 .course-info {
     margin-bottom: 32px;
     padding-bottom: 16px;
     border-bottom: 1px solid #e5e7eb;
 }
 
+.course-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    min-height: 32px;
+}
+
 .course-title {
     font-size: 20px;
     font-weight: 600;
     color: #1D1D1D;
-    margin-bottom: 8px;
+    margin-bottom: 0;
     font-family: 'Ysabeau', 'Inter', sans-serif;
+    flex: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.collapse-sidebar-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 8px;
+    transition: all 0.2s ease;
+    flex-shrink: 0;
+}
+
+.collapse-sidebar-btn:hover {
+    background: rgba(118, 81, 190, 0.1);
+}
+
+.collapse-icon {
+    width: 20px;
+    height: 20px;
+    transition: transform 0.3s ease;
+}
+
+/* Themes list wrapper for animation */
+.themes-list-wrapper {
+    width: 100%;
 }
 
 .themes-list {
@@ -129,6 +245,272 @@ body {
     gap: 24px;
 }
 
+/* Course header with collapse button */
+.course-info {
+    margin-bottom: 32px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.course-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.course-title {
+    font-size: 20px;
+    font-weight: 600;
+    color: #1D1D1D;
+    margin-bottom: 0;
+    font-family: 'Ysabeau', 'Inter', sans-serif;
+    flex: 1;
+}
+
+.collapse-sidebar-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 8px;
+    transition: all 0.2s ease;
+    flex-shrink: 0;
+}
+
+.collapse-sidebar-btn:hover {
+    background: rgba(118, 81, 190, 0.1);
+}
+
+.collapse-icon {
+    width: 20px;
+    height: 20px;
+    transition: transform 0.3s ease;
+}
+
+/* Themes list wrapper for animation */
+.themes-list-wrapper {
+    width: 100%;
+}
+
+.themes-list {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+}
+
+/* ========== CONTENT AREA ========== */
+.content-area {
+    flex: 1;
+    overflow-y: auto;
+    position: relative;
+    background: white;
+    z-index: 1;
+    height: 100%;
+}
+
+.content-wrapper {
+    position: relative;
+    z-index: 2;
+    padding: 32px 48px 350px 48px;
+    min-height: 100%;
+    display: flex;
+    flex-direction: column;
+}
+
+.welcome-screen {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 400px;
+    flex: 1;
+}
+
+.welcome-content {
+    text-align: center;
+    color: #6b7280;
+}
+
+.welcome-content h2 {
+    font-size: 24px;
+    margin-bottom: 12px;
+    color: #374151;
+    font-family: 'Ysabeau', 'Inter', sans-serif;
+}
+
+.welcome-content p {
+    font-size: 16px;
+    font-family: 'Ysabeau', 'Inter', sans-serif;
+}
+
+/* Sections Area (Preview) */
+.sections-area {
+    animation: fadeIn 0.3s ease;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+}
+
+.block-header {
+    margin-bottom: 32px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid #e5e7eb;
+    flex-shrink: 0;
+}
+
+.block-title {
+    font-size: 28px;
+    font-weight: 600;
+    color: #1D1D1D;
+    margin-bottom: 8px;
+    font-family: 'Ysabeau', 'Inter', sans-serif;
+}
+
+.block-description {
+    color: #6b7280;
+    font-size: 14px;
+    font-family: 'Ysabeau', 'Inter', sans-serif;
+}
+
+.sections-list {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    margin-bottom: 32px;
+    flex: 1;
+    overflow-y: auto;
+    min-height: 0;
+}
+
+.section-card {
+    background: #faf9fb;
+    border-radius: 12px;
+    padding: 16px 20px;
+    transition: all 0.3s;
+    border: 1px solid #e5e7eb;
+    cursor: pointer;
+}
+
+.section-card:hover {
+    border-color: #7651BE;
+    background: #faf7fd;
+}
+
+.section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 16px;
+}
+
+.section-title {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.section-title h3 {
+    font-size: 20px;
+    font-weight: 500;
+    color: #1D1D1D;
+    font-family: 'Ysabeau', 'Inter', sans-serif;
+    margin: 0;
+    line-height: 1.4;
+}
+
+.section-type-badge {
+    display: inline-block;
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 500;
+    font-family: 'Ysabeau', 'Inter', sans-serif;
+    width: fit-content;
+}
+
+.section-type-badge[data-type="theory"] {
+    background: #e5e7eb;
+    color: #4b5563;
+}
+
+.section-type-badge[data-type="exercise"] {
+    background: #379B34;
+    color: white;
+}
+
+.section-type-badge[data-type="test"] {
+    background: #c43232;
+    color: white;
+}
+
+/* Preview notice */
+.preview-notice {
+    text-align: center;
+    padding: 24px;
+    margin-top: 32px;
+    background: #fef9e6;
+    border-radius: 12px;
+    border: 1px solid #ffe4a3;
+    flex-shrink: 0;
+}
+
+.preview-notice span {
+    display: inline-block;
+    font-weight: 600;
+    color: #b8860b;
+    margin-bottom: 8px;
+    font-size: 16px;
+}
+
+.preview-notice p {
+    font-size: 14px;
+    color: #8b6914;
+    margin: 0;
+}
+
+/* ========== GRADIENT DECORATION ========== */
+:root {
+    --sidebar-width: 320px;
+}
+
+.sidebar {
+    width: var(--sidebar-width);
+}
+
+.gradient-decoration {
+    position: fixed;
+    bottom: 0;
+    right: 0;
+    width: calc(100% - var(--sidebar-width, 320px));
+    height: auto;
+    pointer-events: none;
+    z-index: 0;
+    display: flex;
+    justify-content: center;
+    align-items: flex-end;
+    transition: width 0.3s ease;
+}
+
+.sidebar.collapsed ~ .content-area .gradient-decoration {
+    width: calc(100% - 64px);
+}
+
+.gradient-decoration img {
+    width: 100%;
+    max-width: 800px;
+    height: auto;
+    object-fit: contain;
+    opacity: 0.5;
+    display: block;
+    margin: 0 auto;
+}
+
+/* ========== THEMES LIST STYLES ========== */
 .theme-item {
     margin-bottom: 8px;
 }
@@ -331,207 +713,19 @@ body {
     font-family: 'Ysabeau', 'Inter', sans-serif;
 }
 
-/* ========== CONTENT AREA ========== */
-.content-area {
-    flex: 1;
-    overflow-y: auto;
-    position: relative;
-    background: white;
-    z-index: 1;
-    height: 100%;
+.empty-message {
+    color: #9ca3af;
+    font-size: 13px;
+    text-align: left;
+    padding-right: 20px;
+    font-family: 'Ysabeau', 'Inter', sans-serif;
 }
 
-.content-wrapper {
-    position: relative;
-    z-index: 2;
-    padding: 32px 48px 350px 48px;
-    min-height: 100%;
-    display: flex;
-    flex-direction: column;
-}
-
-.welcome-screen {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    min-height: 400px;
-    flex: 1;
-}
-
-.welcome-content {
+.empty-state {
     text-align: center;
+    padding: 40px;
     color: #6b7280;
-}
-
-.welcome-content h2 {
-    font-size: 24px;
-    margin-bottom: 12px;
-    color: #374151;
     font-family: 'Ysabeau', 'Inter', sans-serif;
-}
-
-.welcome-content p {
-    font-size: 16px;
-    font-family: 'Ysabeau', 'Inter', sans-serif;
-}
-
-/* Sections Area (Preview) */
-.sections-area {
-    animation: fadeIn 0.3s ease;
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    min-height: 0;
-}
-
-.block-header {
-    margin-bottom: 32px;
-    padding-bottom: 16px;
-    border-bottom: 1px solid #e5e7eb;
-    flex-shrink: 0;
-}
-
-.block-title {
-    font-size: 28px;
-    font-weight: 600;
-    color: #1D1D1D;
-    margin-bottom: 8px;
-    font-family: 'Ysabeau', 'Inter', sans-serif;
-}
-
-.block-description {
-    color: #6b7280;
-    font-size: 14px;
-    font-family: 'Ysabeau', 'Inter', sans-serif;
-}
-
-.sections-list {
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
-    margin-bottom: 32px;
-    flex: 1;
-    overflow-y: auto;
-    min-height: 0;
-}
-
-.section-card {
-    background: #faf9fb;
-    border-radius: 12px;
-    padding: 16px 20px;
-    transition: all 0.3s;
-    border: 1px solid #e5e7eb;
-    cursor: pointer;
-}
-
-.section-card:hover {
-    border-color: #7651BE;
-    background: #faf7fd;
-}
-
-.section-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    gap: 16px;
-}
-
-.section-title {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-}
-
-.section-title h3 {
-    font-size: 20px;
-    font-weight: 500;
-    color: #1D1D1D;
-    font-family: 'Ysabeau', 'Inter', sans-serif;
-    margin: 0;
-    line-height: 1.4;
-}
-
-.section-type-badge {
-    display: inline-block;
-    padding: 4px 12px;
-    border-radius: 20px;
-    font-size: 12px;
-    font-weight: 500;
-    font-family: 'Ysabeau', 'Inter', sans-serif;
-    width: fit-content;
-}
-
-.section-type-badge[data-type="theory"] {
-    background: #e5e7eb;
-    color: #4b5563;
-}
-
-.section-type-badge[data-type="exercise"] {
-    background: #379B34;
-    color: white;
-}
-
-.section-type-badge[data-type="test"] {
-    background: #c43232;
-    color: white;
-}
-
-/* Preview notice */
-.preview-notice {
-    text-align: center;
-    padding: 24px;
-    margin-top: 32px;
-    background: #fef9e6;
-    border-radius: 12px;
-    border: 1px solid #ffe4a3;
-    flex-shrink: 0;
-}
-
-.preview-notice span {
-    display: inline-block;
-    font-weight: 600;
-    color: #b8860b;
-    margin-bottom: 8px;
-    font-size: 16px;
-}
-
-.preview-notice p {
-    font-size: 14px;
-    color: #8b6914;
-    margin: 0;
-}
-
-/* ========== GRADIENT DECORATION ========== */
-:root {
-    --sidebar-width: 320px;
-}
-
-.sidebar {
-    width: var(--sidebar-width);
-}
-
-.gradient-decoration {
-    position: fixed;
-    bottom: 0;
-    right: 0;
-    width: calc(100% - var(--sidebar-width, 320px));
-    height: auto;
-    pointer-events: none;
-    z-index: 0;
-    display: flex;
-    justify-content: center;
-    align-items: flex-end;
-}
-
-.gradient-decoration img {
-    width: 100%;
-    max-width: 800px;
-    height: auto;
-    object-fit: contain;
-    opacity: 0.5;
-    display: block;
-    margin: 0 auto;
 }
 
 /* ========== ПРОСМОТР ТЕОРИИ ========== */
@@ -676,7 +870,7 @@ body {
     color: #4C4C4C;
 }
 
-/* Matching Preview - серые прямоугольники */
+/* Matching Preview */
 .matching-exercise-preview {
     margin-top: 24px;
 }
@@ -1469,26 +1663,4 @@ body {
 @keyframes fadeIn {
     from { opacity: 0; }
     to { opacity: 1; }
-}
-
-/* ========== SCROLLBAR ========== */
-::-webkit-scrollbar {
-    width: 6px;
-    height: 6px;
-}
-
-/* ========== EMPTY STATES ========== */
-.empty-message {
-    color: #9ca3af;
-    font-size: 13px;
-    text-align: left;
-    padding-right: 20px;
-    font-family: 'Ysabeau', 'Inter', sans-serif;
-}
-
-.empty-state {
-    text-align: center;
-    padding: 40px;
-    color: #6b7280;
-    font-family: 'Ysabeau', 'Inter', sans-serif;
 }

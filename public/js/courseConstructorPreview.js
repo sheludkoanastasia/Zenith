@@ -1352,6 +1352,35 @@ document.getElementById('theoryNextBtn')?.addEventListener('click', navigateToNe
 document.getElementById('exerciseNextBtn')?.addEventListener('click', navigateToNextSection);
 document.getElementById('testNextBtn')?.addEventListener('click', navigateToNextSection);
 
+// ===== СВОРАЧИВАНИЕ САЙДБАРА =====
+const collapseSidebarBtn = document.getElementById('collapseSidebarBtn');
+const sidebar = document.querySelector('.sidebar');
+
+function toggleSidebar() {
+    const isCollapsed = sidebar.classList.contains('collapsed');
+    
+    if (isCollapsed) {
+        sidebar.classList.remove('collapsed');
+        localStorage.setItem('sidebar_collapsed', 'false');
+    } else {
+        sidebar.classList.add('collapsed');
+        localStorage.setItem('sidebar_collapsed', 'true');
+    }
+    
+    setTimeout(() => {
+        window.dispatchEvent(new Event('resize'));
+    }, 300);
+}
+
+if (collapseSidebarBtn) {
+    collapseSidebarBtn.addEventListener('click', toggleSidebar);
+    
+    const savedState = localStorage.getItem('sidebar_collapsed');
+    if (savedState === 'true') {
+        sidebar.classList.add('collapsed');
+    }
+}
+
 // ===== ИНИЦИАЛИЗАЦИЯ =====
 
 initQuillPreview();
