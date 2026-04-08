@@ -744,7 +744,7 @@ body {
     background: white;
     border-radius: 24px;
     padding: 32px;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
     animation: fadeIn 0.3s ease;
 }
 
@@ -841,7 +841,7 @@ body {
     background: white;
     border-radius: 24px;
     padding: 32px;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
     animation: fadeIn 0.3s ease;
 }
 
@@ -1296,7 +1296,7 @@ body {
     background: white;
     border-radius: 24px;
     padding: 32px;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
     animation: fadeIn 0.3s ease;
 }
 
