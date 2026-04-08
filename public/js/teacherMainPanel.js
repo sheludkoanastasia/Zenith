@@ -418,14 +418,16 @@ document.addEventListener("DOMContentLoaded", async function () {
                 // Убираем обработчик клика на иконку редактирования и скрываем overlay
                 const editOverlay = card.querySelector('.edit-overlay');
                 if (editOverlay) {
-                    editOverlay.style.pointerEvents = 'none';
-                    editOverlay.style.opacity = '0'; // Принудительно скрываем overlay
+                    editOverlay.style.display = 'none'; // Полностью скрываем overlay
                 }
                 
-                // Добавляем обработчик клика на карточку для перехода
+                // Добавляем обработчик клика на карточку для перехода к предпросмотру
                 card.style.cursor = 'pointer';
                 card.onclick = function() {
-                    showNotification('Редактирование курса будет доступно в разделе "Редактировать курс"', 'warning');
+                    const courseId = card.dataset.courseId;
+                    if (courseId) {
+                        window.location.href = `/teacher/course-preview?id=${courseId}`;
+                    }
                 };
             });
             
@@ -452,7 +454,7 @@ document.addEventListener("DOMContentLoaded", async function () {
             }
             
         } else if (section === "Редактировать курс") {
-            // Показываем все карточки курсов в режиме редактирования
+            // ... существующий код для редактирования ...
             courseCards.forEach(card => {
                 card.style.display = 'flex';
                 card.classList.remove('view-mode');
@@ -462,10 +464,10 @@ document.addEventListener("DOMContentLoaded", async function () {
                 card.style.cursor = 'default';
                 card.onclick = null;
                 
-                // Настраиваем overlay для показа только при наведении
+                // Показываем overlay для редактирования
                 const editOverlay = card.querySelector('.edit-overlay');
                 if (editOverlay) {
-                    // Убеждаемся, что overlay скрыт по умолчанию
+                    editOverlay.style.display = 'flex'; // Показываем overlay
                     editOverlay.style.opacity = '0';
                     editOverlay.style.pointerEvents = 'none';
                     
@@ -506,28 +508,6 @@ document.addEventListener("DOMContentLoaded", async function () {
                     });
                 }
             });
-            
-            // Показываем поиск
-            if (courseSearching) {
-                courseSearching.style.display = 'flex';
-            }
-            
-            // Скрываем контейнер создания курса
-            if (createCourseContainer) {
-                createCourseContainer.style.display = 'none';
-            }
-            
-            // Если нет курсов, показываем сообщение
-            if (courseCards.length === 0) {
-                if (firstMessage) {
-                    firstMessage.textContent = "У вас пока нет созданных курсов для редактирования";
-                    firstMessage.style.display = "block";
-                }
-            } else {
-                if (firstMessage) {
-                    firstMessage.style.display = "none";
-                }
-            }
             
         } else if (section === "Создать курс") {
             // Скрываем все карточки курсов

@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Просмотр курса - Zenith</title>
+    <link rel="stylesheet" href="/public/css/courseConstructorPreview.css">
+    <link href="https://fonts.googleapis.com/css2?family=Ysabeau:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Quill CSS (для просмотра теории) -->
+    <link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+</head>
+<body>
+    <!-- Header -->
+    <header class="header">
+        <div class="logo">
+            <img src="/images/mainPage/logo.svg" alt="Zenith Logo">
+        </div>
+        <div class="nav-right">
+            <button class="back-button" id="backToCourseBtn">
+                Вернуться к содержанию курса
+            </button>
+        </div>
+    </header>
+
+    <div class="main-container">
+        <!-- Левая панель навигации -->
+        <aside class="sidebar">
+            <div class="sidebar-content">
+                <div class="course-info" id="courseInfo">
+                    <h2 class="course-title" id="courseTitle">Загрузка...</h2>
+                </div>
+                <div class="themes-list" id="themesList">
+                    <!-- Динамически будут подгружаться темы и блоки -->
+                </div>
+            </div>
+        </aside>
+
+        <!-- Основная область контента -->
+        <main class="content-area">
+            <!-- Декоративное изображение внизу -->
+            <div class="gradient-decoration">
+                <img src="/images/taskCreationPage/backgroundConstructor.png" alt="background">
+            </div>
+            
+            <div class="content-wrapper" id="contentWrapper">
+                <!-- Приветственный экран -->
+                <div class="welcome-screen" id="welcomeScreen">
+                    <div class="welcome-content">
+                        <h2>Выберите блок для просмотра</h2>
+                        <p>Нажмите на любой блок в левой панели, чтобы просмотреть содержимое</p>
+                    </div>
+                </div>
+
+                <!-- Область для отображения разделов блока (только просмотр) -->
+                <div class="sections-area" id="sectionsArea" style="display: none;">
+                    <div class="block-header">
+                        <h2 class="block-title" id="currentBlockTitle"></h2>
+                        <p class="block-description" id="currentBlockDescription"></p>
+                    </div>
+
+                    <!-- Список разделов (только просмотр) -->
+                    <div class="sections-list" id="sectionsList">
+                        <!-- Здесь будут отображаться разделы -->
+                    </div>
+                </div>
+
+                <!-- ===== ПРОСМОТР ТЕОРИИ ===== -->
+                <div class="theory-preview-container" id="theoryPreviewContainer" style="display: none;">
+                    <div class="theory-preview-header">
+                        <button class="back-button-editor" id="backToStructureBtn">
+                            <img src="/images/taskCreationPage/rightArrow.svg" alt="Назад" class="back-arrow-icon">
+                            Вернуться к разделам
+                        </button>
+                    </div>
+                    
+                    <div class="theory-content-preview">
+                        <h2 id="currentTheoryTitle" class="current-theory-title">Загрузка...</h2>
+                        <label class="theory-material-label">Теоретический материал</label>
+                        <div id="quillPreview" class="quill-preview"></div>
+                    </div>
+                </div>
+
+                <!-- ===== ПРОСМОТР УПРАЖНЕНИЙ ===== -->
+                <div class="exercise-preview-container" id="exercisePreviewContainer" style="display: none;">
+                    <div class="exercise-preview-header">
+                        <button class="back-button-editor" id="backToStructureFromExerciseBtn">
+                            <img src="/images/taskCreationPage/rightArrow.svg" alt="Назад" class="back-arrow-icon">
+                            Вернуться к разделам
+                        </button>
+                    </div>
+                    
+                    <!-- Заголовок и тип в одной строке -->
+                    <div class="exercise-title-row">
+                        <h2 id="currentExerciseTitle" class="current-exercise-title">Загрузка...</h2>
+                        <div class="exercise-type-badge-preview" id="exerciseTypeBadge">
+                            <span class="type-badge">Сопоставление</span>
+                        </div>
+                    </div>
+                    
+                    <!-- Контейнер для Matching Exercise (Сопоставление) - просмотр -->
+                    <div id="matchingExercisePreview" class="matching-exercise-preview">
+                        <div class="task-description">
+                            <label>Задача:</label>
+                            <div class="task-text" id="matchingTaskText">Сопоставьте каждый элемент с его сопоставлением.</div>
+                        </div>
+                        
+                        <div class="two-columns">
+                            <!-- Левая колонка: Элементы -->
+                            <div class="left-column">
+                                <div class="column-header">
+                                    <span>Элементы</span>
+                                </div>
+                                <div id="previewItemsList" class="items-list-preview">
+                                    <!-- Статические элементы -->
+                                </div>
+                            </div>
+                            
+                            <!-- Правая колонка: Элементы сопоставления -->
+                            <div class="right-column">
+                                <div class="column-header">
+                                    <span>Элементы сопоставления</span>
+                                </div>
+                                <div id="previewTargetsList" class="targets-list-preview">
+                                    <!-- Статические элементы -->
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Таблица сопоставления -->
+                        <div class="matching-table-section">
+                            <div class="table-label">Таблица сопоставления</div>
+                            <div class="matching-table">
+                                <div class="table-header">
+                                    <div class="table-header-cell">Элемент</div>
+                                    <div class="table-header-cell">Сопоставление</div>
+                                </div>
+                                <div id="previewMatchingRows" class="matching-rows">
+                                    <!-- Строки сопоставления -->
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Контейнер для Choice Exercise (Выбор правильного) - просмотр -->
+                    <div id="choiceExercisePreview" class="choice-exercise-preview" style="display: none;">
+                        <div class="task-description">
+                            <label>Задача:</label>
+                            <div class="task-text" id="choiceTaskText">Сопоставьте каждое утверждение с правильным ответом (правильных ответов может быть несколько).</div>
+                        </div>
+                        
+                        <div class="statements-section">
+                            <div class="section-header">
+                                <span>Утверждения</span>
+                            </div>
+                            <div id="previewStatementsList" class="statements-list-preview">
+                                <!-- Статические утверждения -->
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Контейнер для Fill Blanks (Дополнение) - просмотр -->
+                    <div id="fillBlanksExercisePreview" class="fillblanks-exercise-preview" style="display: none;">
+                        <div class="task-description">
+                            <label>Задача:</label>
+                            <div class="task-text" id="fillBlanksTaskText">Вставьте подходящее по смыслу слово в каждое предложение.</div>
+                        </div>
+                        
+                        <div class="words-section">
+                            <div class="section-header">
+                                <span>Слова для справки:</span>
+                            </div>
+                            <div class="words-list-preview" id="previewWordsList">
+                                <!-- Статические чипсы слов -->
+                            </div>
+                        </div>
+                        
+                        <div class="sentences-section">
+                            <div class="sentences-list-preview" id="previewSentencesList">
+                                <!-- Статические карточки предложений -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ===== ПРОСМОТР ИТОГОВОГО ТЕСТА ===== -->
+                <div class="test-preview-container" id="testPreviewContainer" style="display: none;">
+                    <div class="test-preview-header">
+                        <button class="back-button-editor" id="backToStructureFromTestBtn">
+                            <img src="/images/taskCreationPage/rightArrow.svg" alt="Назад" class="back-arrow-icon">
+                            Вернуться к разделам
+                        </button>
+                    </div>
+                    
+                    <h2 id="currentTestTitle" class="current-test-title">Загрузка...</h2>
+                    
+                    <!-- Настройки теста (только просмотр) -->
+                    <div class="test-settings-preview">
+                        <div class="settings-row">
+                            <div class="deadline-setting">
+                                <label>Дедлайн:</label>
+                                <span id="previewDeadline" class="deadline-value">Не установлен</span>
+                            </div>
+                            <div class="timelimit-setting">
+                                <label>Время прохождения:</label>
+                                <span id="previewTimeLimit" class="timelimit-value">Без ограничения</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Список упражнений в тесте -->
+                    <div class="test-exercises-section">
+                        <div class="section-header">
+                            <span>Тестирования:</span>
+                        </div>
+                        <div id="previewTestExercisesList" class="test-exercises-list-preview">
+                            <!-- Динамические карточки упражнений -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Quill JS (только для отображения, без toolbar) -->
+    <script src="https://cdn.quilljs.com/1.3.6/quill.js"></script>
+    <script src="/public/js/courseConstructorPreview.js"></script>
+</body>
+</html>
