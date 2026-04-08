@@ -93,10 +93,6 @@ body {
     overflow-y: hidden;
 }
 
-.sidebar.collapsed:hover {
-    overflow-y: auto;
-}
-
 .sidebar.collapsed .sidebar-content {
     padding: 32px 12px;
 }
@@ -136,7 +132,7 @@ body {
     transition: opacity 0.2s ease 0.15s, visibility 0s 0s;
 }
 
-/* Скрываем скроллбар у свернутого сайдбара */
+/* Полностью убираем скролл у свернутого сайдбара */
 .sidebar.collapsed::-webkit-scrollbar {
     width: 0;
     display: none;
@@ -147,15 +143,14 @@ body {
     scrollbar-width: none;
 }
 
-/* При наведении на свернутый сайдбар показываем скролл */
-.sidebar.collapsed:hover::-webkit-scrollbar {
-    width: 6px;
-    display: block;
+/* Убираем скролл даже при наведении */
+.sidebar.collapsed:hover {
+    overflow-y: hidden;
 }
 
-.sidebar.collapsed:hover {
-    -ms-overflow-style: auto;
-    scrollbar-width: thin;
+.sidebar.collapsed:hover::-webkit-scrollbar {
+    width: 0;
+    display: none;
 }
 
 .sidebar::-webkit-scrollbar {
@@ -182,6 +177,22 @@ body {
 
 .sidebar.collapsed .sidebar-content {
     padding: 32px 12px;
+}
+
+/* Предотвращаем моргание сайдбара при загрузке */
+.sidebar:not(.initialized) .themes-list-wrapper,
+.sidebar:not(.initialized) .course-title {
+    opacity: 0;
+    visibility: hidden;
+}
+
+.sidebar.initialized {
+    transition: width 0.3s ease;
+}
+
+.sidebar.initialized .themes-list-wrapper,
+.sidebar.initialized .course-title {
+    transition: opacity 0.2s ease, visibility 0s;
 }
 
 /* Course header with collapse button */

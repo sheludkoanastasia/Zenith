@@ -1379,6 +1379,11 @@ if (collapseSidebarBtn) {
     if (savedState === 'true') {
         sidebar.classList.add('collapsed');
     }
+    
+    // Добавляем класс initialized после применения состояния
+    setTimeout(() => {
+        sidebar.classList.add('initialized');
+    }, 10);
 }
 
 // ===== ИНИЦИАЛИЗАЦИЯ =====
