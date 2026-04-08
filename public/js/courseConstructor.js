@@ -79,6 +79,17 @@ function getToken() {
     return localStorage.getItem('token');
 }
 
+
+function sortAllData() {
+    if (currentCourse && currentCourse.themes) {
+        currentCourse.themes.forEach(theme => {
+            if (theme.blocks) {
+                theme.blocks.sort((a, b) => (a.order_index || 0) - (b.order_index || 0));
+            }
+        });
+    }
+}
+
 // Сброс всех данных упражнения
 function resetExerciseData() {
     console.log('resetExerciseData called, stack:', new Error().stack);
@@ -407,7 +418,15 @@ async function loadCourseData() {
         const data = await response.json();
         if (data.success) {
             currentCourse = data.course;
+            sortAllData(); // <-- Добавьте эту строку
             courseTitleEl.textContent = currentCourse.title;
+            
+            // СОРТИРУЕМ БЛОКИ СРАЗУ ПОСЛЕ ЗАГРУЗКИ
+            for (const theme of currentCourse.themes) {
+                if (theme.blocks) {
+                    theme.blocks.sort((a, b) => (a.order_index || 0) - (b.order_index || 0));
+                }
+            }
             
             await loadAllBlocksSections(currentCourse.themes);
             renderThemes(currentCourse.themes);
@@ -476,7 +495,10 @@ function renderThemes(themes) {
     }
 
     themesListEl.innerHTML = themes.map((theme) => {
-        const hasActiveBlock = theme.blocks?.some(block => block.id === blockId);
+        // Сортируем блоки в теме по order_index
+        const sortedBlocks = (theme.blocks || []).sort((a, b) => (a.order_index || 0) - (b.order_index || 0));
+        
+        const hasActiveBlock = sortedBlocks.some(block => block.id === blockId);
         const isInitiallyExpanded = hasActiveBlock;
         
         return `
@@ -489,8 +511,8 @@ function renderThemes(themes) {
                 </div>
                 <div class="theme-blocks-container ${!isInitiallyExpanded ? 'collapsed' : ''}" id="theme-blocks-${theme.id}">
                     <div class="blocks-list">
-                        ${theme.blocks && theme.blocks.length > 0 
-                            ? theme.blocks.map((block) => `
+                        ${sortedBlocks.length > 0 
+                            ? sortedBlocks.map((block) => `
                                 <div class="block-item-wrapper" data-block-id="${block.id}">
                                     <div class="block-header-wrapper">
                                         <div class="block-item ${blockId === block.id ? 'active' : ''}" 
@@ -663,7 +685,8 @@ async function loadBlockSections(blockId, blockTitle, blockDescription) {
         const data = await response.json();
         if (data.success) {
             currentBlock = { id: blockId, title: blockTitle, description: blockDescription };
-            currentSections = data.sections;
+            // Сортируем разделы по order_index, если есть
+            currentSections = (data.sections || []).sort((a, b) => (a.order_index || 0) - (b.order_index || 0));
             
             if (currentCourse && currentCourse.themes) {
                 for (const theme of currentCourse.themes) {
@@ -1620,6 +1643,7 @@ function performBlockSwitch(clickedBlockId, blockTitle, blockDescription) {
     const activeBlock = document.querySelector(`.block-item[data-block-id="${clickedBlockId}"]`);
     if (activeBlock) activeBlock.classList.add('active');
     
+    // Закрываем все списки разделов
     document.querySelectorAll('.block-sections-list').forEach(list => {
         list.style.display = 'none';
         const parentWrapper = list.closest('.block-item-wrapper');
@@ -1631,6 +1655,7 @@ function performBlockSwitch(clickedBlockId, blockTitle, blockDescription) {
         }
     });
     
+    // Открываем только выбранный блок
     const sectionsListContainer = document.getElementById(`block-sections-${clickedBlockId}`);
     if (sectionsListContainer) {
         sectionsListContainer.style.display = 'block';
@@ -5752,6 +5777,21 @@ async function saveTestSection() {
         console.error('Ошибка:', error);
         showNotification('Ошибка при сохранении', 'error');
     }
+}
+
+// Функция для обновления порядка блоков из данных курса
+function updateBlocksOrder() {
+    if (!currentCourse || !currentCourse.themes) return;
+    
+    for (const theme of currentCourse.themes) {
+        if (theme.blocks && theme.blocks.length > 0) {
+            // Сортируем блоки по order_index
+            theme.blocks.sort((a, b) => (a.order_index || 0) - (b.order_index || 0));
+        }
+    }
+    
+    // Перерендериваем темы с правильным порядком
+    renderThemes(currentCourse.themes);
 }
 
 // ===== КАСТОМНЫЙ DATETIME PICKER =====

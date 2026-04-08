@@ -32,6 +32,23 @@ function getToken() {
     return localStorage.getItem('token');
 }
 
+// Функция для сортировки блоков по order_index
+function sortBlocksInThemes(themes) {
+    if (!themes) return themes;
+    
+    // Сортируем темы
+    const sortedThemes = [...themes].sort((a, b) => (a.order_index || 0) - (b.order_index || 0));
+    
+    // Сортируем блоки в каждой теме
+    sortedThemes.forEach(theme => {
+        if (theme.blocks && theme.blocks.length > 0) {
+            theme.blocks.sort((a, b) => (a.order_index || 0) - (b.order_index || 0));
+        }
+    });
+    
+    return sortedThemes;
+}
+
 function showNotification(message, type = 'info') {
     addNotificationStyles();
     
@@ -164,6 +181,14 @@ async function loadCourseData() {
         const data = await response.json();
         if (data.success) {
             currentCourse = data.course;
+            
+            // СОРТИРУЕМ ВСЕ БЛОКИ СРАЗУ ПОСЛЕ ЗАГРУЗКИ
+            for (const theme of currentCourse.themes) {
+                if (theme.blocks && theme.blocks.length > 0) {
+                    theme.blocks.sort((a, b) => (a.order_index || 0) - (b.order_index || 0));
+                }
+            }
+            
             courseTitleEl.textContent = currentCourse.title;
             
             await loadAllBlocksSections(currentCourse.themes);
@@ -232,8 +257,14 @@ function renderThemes(themes) {
         return;
     }
 
-    themesListEl.innerHTML = themes.map((theme) => {
-        const hasActiveBlock = theme.blocks?.some(block => block.id === (currentBlock?.id || blockId));
+    // СОРТИРУЕМ ТЕМЫ И БЛОКИ
+    const sortedThemes = sortBlocksInThemes(themes);
+
+    themesListEl.innerHTML = sortedThemes.map((theme) => {
+        // Блоки уже отсортированы в sortBlocksInThemes
+        const sortedBlocks = theme.blocks || [];
+        
+        const hasActiveBlock = sortedBlocks.some(block => block.id === (currentBlock?.id || blockId));
         const isInitiallyExpanded = hasActiveBlock;
         
         return `
@@ -246,8 +277,8 @@ function renderThemes(themes) {
                 </div>
                 <div class="theme-blocks-container ${!isInitiallyExpanded ? 'collapsed' : ''}" id="theme-blocks-${theme.id}">
                     <div class="blocks-list">
-                        ${theme.blocks && theme.blocks.length > 0 
-                            ? theme.blocks.map((block) => `
+                        ${sortedBlocks.length > 0 
+                            ? sortedBlocks.map((block) => `
                                 <div class="block-item-wrapper" data-block-id="${block.id}">
                                     <div class="block-header-wrapper">
                                         <div class="block-item ${(currentBlock?.id === block.id || blockId === block.id) ? 'active' : ''}" 
@@ -1227,12 +1258,15 @@ function getAllSectionsInOrder() {
     
     if (!currentCourse || !currentCourse.themes) return sectionsList;
     
+    // Сортируем темы
     const sortedThemes = [...currentCourse.themes].sort((a, b) => (a.order_index || 0) - (b.order_index || 0));
     
     for (const theme of sortedThemes) {
+        // Сортируем блоки в теме
         const sortedBlocks = (theme.blocks || []).sort((a, b) => (a.order_index || 0) - (b.order_index || 0));
         
         for (const block of sortedBlocks) {
+            // Сортируем разделы в блоке
             const sortedSections = (block.sections || []).sort((a, b) => (a.order_index || 0) - (b.order_index || 0));
             
             for (const section of sortedSections) {
@@ -1384,6 +1418,19 @@ if (collapseSidebarBtn) {
     setTimeout(() => {
         sidebar.classList.add('initialized');
     }, 10);
+}
+
+// Функция для обновления порядка блоков (если данные обновились)
+function refreshBlocksOrder() {
+    if (!currentCourse || !currentCourse.themes) return;
+    
+    for (const theme of currentCourse.themes) {
+        if (theme.blocks && theme.blocks.length > 0) {
+            theme.blocks.sort((a, b) => (a.order_index || 0) - (b.order_index || 0));
+        }
+    }
+    
+    renderThemes(currentCourse.themes);
 }
 
 // ===== ИНИЦИАЛИЗАЦИЯ =====

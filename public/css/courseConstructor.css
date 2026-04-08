@@ -4,6 +4,16 @@
     box-sizing: border-box;
 }
 
+/* Добавьте в ваш основной CSS файл или в <style> в head */
+body.loading .content-wrapper {
+    opacity: 0;
+    visibility: hidden;
+}
+
+.content-wrapper {
+    transition: opacity 0.2s ease;
+}
+
 html, body {
     height: 100%;
     margin: 0;
