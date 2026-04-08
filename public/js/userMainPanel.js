@@ -10,6 +10,8 @@ document.addEventListener("DOMContentLoaded", async function () {
     }
     
     let currentUser = null;
+    let allCourses = []; // Хранилище всех курсов для фильтрации
+    let currentFilter = 'all'; // Текущий фильтр: all, alphabet, new, old, progress
     
     try {
         const response = await fetch('/api/auth/check', {
@@ -35,7 +37,6 @@ document.addEventListener("DOMContentLoaded", async function () {
         currentUser = data.user;
         displayUserInfo(data.user);
         
-        // Загружаем курсы студента
         await loadMyCourses();
         
     } catch (error) {
@@ -72,16 +73,68 @@ document.addEventListener("DOMContentLoaded", async function () {
             console.log('Загружены курсы:', data);
             
             if (data.success) {
-                if (data.courses && data.courses.length > 0) {
-                    renderCourses(data.courses);
-                } else {
-                    showEmptyMessage();
-                }
+                allCourses = data.courses || [];
+                // Выводим даты для проверки
+                allCourses.forEach(course => {
+                    console.log(`Курс: ${course.title}, joined_at: ${course.joined_at}, created_at: ${course.created_at}`);
+                });
+                applyFilterAndSearch();
             }
         } catch (error) {
             console.error('Ошибка загрузки курсов:', error);
-            showEmptyMessage();
+            allCourses = [];
+            applyFilterAndSearch();
         }
+    }
+    
+    // ===============================
+    // ФИЛЬТРАЦИЯ И ПОИСК
+    // ===============================
+    function applyFilterAndSearch() {
+        const searchInput = document.getElementById('main-search');
+        const searchTerm = searchInput ? searchInput.value.toLowerCase().trim() : '';
+        
+        let filteredCourses = [...allCourses];
+        
+        // Поиск по названию курса
+        if (searchTerm) {
+            filteredCourses = filteredCourses.filter(course => 
+                course.title.toLowerCase().includes(searchTerm)
+            );
+        }
+        
+        // Сортировка
+        switch (currentFilter) {
+            case 'alphabet':
+                filteredCourses.sort((a, b) => a.title.localeCompare(b.title));
+                break;
+            case 'new':
+                // Сначала новые - по дате подключения (joined_at)
+                filteredCourses.sort((a, b) => {
+                    const dateA = new Date(a.joined_at || a.created_at);
+                    const dateB = new Date(b.joined_at || b.created_at);
+                    return dateB - dateA;
+                });
+                break;
+            case 'old':
+                // Сначала старые - по дате подключения (joined_at)
+                filteredCourses.sort((a, b) => {
+                    const dateA = new Date(a.joined_at || a.created_at);
+                    const dateB = new Date(b.joined_at || b.created_at);
+                    return dateA - dateB;
+                });
+                break;
+            default:
+                // По умолчанию - сначала новые по дате подключения
+                filteredCourses.sort((a, b) => {
+                    const dateA = new Date(a.joined_at || a.created_at);
+                    const dateB = new Date(b.joined_at || b.created_at);
+                    return dateB - dateA;
+                });
+                break;
+        }
+        
+        renderCourses(filteredCourses);
     }
     
     function renderCourses(courses) {
@@ -90,13 +143,18 @@ document.addEventListener("DOMContentLoaded", async function () {
         
         coursesContainer.innerHTML = '';
         
+        if (courses.length === 0) {
+            coursesContainer.innerHTML = '<span class="firstMessage">Курсы не найдены</span>';
+            return;
+        }
+        
         courses.forEach(course => {
             const courseCard = createCourseCard(course);
             coursesContainer.appendChild(courseCard);
         });
     }
     
-   function createCourseCard(course) {
+    function createCourseCard(course) {
         const container = document.createElement('div');
         container.className = 'course-card-container';
         
@@ -136,10 +194,9 @@ document.addEventListener("DOMContentLoaded", async function () {
     // ПОДКЛЮЧЕНИЕ К КУРСУ ПО ССЫЛКЕ
     // ===============================
     async function connectToCourse(link) {
-        // Извлекаем join_code из ссылки
         const match = link.match(/\/join\/([A-Z0-9]+)$/i);
         if (!match) {
-            showNotification('Неверная ссылка на курс. Ссылка должна быть вида: http://localhost:3000/join/XXXXXXX', 'warning');
+            showNotification('Неверная ссылка на курс', 'warning');
             return false;
         }
         
@@ -161,8 +218,7 @@ document.addEventListener("DOMContentLoaded", async function () {
                 showNotification('Вы успешно подключились к курсу!', 'success');
                 await loadMyCourses();
                 
-                // Переключаемся на вкладку "Мои курсы"
-                const myCoursesLink = Array.from(navLinks).find(link => link.textContent === "Мои курсы");
+                const myCoursesLink = Array.from(updatedNavLinks).find(link => link.textContent === "Мои курсы");
                 if (myCoursesLink) {
                     updateActiveLink(myCoursesLink);
                     showContent("Мои курсы");
@@ -303,18 +359,87 @@ document.addEventListener("DOMContentLoaded", async function () {
         });
     }
     
+   // ========== РАБОТА С ФИЛЬТРАМИ ==========
+    function setupFilters() {
+        const filterItems = document.querySelectorAll('.dropdown-content a');
+        console.log('Найдено элементов фильтров:', filterItems.length);
+        
+        filterItems.forEach(item => {
+            console.log('Элемент:', item.textContent, 'data-filter:', item.getAttribute('data-filter'));
+            
+            item.addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                
+                const filterValue = this.getAttribute('data-filter');
+                console.log('Выбран фильтр:', filterValue);
+                
+                // Обновляем currentFilter
+                switch (filterValue) {
+                    case 'alphabet':
+                        currentFilter = 'alphabet';
+                        break;
+                    case 'new':
+                        currentFilter = 'new';
+                        break;
+                    case 'old':
+                        currentFilter = 'old';
+                        break;
+                    default:
+                        currentFilter = 'new';
+                }
+                
+                console.log('currentFilter установлен:', currentFilter);
+                
+                // Применяем фильтрацию и поиск
+                applyFilterAndSearch();
+                
+                // Закрываем dropdown
+                const dropdown = document.querySelector('.dropdown-menu');
+                if (dropdown) {
+                    dropdown.classList.remove('active');
+                }
+            });
+        });
+    }
+
+    // ========== РАБОТА С ПОИСКОМ ==========
+    function setupSearch() {
+        const searchInput = document.getElementById('main-search');
+        const searchBtn = document.querySelector('.search-img');
+        
+        if (searchBtn && searchInput) {
+            // Поиск по кнопке
+            searchBtn.addEventListener('click', function() {
+                applyFilterAndSearch();
+            });
+            
+            // Поиск по Enter
+            searchInput.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    applyFilterAndSearch();
+                }
+            });
+            
+            // При изменении поля (включая очистку)
+            searchInput.addEventListener('input', function() {
+                applyFilterAndSearch();
+            });
+        }
+    }
+    
     // ========== РАБОТА С НАВИГАЦИЕЙ КУРСОВ ==========
     const navLinks = document.querySelectorAll(".courseNavigation a");
-
+    
     // Удаляем ссылку "Все курсы" из DOM
     const allCoursesLink = Array.from(navLinks).find(link => link.textContent === "Все курсы");
     if (allCoursesLink) {
         allCoursesLink.remove();
     }
-
+    
     // Обновляем список ссылок после удаления
     const updatedNavLinks = document.querySelectorAll(".courseNavigation a");
-
+    
     function updateActiveLink(activeLink) {
         updatedNavLinks.forEach(link => {
             if (link === activeLink) {
@@ -327,14 +452,14 @@ document.addEventListener("DOMContentLoaded", async function () {
             }
         });
     }
-
+    
     function clearExtraContent() {
         const linkContainer = document.querySelector(".link-container");
         if (linkContainer) {
             linkContainer.remove();
         }
     }
-
+    
     function createLinkInputWithButton() {
         const linkContainer = document.createElement("div");
         linkContainer.className = "link-container";
@@ -364,7 +489,7 @@ document.addEventListener("DOMContentLoaded", async function () {
         
         return linkContainer;
     }
-
+    
     function showContent(section) {
         const firstMessage = document.querySelector(".firstMessage");
         const courseSearching = document.getElementById('courseSearching');
@@ -380,7 +505,13 @@ document.addEventListener("DOMContentLoaded", async function () {
                 firstMessage.style.display = "none";
                 courseSearching.style.display = "flex";
             }
-            loadMyCourses();
+            // Сбрасываем поиск и фильтр при переходе на вкладку
+            const searchInput = document.getElementById('main-search');
+            if (searchInput) {
+                searchInput.value = '';
+            }
+            currentFilter = 'new';
+            applyFilterAndSearch();
         } else if (section === "Подключиться по ссылке") {
             if (firstMessage) {
                 firstMessage.style.display = "none";
@@ -422,7 +553,7 @@ document.addEventListener("DOMContentLoaded", async function () {
             }
         }
     }
-
+    
     // Обновляем обработчики для оставшихся ссылок
     updatedNavLinks.forEach(link => {
         link.addEventListener("click", function(e) {
@@ -431,46 +562,23 @@ document.addEventListener("DOMContentLoaded", async function () {
             showContent(this.textContent);
         });
     });
-
+    
     const myCoursesLink = Array.from(updatedNavLinks).find(link => link.textContent === "Мои курсы");
     if (myCoursesLink) {
         updateActiveLink(myCoursesLink);
         showContent("Мои курсы");
     }
+    
+    // Инициализация фильтров и поиска
+    setupFilters();
+    setupSearch();
 
-    // Анимации плавного появления
+    // Анимации
     gsap.set('body', { opacity: 0 });
-
-    gsap.to('body', {
-        opacity: 1,
-        duration: 0.8,
-        ease: 'power3.out'
-    });
-
-    gsap.from('header', {
-        y: -30,
-        opacity: 0,
-        duration: 0.8,
-        delay: 0.2,
-        ease: 'power3.out'
-    });
-
-    gsap.from('.profile-section', {
-        y: 30,
-        opacity: 0,
-        duration: 0.8,
-        delay: 0.3,
-        ease: 'power3.out'
-    });
-
-    gsap.from('.coursePanel', {
-        y: 30,
-        opacity: 0,
-        duration: 0.8,
-        delay: 0.3,
-        ease: 'power3.out',
-        clearProps: 'all'
-    });
+    gsap.to('body', { opacity: 1, duration: 0.8, ease: 'power3.out' });
+    gsap.from('header', { y: -30, opacity: 0, duration: 0.8, delay: 0.2, ease: 'power3.out' });
+    gsap.from('.profile-section', { y: 30, opacity: 0, duration: 0.8, delay: 0.3, ease: 'power3.out' });
+    gsap.from('.coursePanel', { y: 30, opacity: 0, duration: 0.8, delay: 0.3, ease: 'power3.out', clearProps: 'all' });
 
     setTimeout(() => {
         document.documentElement.classList.add('ready');

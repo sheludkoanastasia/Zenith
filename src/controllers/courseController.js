@@ -455,36 +455,70 @@ module.exports = {
     },
 
     // Получение всех курсов студента
-    getStudentCourses: async (req, res) => {
-        try {
-            const studentId = req.user.id;
-            
-            const courses = await db.Course.findAll({
-                include: [
-                    {
-                        model: db.User,
-                        as: 'students',
-                        where: { id: studentId },
-                        through: { attributes: [] },
-                        required: true
-                    },
-                    {
-                        model: db.Theme,
-                        as: 'themes',
-                        include: [{ model: db.Block, as: 'blocks' }]
-                    },
-                    {
-                        model: db.User,
-                        as: 'teacher',
-                        attributes: ['id', 'first_name', 'last_name', 'patronymic']
-                    }
-                ],
-                order: [['created_at', 'DESC']]
+    // Получение всех курсов студента
+getStudentCourses: async (req, res) => {
+    try {
+        const studentId = req.user.id;
+        
+        // Выполняем запрос
+        const results = await db.sequelize.query(`
+            SELECT 
+                c.id,
+                c.title,
+                c.cover_image,
+                c.created_at,
+                cs.joined_at,
+                json_build_object(
+                    'id', u.id,
+                    'first_name', u.first_name,
+                    'last_name', u.last_name,
+                    'patronymic', u.patronymic
+                ) as teacher
+            FROM courses c
+            JOIN course_students cs ON cs.course_id = c.id
+            JOIN users u ON u.id = c.teacher_id
+            WHERE cs.student_id = :studentId
+            ORDER BY cs.joined_at DESC
+        `, {
+            replacements: { studentId },
+            type: db.sequelize.QueryTypes.SELECT
+        });
+        
+        console.log('SQL результаты:', results);
+        
+        // Проверяем, что results - массив
+        if (!results || !Array.isArray(results)) {
+            console.error('Results не является массивом:', results);
+            return res.json({ success: true, courses: [] });
+        }
+        
+        // Загружаем темы и блоки для каждого курса
+        const coursesWithThemes = [];
+        
+        for (const course of results) {
+            const themes = await db.Theme.findAll({
+                where: { course_id: course.id },
+                include: [{ model: db.Block, as: 'blocks' }],
+                order: [['order_index', 'ASC']]
             });
             
-            res.json({ success: true, courses });
-        } catch (error) {
-            handleError(res, error, 'Ошибка при получении курсов студента');
+            coursesWithThemes.push({
+                id: course.id,
+                title: course.title,
+                cover_image: course.cover_image,
+                created_at: course.created_at,
+                joined_at: course.joined_at,
+                teacher: course.teacher,
+                themes: themes
+            });
         }
+        
+        console.log('Итоговые курсы:', coursesWithThemes.map(c => ({ title: c.title, joined_at: c.joined_at })));
+        
+        res.json({ success: true, courses: coursesWithThemes });
+    } catch (error) {
+        console.error('Ошибка в getStudentCourses:', error);
+        handleError(res, error, 'Ошибка при получении курсов студента');
     }
+}
 };
