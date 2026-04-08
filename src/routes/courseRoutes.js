@@ -2,19 +2,20 @@ const express = require('express');
 const router = express.Router();
 const courseController = require('../controllers/courseController');
 const authMiddleware = require('../middleware/authMiddleware');
-const upload = require('../config/upload'); // <-- ИМПОРТИРУЕМ
+const upload = require('../config/upload');
 
-// Все роуты курсов требуют авторизации
+// Публичный маршрут (без авторизации) для проверки ссылки
+router.get('/join/:joinCode', courseController.getCourseByJoinCode);
+
+// Все остальные роуты требуют авторизации
 router.use(authMiddleware.verifyToken);
 
-// Роут для загрузки изображения курса (НОВЫЙ)
 router.post('/upload-image',
     authMiddleware.checkRole(['teacher']),
-    upload.single('image'), // 'image' - имя поля в форме
+    upload.single('image'),
     courseController.uploadCourseImage
 );
 
-// Роуты для преподавателей
 router.post('/',
     authMiddleware.checkRole(['teacher']),
     courseController.createCourse
@@ -28,6 +29,17 @@ router.put('/:id',
 router.get('/teacher',
     authMiddleware.checkRole(['teacher']),
     courseController.getTeacherCourses
+);
+
+// НОВЫЕ МАРШРУТЫ
+router.get('/my-courses',
+    authMiddleware.checkRole(['student']),
+    courseController.getStudentCourses
+);
+
+router.post('/join',
+    authMiddleware.checkRole(['student']),
+    courseController.joinCourseByCode
 );
 
 router.get('/:id',

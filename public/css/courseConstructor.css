@@ -119,6 +119,25 @@ body {
     padding: 32px 40px;
 }
 
+/* Предотвращаем дерганье сайдбара при загрузке */
+.sidebar {
+    transition: none !important;
+}
+
+.sidebar.initialized {
+    transition: width 0.3s ease !important;
+}
+
+.sidebar .course-title,
+.sidebar .themes-list-wrapper {
+    transition: none !important;
+}
+
+.sidebar.initialized .course-title,
+.sidebar.initialized .themes-list-wrapper {
+    transition: opacity 0.2s ease, visibility 0s;
+}
+
 .course-info {
     margin-bottom: 32px;
     padding-bottom: 16px;
@@ -793,17 +812,19 @@ body {
     width: var(--sidebar-width);
 }
 
+/* ========== GRADIENT DECORATION ========== */
 .gradient-decoration {
     position: fixed;
     bottom: 0;
     right: 0;
-    width: calc(100% - var(--sidebar-width, 320px));
+    width: calc(100% - 320px);
     height: auto;
     pointer-events: none;
     z-index: 0;
     display: flex;
     justify-content: center;
     align-items: flex-end;
+    transition: width 0.3s ease;
 }
 
 .gradient-decoration img {
@@ -2984,6 +3005,176 @@ body {
 .confirm-datetime:hover {
     background: #5e3c9e;
     transform: translateY(-1px);
+}
+
+/* ========== SIDEBAR ========== */
+.sidebar {
+    width: 320px;
+    background: white;
+    border-right: 1px solid #e5e7eb;
+    overflow-y: auto;
+    flex-shrink: 0;
+    z-index: 100;
+    height: 100%;
+    transition: width 0.3s ease;
+}
+
+.sidebar.collapsed {
+    width: 80px;
+}
+
+.sidebar.collapsed .sidebar-content {
+    padding: 32px 12px;
+}
+
+.sidebar.collapsed .course-header {
+    justify-content: center;
+    padding: 0;
+}
+
+.sidebar.collapsed .course-title {
+    display: none;
+}
+
+.sidebar.collapsed .collapse-sidebar-btn {
+    margin: 0;
+}
+
+.sidebar.collapsed .collapse-icon {
+    transform: rotate(180deg);
+}
+
+.sidebar.collapsed .themes-list-wrapper {
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.2s ease, visibility 0s 0.3s;
+}
+
+.sidebar:not(.collapsed) .themes-list-wrapper {
+    opacity: 1;
+    visibility: visible;
+    transition: opacity 0.2s ease 0.15s, visibility 0s 0s;
+}
+
+/* Полностью убираем скролл у свернутого сайдбара */
+.sidebar.collapsed::-webkit-scrollbar {
+    width: 0;
+    display: none;
+}
+
+.sidebar.collapsed {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+}
+
+.sidebar::-webkit-scrollbar {
+    width: 6px;
+}
+
+.sidebar::-webkit-scrollbar-track {
+    background: #f0f0f0;
+    border-radius: 4px;
+}
+
+.sidebar::-webkit-scrollbar-thumb {
+    background: linear-gradient(180deg, #BDDBFF 0%, #C8CDFF 50%, #EFE3FD 100%);
+    border-radius: 4px;
+}
+
+.sidebar::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(180deg, rgb(168, 206, 252) 0%, #abb2ff 50%, #dec2ff 100%);
+}
+
+.sidebar-content {
+    padding: 32px 40px;
+}
+
+/* Course header with collapse button */
+.course-info {
+    margin-bottom: 32px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.course-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    min-height: 32px;
+}
+
+.course-title {
+    font-size: 20px;
+    font-weight: 600;
+    color: #1D1D1D;
+    margin: 0;
+    font-family: 'Ysabeau', 'Inter', sans-serif;
+    flex: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.collapse-sidebar-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 8px;
+    transition: all 0.2s ease;
+    flex-shrink: 0;
+}
+
+.collapse-sidebar-btn:hover {
+    background: rgba(118, 81, 190, 0.1);
+}
+
+.collapse-icon {
+    width: 20px;
+    height: 20px;
+    transition: transform 0.3s ease;
+}
+
+/* Themes list wrapper for animation */
+.themes-list-wrapper {
+    width: 100%;
+}
+
+.themes-list {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+}
+
+/* Предотвращаем моргание сайдбара при загрузке */
+.sidebar:not(.initialized) .themes-list-wrapper {
+    opacity: 0;
+    visibility: hidden;
+}
+
+.sidebar.initialized {
+    transition: width 0.3s ease;
+}
+
+.sidebar.initialized .themes-list-wrapper {
+    transition: opacity 0.2s ease, visibility 0s;
+}
+
+
+/* Адаптивность */
+@media (max-width: 768px) {
+    .sidebar {
+        width: 80px;
+    }
+    
+    .sidebar.collapsed {
+        width: 0;
+        overflow: hidden;
+    }
 }
 
 /* ========== ANIMATIONS ========== */

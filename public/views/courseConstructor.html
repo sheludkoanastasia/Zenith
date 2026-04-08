@@ -29,11 +29,18 @@
         <!-- Левая панель навигации -->
         <aside class="sidebar">
             <div class="sidebar-content">
-                <div class="course-info" id="courseInfo">
-                    <h2 class="course-title" id="courseTitle">Загрузка...</h2>
+                <div class="course-info">
+                    <div class="course-header">
+                        <h2 class="course-title" id="courseTitle">Загрузка...</h2>
+                        <button class="collapse-sidebar-btn" id="collapseSidebarBtn" title="Свернуть боковую панель">
+                            <img src="/images/taskCreationPage/collapse.svg" alt="collapse" class="collapse-icon">
+                        </button>
+                    </div>
                 </div>
-                <div class="themes-list" id="themesList">
-                    <!-- Динамически будут подгружаться темы и блоки -->
+                <div class="themes-list-wrapper" id="themesListWrapper">
+                    <div class="themes-list" id="themesList">
+                        <!-- Динамически будут подгружаться темы и блоки -->
+                    </div>
                 </div>
             </div>
         </aside>

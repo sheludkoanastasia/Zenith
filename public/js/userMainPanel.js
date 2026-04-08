@@ -9,6 +9,8 @@ document.addEventListener("DOMContentLoaded", async function () {
         return;
     }
     
+    let currentUser = null;
+    
     try {
         const response = await fetch('/api/auth/check', {
             method: 'GET',
@@ -25,14 +27,16 @@ document.addEventListener("DOMContentLoaded", async function () {
             return;
         }
         
-        // ВАЖНО: Если пользователь - преподаватель, перенаправляем на страницу преподавателя
         if (data.user.role === 'teacher') {
             window.location.href = '/teacher';
             return;
         }
         
-        // Если студент - показываем его данные
+        currentUser = data.user;
         displayUserInfo(data.user);
+        
+        // Загружаем курсы студента
+        await loadMyCourses();
         
     } catch (error) {
         console.error('Ошибка проверки авторизации:', error);
@@ -51,9 +55,221 @@ document.addEventListener("DOMContentLoaded", async function () {
         
         const userRoleElement = document.querySelector('.user-role');
         if (userRoleElement) {
-            const roleText = user.role === 'teacher' ? 'Преподаватель' : 'Студент';
-            userRoleElement.textContent = roleText;
+            userRoleElement.textContent = 'Студент';
+        }
     }
+    
+    // ===============================
+    // ЗАГРУЗКА КУРСОВ СТУДЕНТА
+    // ===============================
+    async function loadMyCourses() {
+        try {
+            const response = await fetch('/api/courses/my-courses', {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            
+            const data = await response.json();
+            console.log('Загружены курсы:', data);
+            
+            if (data.success) {
+                if (data.courses && data.courses.length > 0) {
+                    renderCourses(data.courses);
+                } else {
+                    showEmptyMessage();
+                }
+            }
+        } catch (error) {
+            console.error('Ошибка загрузки курсов:', error);
+            showEmptyMessage();
+        }
+    }
+    
+    function renderCourses(courses) {
+        const coursesContainer = document.querySelector('.courses');
+        if (!coursesContainer) return;
+        
+        coursesContainer.innerHTML = '';
+        
+        courses.forEach(course => {
+            const courseCard = createCourseCard(course);
+            coursesContainer.appendChild(courseCard);
+        });
+    }
+    
+   function createCourseCard(course) {
+        const container = document.createElement('div');
+        container.className = 'course-card-container';
+        
+        const coverImage = course.cover_image || '';
+        
+        container.innerHTML = `
+            <div class="course-card">
+                <div class="course-image-wrapper">
+                    ${coverImage ? `<img src="${coverImage}" alt="${escapeHtml(course.title)}" class="course-cover-image">` : ''}
+                </div>
+            </div>
+            <div class="course-card-title">${escapeHtml(course.title)}</div>
+        `;
+        
+        container.addEventListener('click', () => {
+            window.location.href = `/course-preview?id=${course.id}`;
+        });
+        
+        return container;
+    }
+    
+    function showEmptyMessage() {
+        const coursesContainer = document.querySelector('.courses');
+        if (coursesContainer) {
+            coursesContainer.innerHTML = '<span class="firstMessage">Еще ничего не добавлено. Стоит пройти свой первый курс!</span>';
+        }
+    }
+    
+    function escapeHtml(str) {
+        if (!str) return '';
+        const div = document.createElement('div');
+        div.textContent = str;
+        return div.innerHTML;
+    }
+    
+    // ===============================
+    // ПОДКЛЮЧЕНИЕ К КУРСУ ПО ССЫЛКЕ
+    // ===============================
+    async function connectToCourse(link) {
+        // Извлекаем join_code из ссылки
+        const match = link.match(/\/join\/([A-Z0-9]+)$/i);
+        if (!match) {
+            showNotification('Неверная ссылка на курс. Ссылка должна быть вида: http://localhost:3000/join/XXXXXXX', 'warning');
+            return false;
+        }
+        
+        const joinCode = match[1];
+        
+        try {
+            const response = await fetch('/api/courses/join', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ joinCode })
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                showNotification('Вы успешно подключились к курсу!', 'success');
+                await loadMyCourses();
+                
+                // Переключаемся на вкладку "Мои курсы"
+                const myCoursesLink = Array.from(navLinks).find(link => link.textContent === "Мои курсы");
+                if (myCoursesLink) {
+                    updateActiveLink(myCoursesLink);
+                    showContent("Мои курсы");
+                }
+                return true;
+            } else {
+                showNotification(data.message || 'Ошибка подключения', 'warning');
+                return false;
+            }
+        } catch (error) {
+            console.error('Ошибка подключения:', error);
+            showNotification('Ошибка при подключении к курсу', 'error');
+            return false;
+        }
+    }
+    
+    function showNotification(message, type = 'info') {
+        addNotificationStyles();
+        
+        const oldToasts = document.querySelectorAll('.user-toast');
+        oldToasts.forEach(toast => {
+            toast.classList.add('hiding');
+            setTimeout(() => toast.remove(), 300);
+        });
+        
+        const toast = document.createElement('div');
+        toast.className = `user-toast ${type}`;
+        
+        let title = '';
+        switch (type) {
+            case 'success': title = 'Успешно'; break;
+            case 'error': title = 'Ошибка'; break;
+            case 'warning': title = 'Внимание'; break;
+            default: title = 'Информация';
+        }
+        
+        toast.innerHTML = `
+            <div class="toast-content">
+                <div class="toast-title">${title}</div>
+                <div class="toast-message">${message}</div>
+            </div>
+            <div class="toast-close">✕</div>
+        `;
+        
+        document.body.appendChild(toast);
+        
+        toast.querySelector('.toast-close').addEventListener('click', () => {
+            toast.classList.add('hiding');
+            setTimeout(() => toast.remove(), 300);
+        });
+        
+        setTimeout(() => {
+            if (toast.parentNode) {
+                toast.classList.add('hiding');
+                setTimeout(() => toast.remove(), 300);
+            }
+        }, 3000);
+    }
+    
+    function addNotificationStyles() {
+        if (document.getElementById('user-toast-styles')) return;
+        
+        const style = document.createElement('style');
+        style.id = 'user-toast-styles';
+        style.textContent = `
+            .user-toast {
+                position: fixed;
+                top: 100px;
+                right: 30px;
+                min-width: 320px;
+                max-width: 400px;
+                background: white;
+                backdrop-filter: blur(10px);
+                border-radius: 16px;
+                padding: 16px 20px;
+                box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+                display: flex;
+                align-items: flex-start;
+                gap: 12px;
+                z-index: 9999;
+                border: 1px solid rgba(255, 255, 255, 0.3);
+                animation: slideInRight 0.4s ease;
+            }
+            .user-toast.success { border-left: 6px solid #4CAF50; }
+            .user-toast.error { border-left: 6px solid #FF3B3B; }
+            .user-toast.warning { border-left: 6px solid #FFB800; }
+            .user-toast.info { border-left: 6px solid #7651BE; }
+            .toast-content { flex: 1; }
+            .toast-title { font-weight: 600; font-size: 16px; color: #1D1D1D; margin-bottom: 4px; }
+            .toast-message { font-size: 14px; color: #4C4C4C; line-height: 1.5; }
+            .toast-close {
+                width: 24px; height: 24px; border-radius: 50%; background: rgba(0, 0, 0, 0.05);
+                display: flex; align-items: center; justify-content: center; cursor: pointer;
+                font-size: 18px; color: #666; transition: all 0.2s ease; flex-shrink: 0;
+            }
+            .toast-close:hover { background: rgba(0, 0, 0, 0.1); transform: scale(1.1); }
+            @keyframes slideInRight {
+                from { opacity: 0; transform: translateX(100px); }
+                to { opacity: 1; transform: translateX(0); }
+            }
+            @keyframes slideOutRight {
+                from { opacity: 1; transform: translateX(0); }
+                to { opacity: 0; transform: translateX(100px); }
+            }
+            .user-toast.hiding { animation: slideOutRight 0.3s ease forwards; }
+        `;
+        document.head.appendChild(style);
     }
     
     // ===============================
@@ -62,9 +278,9 @@ document.addEventListener("DOMContentLoaded", async function () {
     const logoutLink = document.querySelector('.nav-right a[href="/"]');
     if (logoutLink) {
         logoutLink.addEventListener('click', function(e) {
-            e.preventDefault(); // Предотвращаем переход по ссылке
-            localStorage.removeItem('token'); // Удаляем токен
-            window.location.href = '/'; // Перенаправляем на главную
+            e.preventDefault();
+            localStorage.removeItem('token');
+            window.location.href = '/';
         });
     }
     
@@ -89,9 +305,18 @@ document.addEventListener("DOMContentLoaded", async function () {
     
     // ========== РАБОТА С НАВИГАЦИЕЙ КУРСОВ ==========
     const navLinks = document.querySelectorAll(".courseNavigation a");
-    
+
+    // Удаляем ссылку "Все курсы" из DOM
+    const allCoursesLink = Array.from(navLinks).find(link => link.textContent === "Все курсы");
+    if (allCoursesLink) {
+        allCoursesLink.remove();
+    }
+
+    // Обновляем список ссылок после удаления
+    const updatedNavLinks = document.querySelectorAll(".courseNavigation a");
+
     function updateActiveLink(activeLink) {
-        navLinks.forEach(link => {
+        updatedNavLinks.forEach(link => {
             if (link === activeLink) {
                 link.style.fontSize = "32px";
                 link.style.fontWeight = "400";
@@ -102,14 +327,14 @@ document.addEventListener("DOMContentLoaded", async function () {
             }
         });
     }
-    
+
     function clearExtraContent() {
         const linkContainer = document.querySelector(".link-container");
         if (linkContainer) {
             linkContainer.remove();
         }
     }
-    
+
     function createLinkInputWithButton() {
         const linkContainer = document.createElement("div");
         linkContainer.className = "link-container";
@@ -124,13 +349,13 @@ document.addEventListener("DOMContentLoaded", async function () {
         linkButton.src = "/images/userMainPanel/send.svg";
         linkButton.alt = "Подключиться";
         
-        linkButton.addEventListener("click", function() {
-            const link = linkInput.value;
+        linkButton.addEventListener("click", async function() {
+            const link = linkInput.value.trim();
             if (link) {
-                console.log("Подключение по ссылке:", link);
-                alert("Подключение к курсу: " + link);
+                await connectToCourse(link);
+                linkInput.value = '';
             } else {
-                alert("Введите ссылку на курс");
+                showNotification("Введите ссылку на курс", "warning");
             }
         });
         
@@ -139,48 +364,75 @@ document.addEventListener("DOMContentLoaded", async function () {
         
         return linkContainer;
     }
-    
+
     function showContent(section) {
         const firstMessage = document.querySelector(".firstMessage");
         const courseSearching = document.getElementById('courseSearching');
-        clearExtraContent();
+        const coursesContainer = document.querySelector('.courses');
+        
+        // Очищаем контейнер курсов
+        if (coursesContainer) {
+            coursesContainer.innerHTML = '';
+        }
         
         if (section === "Мои курсы") {
             if (firstMessage) {
-                firstMessage.textContent = "Еще ничего не добавлено. Стоит пройти свой первый курс !";
-                firstMessage.style.display = "block";
-                courseSearching.style.display ="flex";
+                firstMessage.style.display = "none";
+                courseSearching.style.display = "flex";
             }
-        } else if (section === "Все курсы") {
-            if (firstMessage) {
-                firstMessage.textContent = "Раздел находится в доработке";
-                firstMessage.style.display = "block";
-                courseSearching.style.display ="none";
-            }
+            loadMyCourses();
         } else if (section === "Подключиться по ссылке") {
             if (firstMessage) {
-                firstMessage.textContent = "Введите ссылку для подключения к курсу";
-                firstMessage.style.display = "block";
-                courseSearching.style.display ="none";
+                firstMessage.style.display = "none";
+                courseSearching.style.display = "none";
             }
             
-            const linkContainer = createLinkInputWithButton();
+            // Создаем отдельный контейнер для подключения
+            const connectionContainer = document.createElement('div');
+            connectionContainer.className = 'connection-container';
+            connectionContainer.innerHTML = `
+                <div class="firstMessage connection-message">Введите ссылку для подключения к курсу</div>
+                <div class="link-container">
+                    <input type="text" class="form-input link-input" placeholder="Вставьте ссылку на курс">
+                    <img class="link-button-img" src="/images/userMainPanel/send.svg" alt="Подключиться">
+                </div>
+            `;
             
-            if (firstMessage) {
-                firstMessage.insertAdjacentElement('afterend', linkContainer);
+            if (coursesContainer) {
+                coursesContainer.appendChild(connectionContainer);
+            }
+            
+            // Добавляем обработчик
+            const linkInput = document.querySelector('.link-input');
+            const linkButton = document.querySelector('.link-button-img');
+            
+            if (linkButton && linkInput) {
+                const newLinkButton = linkButton.cloneNode(true);
+                linkButton.parentNode.replaceChild(newLinkButton, linkButton);
+                
+                newLinkButton.addEventListener('click', async function() {
+                    const link = linkInput.value.trim();
+                    if (link) {
+                        await connectToCourse(link);
+                        linkInput.value = '';
+                    } else {
+                        showNotification("Введите ссылку на курс", "warning");
+                    }
+                });
             }
         }
     }
-    
-    navLinks.forEach(link => {
+
+    // Обновляем обработчики для оставшихся ссылок
+    updatedNavLinks.forEach(link => {
         link.addEventListener("click", function(e) {
             e.preventDefault();
             updateActiveLink(this);
             showContent(this.textContent);
         });
     });
-    
-    const myCoursesLink = Array.from(navLinks).find(link => link.textContent === "Мои курсы");
+
+    const myCoursesLink = Array.from(updatedNavLinks).find(link => link.textContent === "Мои курсы");
     if (myCoursesLink) {
         updateActiveLink(myCoursesLink);
         showContent("Мои курсы");
@@ -217,20 +469,10 @@ document.addEventListener("DOMContentLoaded", async function () {
         duration: 0.8,
         delay: 0.3,
         ease: 'power3.out',
-        clearProps: 'all' // Очищаем все свойства GSAP после анимации
+        clearProps: 'all'
     });
 
-    gsap.from('.firstMessage', {
-        y: 30,
-        opacity: 0,
-        duration: 0.8,
-        delay: 0.3,
-        ease: 'power3.out'
-    });
-
-    // Показываем страницу
     setTimeout(() => {
         document.documentElement.classList.add('ready');
     }, 100);
-
 });

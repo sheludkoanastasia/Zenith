@@ -16,7 +16,8 @@ document.addEventListener("DOMContentLoaded", async function () {
     
     // Хранилище данных курса
     let courseData = {
-        themes: []
+        themes: [],
+        join_code: null
     };
     
     // ===============================
@@ -210,6 +211,9 @@ document.addEventListener("DOMContentLoaded", async function () {
                 const titleInput = document.getElementById('courseTitle');
                 if (titleInput) titleInput.value = course.title;
                 
+                // Сохраняем join_code
+                courseData.join_code = course.join_code;
+                
                 if (course.cover_image) {
                     currentCoverImage = course.cover_image;
                     displayCourseImage(course.cover_image);
@@ -218,7 +222,6 @@ document.addEventListener("DOMContentLoaded", async function () {
                 if (course.themes && course.themes.length > 0) {
                     courseData.themes = JSON.parse(JSON.stringify(course.themes));
                     await loadAllBlocksSections(courseData.themes);
-                    console.log('Загружены темы с разделами:', courseData.themes);
                 }
             }
         } catch (error) {
@@ -502,50 +505,65 @@ document.addEventListener("DOMContentLoaded", async function () {
                 gsap.to(tasksSection, { opacity: 1, duration: 0.3, ease: "power2.out" });
             }, 50);
             
-        } else if (section === 'connection') {
-            sectionsContent.innerHTML = `
-                <div class="connection-section">
-                    <p class="connection-description">По этой ссылке студенты смогут подключиться к курсу</p>
-                    <div class="connection-link-container">
-                        <input type="text" class="form-input connection-input" id="courseLinkInput"
-                               value="${currentCourseId ? `https://zenith.edu/join/${currentCourseId}` : 'Сначала сохраните курс'}" readonly>
-                        <div class="connection-buttons">
-                            <button class="connection-btn" id="refreshLinkBtn" title="Обновить ссылку">
-                                <img src="/images/teacherMainPanel/refresh.svg" alt="Refresh">
-                            </button>
-                            <button class="connection-btn" id="copyLinkBtn" title="Копировать ссылку">
-                                <img src="/images/teacherMainPanel/copy.svg" alt="Copy">
-                            </button>
+            } else if (section === 'connection') {
+                sectionsContent.innerHTML = `
+                    <div class="connection-section">
+                        <p class="connection-description">По этой ссылке студенты смогут подключиться к курсу</p>
+                        <div class="connection-link-container">
+                            <input type="text" class="form-input connection-input" id="courseLinkInput"
+                                value="Загрузка..." readonly>
+                            <div class="connection-buttons">
+                                <button class="connection-btn" id="copyLinkBtn" title="Копировать ссылку">
+                                    <img src="/images/teacherMainPanel/copy.svg" alt="Copy">
+                                </button>
+                            </div>
                         </div>
                     </div>
-                </div>
-            `;
+                `;
 
-            const refreshBtn = document.getElementById('refreshLinkBtn');
-            const copyBtn = document.getElementById('copyLinkBtn');
-            const linkInput = document.getElementById('courseLinkInput');
-
-            if (refreshBtn) {
-                refreshBtn.addEventListener('click', () => {
-                    showNotification('Ссылка обновлена', 'success');
-                    linkInput.classList.add('focus-effect');
-                    setTimeout(() => linkInput.classList.remove('focus-effect'), 2000);
-                });
-            }
-
-            if (copyBtn) {
-                copyBtn.addEventListener('click', async () => {
-                    try {
-                        await navigator.clipboard.writeText(linkInput.value);
-                        showNotification('Ссылка скопирована', 'success');
-                        linkInput.classList.add('focus-effect');
-                        setTimeout(() => linkInput.classList.remove('focus-effect'), 2000);
-                    } catch (err) {
-                        showNotification('Ошибка при копировании', 'warning');
+                // Принудительно загружаем курс при переходе на вкладку
+                const loadLink = async () => {
+                    if (!currentCourseId) {
+                        const linkInput = document.getElementById('courseLinkInput');
+                        if (linkInput) linkInput.value = 'Сначала сохраните курс';
+                        return;
                     }
-                });
+                    
+                    try {
+                        const response = await fetch(`/api/courses/${currentCourseId}`, {
+                            headers: { 'Authorization': `Bearer ${token}` }
+                        });
+                        const data = await response.json();
+                        
+                        if (data.success && data.course.join_code) {
+                            courseData.join_code = data.course.join_code;
+                            const linkInput = document.getElementById('courseLinkInput');
+                            if (linkInput) {
+                                linkInput.value = `${window.location.origin}/join/${courseData.join_code}`;
+                            }
+                        }
+                    } catch (error) {
+                        console.error('Ошибка:', error);
+                        const linkInput = document.getElementById('courseLinkInput');
+                        if (linkInput) linkInput.value = 'Ошибка загрузки ссылки';
+                    }
+                };
+                
+                loadLink();
+                
+                const copyBtn = document.getElementById('copyLinkBtn');
+                if (copyBtn) {
+                    copyBtn.addEventListener('click', async () => {
+                        const linkInput = document.getElementById('courseLinkInput');
+                        if (linkInput.value && !linkInput.value.includes('Загрузка') && !linkInput.value.includes('Сначала')) {
+                            await navigator.clipboard.writeText(linkInput.value);
+                            showNotification('Ссылка скопирована', 'success');
+                        } else {
+                            showNotification('Сначала сохраните курс', 'warning');
+                        }
+                    });
+                }
             }
-        }
     }
     
     function loadReadonlyStructure() {
@@ -934,12 +952,16 @@ document.addEventListener("DOMContentLoaded", async function () {
             setLoading(saveBtn, false);
             
             console.log('Ответ сервера:', data);
+            console.log('course объект:', data.course);
+            console.log('join_code в ответе:', data.course?.join_code);
+            console.log('Все поля course:', Object.keys(data.course || {}));
             
             if (data.success) {
                 showNotification('Курс успешно сохранен', 'success');
                 
                 if (!currentCourseId && data.course) {
                     currentCourseId = data.course.id;
+                    courseData.join_code = data.course.join_code;  // Сохраняем join_code
                     if (data.course.themes) {
                         courseData.themes = data.course.themes;
                         await loadAllBlocksSections(courseData.themes);
@@ -947,10 +969,18 @@ document.addEventListener("DOMContentLoaded", async function () {
                     clearDraft();
                 } else if (currentCourseId && data.course && data.course.themes) {
                     courseData.themes = data.course.themes;
+                    if (data.course.join_code) {
+                        courseData.join_code = data.course.join_code;  // Обновляем join_code
+                    }
                     await loadAllBlocksSections(courseData.themes);
                 }
                 
                 updateDOMWithIds(courseData.themes);
+                
+                // Если мы сейчас на вкладке connection - обновляем отображение ссылки
+                if (connectionLink && connectionLink.classList.contains('active')) {
+                    renderSection('connection');
+                }
             } else {
                 showNotification(data.message || 'Ошибка при сохранении курса', 'error');
             }

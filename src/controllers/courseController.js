@@ -1,24 +1,58 @@
 const db = require('../models');
 const { handleError } = require('../utils/errorHandler');
 
+// Добавьте эту функцию в начало файла, после require
+function generateJoinCode() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ0123456789';
+  let code = '';
+  for (let i = 0; i < 8; i++) {
+    code += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return code;
+}
+
 module.exports = {
     createCourse: async (req, res) => {
+        const transaction = await db.sequelize.transaction();
+        
         try {
             const { title, cover_image } = req.body;
             
             if (!title) {
+                await transaction.rollback();
                 return res.status(400).json({
                     success: false,
                     message: 'Название курса обязательно'
                 });
             }
 
+            // Генерируем уникальный join_code
+            let joinCode = generateJoinCode();
+            let isUnique = false;
+            let attempts = 0;
+            
+            while (!isUnique && attempts < 10) {
+                const existing = await db.Course.findOne({ 
+                    where: { join_code: joinCode },
+                    transaction
+                });
+                if (!existing) {
+                    isUnique = true;
+                } else {
+                    joinCode = generateJoinCode();
+                    attempts++;
+                }
+            }
+
             const course = await db.Course.create({
                 title,
                 cover_image,
                 teacher_id: req.user.id,
-                status: 'draft'
-            });
+                status: 'draft',
+                join_code: joinCode
+            }, { transaction });
+
+            await transaction.commit();
 
             res.status(201).json({
                 success: true,
@@ -27,11 +61,13 @@ module.exports = {
                     id: course.id,
                     title: course.title,
                     cover_image: course.cover_image,
-                    status: course.status
+                    status: course.status,
+                    join_code: course.join_code  // ← УБЕДИТЕСЬ, ЧТО ЭТА СТРОКА ЕСТЬ
                 }
             });
 
         } catch (error) {
+            await transaction.rollback();
             handleError(res, error, 'Ошибка при создании курса');
         }
     },
@@ -56,7 +92,7 @@ module.exports = {
         }
     },
 
-    getCourseById: async (req, res) => {
+   getCourseById: async (req, res) => {
         try {
             const course = await db.Course.findByPk(req.params.id, {
                 include: [
@@ -64,6 +100,11 @@ module.exports = {
                         model: db.Theme,
                         as: 'themes',
                         include: [{ model: db.Block, as: 'blocks' }]
+                    },
+                    {
+                        model: db.User,
+                        as: 'teacher',
+                        attributes: ['id', 'first_name', 'last_name', 'patronymic']
                     }
                 ]
             });
@@ -75,14 +116,43 @@ module.exports = {
                 });
             }
 
-            if (course.teacher_id !== req.user.id && req.user.role !== 'admin') {
+            // Для студентов: проверяем, подключен ли он к курсу
+            if (req.user.role === 'student') {
+                const isEnrolled = await db.CourseStudent.findOne({
+                    where: {
+                        course_id: course.id,
+                        student_id: req.user.id
+                    }
+                });
+                
+                if (!isEnrolled) {
+                    return res.status(403).json({
+                        success: false,
+                        message: 'Вы не подключены к этому курсу'
+                    });
+                }
+            } else if (course.teacher_id !== req.user.id && req.user.role !== 'admin') {
                 return res.status(403).json({
                     success: false,
                     message: 'Нет доступа к этому курсу'
                 });
             }
 
-            res.json({ success: true, course });
+            // Возвращаем курс с join_code
+            res.json({ 
+                success: true, 
+                course: {
+                    id: course.id,
+                    title: course.title,
+                    cover_image: course.cover_image,
+                    status: course.status,
+                    join_code: course.join_code,  // ← ДОБАВЬТЕ ЭТУ СТРОКУ
+                    teacher_id: course.teacher_id,
+                    students_count: course.students_count,
+                    themes: course.themes,
+                    teacher: course.teacher
+                }
+            });
         } catch (error) {
             handleError(res, error, 'Ошибка при получении курса');
         }
@@ -247,7 +317,14 @@ module.exports = {
             res.json({
                 success: true,
                 message: 'Курс успешно обновлен',
-                course: updatedCourse
+                course: {
+                    id: updatedCourse.id,
+                    title: updatedCourse.title,
+                    cover_image: updatedCourse.cover_image,
+                    status: updatedCourse.status,
+                    join_code: updatedCourse.join_code,  // ← ДОБАВЬТЕ ЭТУ СТРОКУ
+                    themes: updatedCourse.themes
+                }
             });
 
         } catch (error) {
@@ -275,6 +352,139 @@ module.exports = {
             });
         } catch (error) {
             handleError(res, error, 'Ошибка при загрузке изображения');
+        }
+    },
+
+    // Получение курса по join_code (публичный)
+    getCourseByJoinCode: async (req, res) => {
+        try {
+            const { joinCode } = req.params;
+            
+            const course = await db.Course.findOne({
+                where: { join_code: joinCode },
+                attributes: ['id', 'title', 'cover_image', 'teacher_id', 'status']
+            });
+            
+            if (!course) {
+                return res.status(404).json({
+                    success: false,
+                    message: 'Курс не найден'
+                });
+            }
+            
+            if (course.status !== 'published') {
+                return res.status(403).json({
+                    success: false,
+                    message: 'Курс еще не опубликован'
+                });
+            }
+            
+            res.json({ success: true, course });
+        } catch (error) {
+            handleError(res, error, 'Ошибка при поиске курса');
+        }
+    },
+
+    // Подключение студента к курсу по коду
+    joinCourseByCode: async (req, res) => {
+        const transaction = await db.sequelize.transaction();
+        
+        try {
+            const { joinCode } = req.body;
+            const studentId = req.user.id;
+            
+            const course = await db.Course.findOne({
+                where: { join_code: joinCode }
+            });
+            
+            if (!course) {
+                await transaction.rollback();
+                return res.status(404).json({
+                    success: false,
+                    message: 'Курс не найден'
+                });
+            }
+            
+            if (course.teacher_id === studentId) {
+                await transaction.rollback();
+                return res.status(400).json({
+                    success: false,
+                    message: 'Вы являетесь преподавателем этого курса'
+                });
+            }
+            
+            const existing = await db.CourseStudent.findOne({
+                where: {
+                    course_id: course.id,
+                    student_id: studentId
+                }
+            });
+            
+            if (existing) {
+                await transaction.rollback();
+                return res.status(400).json({
+                    success: false,
+                    message: 'Вы уже подключены к этому курсу'
+                });
+            }
+            
+            await db.CourseStudent.create({
+                course_id: course.id,
+                student_id: studentId,
+                status: 'active'
+            }, { transaction });
+            
+            await course.increment('students_count', { transaction });
+            
+            await transaction.commit();
+            
+            res.json({
+                success: true,
+                message: 'Вы успешно подключились к курсу',
+                course: {
+                    id: course.id,
+                    title: course.title,
+                    cover_image: course.cover_image
+                }
+            });
+            
+        } catch (error) {
+            await transaction.rollback();
+            handleError(res, error, 'Ошибка при подключении к курсу');
+        }
+    },
+
+    // Получение всех курсов студента
+    getStudentCourses: async (req, res) => {
+        try {
+            const studentId = req.user.id;
+            
+            const courses = await db.Course.findAll({
+                include: [
+                    {
+                        model: db.User,
+                        as: 'students',
+                        where: { id: studentId },
+                        through: { attributes: [] },
+                        required: true
+                    },
+                    {
+                        model: db.Theme,
+                        as: 'themes',
+                        include: [{ model: db.Block, as: 'blocks' }]
+                    },
+                    {
+                        model: db.User,
+                        as: 'teacher',
+                        attributes: ['id', 'first_name', 'last_name', 'patronymic']
+                    }
+                ],
+                order: [['created_at', 'DESC']]
+            });
+            
+            res.json({ success: true, courses });
+        } catch (error) {
+            handleError(res, error, 'Ошибка при получении курсов студента');
         }
     }
 };

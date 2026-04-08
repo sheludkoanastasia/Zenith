@@ -6045,6 +6045,147 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 });
 
+// ===== СВОРАЧИВАНИЕ САЙДБАРА =====
+const collapseSidebarBtn = document.getElementById('collapseSidebarBtn');
+const sidebar = document.querySelector('.sidebar');
+const mainContent = document.querySelector('.main-content');
+const container = document.querySelector('.container');
+const gradientDecoration = document.querySelector('.gradient-decoration');
+
+// Функция обновления ширины градиента
+function updateGradientWidth() {
+    if (!gradientDecoration || !sidebar) return;
+    const isCollapsed = sidebar.classList.contains('collapsed');
+    const sidebarWidth = isCollapsed ? 80 : 320;
+    gradientDecoration.style.width = `calc(100% - ${sidebarWidth}px)`;
+}
+
+// Функция обновления отступов основного контента
+function updateMainContentMargin() {
+    if (!sidebar || !mainContent) return;
+    const isCollapsed = sidebar.classList.contains('collapsed');
+    const marginLeft = isCollapsed ? '80px' : '320px';
+    mainContent.style.marginLeft = marginLeft;
+}
+
+// Основная функция сворачивания/разворачивания
+function toggleSidebar() {
+    if (!sidebar) return;
+    
+    const isCollapsed = sidebar.classList.contains('collapsed');
+    
+    if (isCollapsed) {
+        sidebar.classList.remove('collapsed');
+        localStorage.setItem('sidebar_collapsed', 'false');
+    } else {
+        sidebar.classList.add('collapsed');
+        localStorage.setItem('sidebar_collapsed', 'true');
+    }
+    
+    // Обновляем отступы и градиент
+    updateMainContentMargin();
+    updateGradientWidth();
+    
+    // Пересчитываем размеры для Quill редактора
+    setTimeout(() => {
+        if (quillEditor) {
+            quillEditor.root.style.minHeight = '400px';
+        }
+        window.dispatchEvent(new Event('resize'));
+    }, 300);
+}
+
+// Ранняя инициализация состояния сайдбара (до рендера контента)
+function initSidebarStateEarly() {
+    if (!sidebar) return;
+    
+    const savedState = localStorage.getItem('sidebar_collapsed');
+    if (savedState === 'true') {
+        sidebar.classList.add('collapsed');
+    } else {
+        sidebar.classList.remove('collapsed');
+    }
+    
+    // Применяем отступы сразу
+    updateMainContentMargin();
+    updateGradientWidth();
+    
+    // Добавляем класс initialized для плавности после применения состояния
+    setTimeout(() => {
+        sidebar.classList.add('initialized');
+    }, 10);
+}
+
+// Инициализация обработчиков и наблюдателей
+function initSidebar() {
+    if (!sidebar) return;
+    
+    // Кнопка сворачивания
+    if (collapseSidebarBtn) {
+        collapseSidebarBtn.removeEventListener('click', toggleSidebar);
+        collapseSidebarBtn.addEventListener('click', toggleSidebar);
+    }
+    
+    // Наблюдатель за изменениями класса сайдбара
+    const observer = new MutationObserver(() => {
+        updateMainContentMargin();
+        updateGradientWidth();
+    });
+    observer.observe(sidebar, { attributes: true, attributeFilter: ['class'] });
+    
+    // Обновляем градиент при загрузке
+    updateGradientWidth();
+}
+
+// Обработчик изменения размера окна для адаптации
+let resizeTimeout;
+function handleWindowResize() {
+    clearTimeout(resizeTimeout);
+    resizeTimeout = setTimeout(() => {
+        if (!sidebar) return;
+        
+        if (window.innerWidth <= 768) {
+            // На мобильных устройствах сворачиваем сайдбар автоматически
+            if (!sidebar.classList.contains('collapsed')) {
+                sidebar.classList.add('collapsed');
+                updateMainContentMargin();
+                updateGradientWidth();
+            }
+        } else {
+            // На десктопе восстанавливаем сохраненное состояние
+            const savedState = localStorage.getItem('sidebar_collapsed');
+            if (savedState === 'true') {
+                if (!sidebar.classList.contains('collapsed')) {
+                    sidebar.classList.add('collapsed');
+                    updateMainContentMargin();
+                    updateGradientWidth();
+                }
+            } else {
+                if (sidebar.classList.contains('collapsed')) {
+                    sidebar.classList.remove('collapsed');
+                    updateMainContentMargin();
+                    updateGradientWidth();
+                }
+            }
+        }
+        window.dispatchEvent(new Event('resize'));
+    }, 250);
+}
+
+// Запускаем раннюю инициализацию (сразу, до загрузки DOM)
+initSidebarStateEarly();
+
+// Ждем загрузки DOM для остальной инициализации
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => {
+        initSidebar();
+        window.addEventListener('resize', handleWindowResize);
+    });
+} else {
+    initSidebar();
+    window.addEventListener('resize', handleWindowResize);
+}
+
 // Инициализация Quill
 initQuillEditor();
 

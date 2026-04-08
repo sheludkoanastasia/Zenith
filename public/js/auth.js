@@ -39,7 +39,40 @@ document.addEventListener('DOMContentLoaded', () => {
             const data = await response.json();
             
             if (data.success) {
-                // Токен валидный - перенаправляем на соответствующую панель
+                // Токен валидный - проверяем есть ли ожидающий код подключения
+                const pendingJoinCode = localStorage.getItem('pending_join_code');
+                if (pendingJoinCode) {
+                    localStorage.removeItem('pending_join_code');
+                    
+                    try {
+                        const joinResponse = await fetch('/api/courses/join', {
+                            method: 'POST',
+                            headers: {
+                                'Authorization': `Bearer ${token}`,
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify({ joinCode: pendingJoinCode })
+                        });
+                        
+                        const joinData = await joinResponse.json();
+                        
+                        if (joinData.success) {
+                            // Успешно подключились - перенаправляем на панель пользователя
+                            if (data.user && data.user.role === 'teacher') {
+                                window.location.replace('/teacher');
+                            } else {
+                                window.location.replace('/user');
+                            }
+                            return;
+                        } else {
+                            console.error('Ошибка подключения к курсу:', joinData.message);
+                        }
+                    } catch (error) {
+                        console.error('Ошибка при подключении к курсу:', error);
+                    }
+                }
+                
+                // Перенаправляем на соответствующую панель
                 if (data.user && data.user.role === 'teacher') {
                     window.location.replace('/teacher');
                 } else {
@@ -293,6 +326,36 @@ document.addEventListener('DOMContentLoaded', () => {
                         localStorage.removeItem('tempPassword');
                         localStorage.removeItem('tempRole');
                         
+                        // Проверяем есть ли ожидающий код подключения
+                        const pendingJoinCode = localStorage.getItem('pending_join_code');
+                        if (pendingJoinCode) {
+                            localStorage.removeItem('pending_join_code');
+                            
+                            try {
+                                const joinResponse = await fetch('/api/courses/join', {
+                                    method: 'POST',
+                                    headers: {
+                                        'Authorization': `Bearer ${data.token}`,
+                                        'Content-Type': 'application/json'
+                                    },
+                                    body: JSON.stringify({ joinCode: pendingJoinCode })
+                                });
+                                
+                                const joinData = await joinResponse.json();
+                                
+                                if (joinData.success) {
+                                    if (data.user && data.user.role === 'teacher') {
+                                        window.location.replace('/teacher');
+                                    } else {
+                                        window.location.replace('/user');
+                                    }
+                                    return;
+                                }
+                            } catch (error) {
+                                console.error('Ошибка подключения к курсу:', error);
+                            }
+                        }
+                        
                         if (data.user && data.user.role === 'teacher') {
                             window.location.replace('/teacher');
                         } else {
@@ -351,6 +414,36 @@ document.addEventListener('DOMContentLoaded', () => {
                     
                     if (data.success) {
                         localStorage.setItem('token', data.token);
+                        
+                        // Проверяем есть ли ожидающий код подключения
+                        const pendingJoinCode = localStorage.getItem('pending_join_code');
+                        if (pendingJoinCode) {
+                            localStorage.removeItem('pending_join_code');
+                            
+                            try {
+                                const joinResponse = await fetch('/api/courses/join', {
+                                    method: 'POST',
+                                    headers: {
+                                        'Authorization': `Bearer ${data.token}`,
+                                        'Content-Type': 'application/json'
+                                    },
+                                    body: JSON.stringify({ joinCode: pendingJoinCode })
+                                });
+                                
+                                const joinData = await joinResponse.json();
+                                
+                                if (joinData.success) {
+                                    if (data.user && data.user.role === 'teacher') {
+                                        window.location.replace('/teacher');
+                                    } else {
+                                        window.location.replace('/user');
+                                    }
+                                    return;
+                                }
+                            } catch (error) {
+                                console.error('Ошибка подключения к курсу:', error);
+                            }
+                        }
                         
                         if (data.user && data.user.role === 'teacher') {
                             window.location.replace('/teacher');

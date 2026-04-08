@@ -15,7 +15,6 @@ module.exports = (sequelize) => {
         len: [3, 200]
       }
     },
-    // ПОЛЕ description УДАЛЕНО - у курса нет описания
     cover_image: {
       type: DataTypes.STRING,
       allowNull: true,
@@ -38,6 +37,12 @@ module.exports = (sequelize) => {
       type: DataTypes.INTEGER,
       defaultValue: 0,
       field: 'students_count'
+    },
+    // НОВОЕ ПОЛЕ
+    join_code: {
+      type: DataTypes.STRING(10),
+      allowNull: true,
+      unique: true
     }
   }, {
     tableName: 'courses',

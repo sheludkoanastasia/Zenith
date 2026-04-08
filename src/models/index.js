@@ -25,12 +25,35 @@ db.Section = require('./Section')(sequelize);
 db.TheoryContent = require('./TheoryContent')(sequelize);
 db.Exercise = require('./Exercise')(sequelize);
 db.Test = require('./Test')(sequelize);
+db.CourseStudent = require('./CourseStudent')(sequelize); // НОВАЯ МОДЕЛЬ
 
 // ===== НАСТРАИВАЕМ СВЯЗИ =====
 
 // User <-> Course
 db.User.hasMany(db.Course, { as: 'courses', foreignKey: 'teacher_id' });
 db.Course.belongsTo(db.User, { as: 'teacher', foreignKey: 'teacher_id' });
+
+// User <-> CourseStudent (как студент)
+db.User.hasMany(db.CourseStudent, { as: 'enrollments', foreignKey: 'student_id' });
+db.CourseStudent.belongsTo(db.User, { as: 'student', foreignKey: 'student_id' });
+
+// Course <-> CourseStudent
+db.Course.hasMany(db.CourseStudent, { as: 'enrollments', foreignKey: 'course_id' });
+db.CourseStudent.belongsTo(db.Course, { as: 'course', foreignKey: 'course_id' });
+
+// Связь many-to-many через CourseStudent
+db.User.belongsToMany(db.Course, {
+  through: db.CourseStudent,
+  as: 'studentCourses',
+  foreignKey: 'student_id',
+  otherKey: 'course_id'
+});
+db.Course.belongsToMany(db.User, {
+  through: db.CourseStudent,
+  as: 'students',
+  foreignKey: 'course_id',
+  otherKey: 'student_id'
+});
 
 // Course <-> Theme
 db.Course.hasMany(db.Theme, { as: 'themes', foreignKey: 'course_id', onDelete: 'CASCADE' });

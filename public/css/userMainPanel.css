@@ -11,6 +11,7 @@ body {
     overflow-x: hidden;
     min-width: 360px;
 }
+
 header {
     display: flex;
     justify-content: space-between;
@@ -35,8 +36,8 @@ header {
     flex: 1;
     display: flex;
     justify-content: flex-end;
-    align-items: center; 
-    gap:20px;
+    align-items: center;
+    gap: 20px;
 }
 
 .nav-right a {
@@ -46,19 +47,19 @@ header {
     font-weight: 500;
     transition: color 0.3s ease;
     white-space: nowrap;
-    display: flex; 
+    display: flex;
     align-items: center;
 }
 
 .nav-right a img {
-    width: 28px;  
-    height: auto; 
-    transition: transform 0.2s ease; 
-    display: block; 
+    width: 28px;
+    height: auto;
+    transition: transform 0.2s ease;
+    display: block;
 }
 
 .nav-right a:last-child {
-    margin-left: 20px; /* Добавляет отступ слева для последней ссылки */
+    margin-left: 20px;
 }
 
 /* Анимация для колокольчика (уведомления) */
@@ -113,7 +114,7 @@ header {
     padding: 20px 80px;
     border-bottom: 1px solid #eee;
     position: relative;
-    margin-bottom: 80px;
+    margin-bottom: 40px;
 }
 
 .courseNavigation {
@@ -121,7 +122,7 @@ header {
     display: flex;
     justify-content: flex-start;
     align-items: baseline;
-    gap:80px;
+    gap: 80px;
 }
 
 .courseNavigation a {
@@ -132,33 +133,14 @@ header {
     transition: color 0.3s ease;
     white-space: nowrap;
     display: inline-block;
-    line-height: 1.4; /* Фиксированная высота строки */
-}
-
-/* Стиль для поля ввода ссылки */
-.link-input {
-    margin-top: 20px;
-    width: 500px;
-    display: block;
-    margin-left: 80px; /* Чтобы соответствовал отступу firstMessage */
+    line-height: 1.4;
 }
 
 .courseSearching {
     display: flex;
-    text-decoration: none;
-    color: #1D1D1D;
-    font-size: 18px;
-    font-weight: 500;
-    transition: color 0.3s ease;
-    white-space: nowrap;
-    gap:10px;
-}
-
-.courseSearching {
-    display: flex;
-    align-items: center; /* Выравнивание по вертикали */
+    align-items: center;
     gap: 15px;
-    font-size: 18px; /* Размер шрифта для всего блока */
+    font-size: 18px;
 }
 
 .dropdown-menu {
@@ -166,21 +148,17 @@ header {
     display: inline-block;
 }
 
-/* Кнопка */
 .dropdown-toggle {
     display: flex;
     align-items: center;
     gap: 8px;
-
     padding: 8px 14px;
     border-radius: 15px;
-
     font-size: 18px;
     font-weight: 400;
     color: #1D1D1D;
     text-decoration: none;
     white-space: nowrap;
-
     cursor: pointer;
     transition: all 0.3s ease;
 }
@@ -189,55 +167,43 @@ header {
     color: #7651BE;
 }
 
-/* Выпадающее меню */
 .dropdown-content {
     position: absolute;
     top: 100%;
     left: 0;
-
     min-width: 220px;
     margin-top: 6px;
-
     background-color: #ffffff;
     border: 1px solid #eee;
     border-radius: 12px;
-
     box-shadow: 0 8px 20px rgba(0, 0, 0, 0.08);
     overflow: hidden;
     z-index: 1000;
-
-    /* Анимация */
     opacity: 0;
     transform: translateY(10px);
     pointer-events: none;
     transition: all 0.2s ease;
 }
 
-/* Активное состояние */
 .dropdown-menu.active .dropdown-content {
     opacity: 1;
     transform: translateY(0);
     pointer-events: auto;
 }
 
-/* Элементы списка */
 .dropdown-content a {
     display: block;
     padding: 12px 16px;
-
     font-size: 16px;
     color: #1D1D1D;
     text-decoration: none;
-
     transition: all 0.2s ease;
 }
 
-/* Разделители */
 .dropdown-content a:not(:last-child) {
     border-bottom: 1px solid #f3f3f3;
 }
 
-/* Hover пунктов */
 .dropdown-content a:hover {
     background-color: #f8f5ff;
     color: #7651BE;
@@ -245,12 +211,12 @@ header {
 }
 
 .form-input {
-    width: 400px; /* Фиксированная ширина для адекватного вида */
+    width: 400px;
     padding: 12px 18px;
     border: 1px solid #4c4c4c;
     border-radius: 25px;
     font-family: 'Ysabeau', sans-serif;
-    font-size: 16px; /* Размер текста внутри инпута */
+    font-size: 16px;
     color: #4c4c4c;
     transition: all 0.3s ease;
     background-color: #fff;
@@ -278,26 +244,22 @@ header {
     color: #1D1D1D;
     font-size: 27px;
     padding-left: 80px;
-    
 }
 
 .profile-section {
     display: flex;
     justify-content: space-between;
     align-items: center;
-
     padding: 60px 80px;
-
     background-image: url("/images/userMainPanel/userMainPanelBackground.png");
     background-size: cover;
     background-position: center;
     background-repeat: no-repeat;
     min-height: 50vh;
-    gap:80px;
+    gap: 80px;
 }
 
 /* ЛЕВАЯ ЧАСТЬ */
-
 .profile-left {
     display: flex;
     align-items: center;
@@ -316,16 +278,16 @@ header {
 }
 
 .name-line {
-    display: inline; /* или block, но с правильной структурой */
-    white-space: nowrap; /* запрещаем перенос внутри фамилии+имени */
+    display: inline;
+    white-space: nowrap;
 }
 
 .name-line span {
-    display: inline; /* чтобы span'ы были в одной строке */
+    display: inline;
 }
 
 .patronymic-line {
-    display: block; /* отчество на новой строке */
+    display: block;
 }
 
 .user-role {
@@ -335,7 +297,6 @@ header {
 }
 
 /* ПРАВАЯ ЧАСТЬ */
-
 .profile-right {
     display: flex;
     align-items: flex-start;
@@ -363,50 +324,229 @@ header {
     height: 200px;
 }
 
-/* Контейнер для поля ввода и кнопки */
+/* ===== СТИЛИ ДЛЯ КАРТОЧЕК КУРСОВ (как у преподавателя) ===== */
+.courses {
+    padding: 20px 80px;
+    min-height: 280px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 83px;
+    align-items: flex-start;
+}
+
+/* Контейнер карточки курса */
+.course-card-container {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+    width: fit-content;
+    transition: transform 0.3s ease;
+    cursor: pointer;
+}
+
+.course-card-container:hover {
+    transform: translateY(-5px);
+}
+
+.course-card-container:hover .course-card {
+    box-shadow: 0 15px 35px rgba(118, 81, 190, 0.25), 0 5px 10px rgba(118, 81, 190, 0.1);
+}
+
+/* Сама карточка */
+.course-card {
+    width: 300px;
+    height: 200px;
+    position: relative;
+    border-radius: 25px;
+    overflow: hidden;
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15), 0 2px 4px rgba(0, 0, 0, 0.05);
+    transition: all 0.3s ease;
+}
+
+.course-image-wrapper {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    background-color: #f5f5f5;
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+}
+
+/* Изображение курса */
+.course-cover-image {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+    z-index: 2;
+}
+
+/* Если изображение не загружено, показываем плейсхолдер */
+.course-image-wrapper:not(:has(img[src]))::after {
+    content: 'Нет изображения';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    color: #A6A6A6;
+    font-size: 14px;
+    font-weight: 300;
+    z-index: 1;
+}
+
+/* Название курса под карточкой */
+.course-card-title {
+    text-align: center;
+    font-size: 18px;
+    font-weight: 400;
+    color: #1D1D1D;
+    width: 100%;
+    word-break: break-word;
+    padding: 0 10px;
+}
+
+/* ===== КОНТЕЙНЕР ДЛЯ ПОДКЛЮЧЕНИЯ ===== */
+.connection-container {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    width: 100%;
+}
+
+.connection-message {
+    padding-left: 0;
+    margin-bottom: 20px;
+}
+
 .link-container {
     display: flex;
     align-items: center;
     gap: 15px;
-    margin-top: 20px;
-    margin-left: 80px;
 }
 
-/* Поле ввода ссылки */
-.link-input {
-    width: 500px;
-    margin: 0; /* Убираем предыдущий margin */
-    display: inline-block;
-}
-
-/* Контейнер для поля ввода и кнопки-изображения */
-.link-container {
-    display: flex;
-    align-items: center;
-    gap: 15px;
-    margin-top: 20px;
-    margin-left: 80px;
-}
-
-/* Поле ввода ссылки */
 .link-input {
     width: 500px;
     margin: 0;
     display: inline-block;
 }
 
-/* Изображение-кнопка */
 .link-button-img {
     width: 68px;
     height: 54px;
     cursor: pointer;
-    transition: opacity 0.3s ease;
+    transition: opacity 0.3s ease, transform 0.3s ease;
 }
 
 .link-button-img:hover {
     opacity: 0.8;
+    transform: scale(1.05);
 }
 
 .link-button-img:active {
-    opacity: 0.6;
+    transform: scale(0.95);
 }
+
+/* ===== СТИЛИ ДЛЯ УВЕДОМЛЕНИЙ ===== */
+.user-toast {
+    position: fixed;
+    top: 100px;
+    right: 30px;
+    min-width: 320px;
+    max-width: 400px;
+    background: white;
+    backdrop-filter: blur(10px);
+    border-radius: 16px;
+    padding: 16px 20px;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    z-index: 9999;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    animation: slideInRight 0.4s ease;
+}
+
+.user-toast.success {
+    border-left: 6px solid #4CAF50;
+}
+
+.user-toast.error {
+    border-left: 6px solid #FF3B3B;
+}
+
+.user-toast.warning {
+    border-left: 6px solid #FFB800;
+}
+
+.user-toast.info {
+    border-left: 6px solid #7651BE;
+}
+
+.toast-content {
+    flex: 1;
+}
+
+.toast-title {
+    font-weight: 600;
+    font-size: 16px;
+    color: #1D1D1D;
+    margin-bottom: 4px;
+}
+
+.toast-message {
+    font-size: 14px;
+    color: #4C4C4C;
+    line-height: 1.5;
+}
+
+.toast-close {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: rgba(0, 0, 0, 0.05);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 18px;
+    color: #666;
+    transition: all 0.2s ease;
+    flex-shrink: 0;
+}
+
+.toast-close:hover {
+    background: rgba(0, 0, 0, 0.1);
+    transform: scale(1.1);
+}
+
+@keyframes slideInRight {
+    from {
+        opacity: 0;
+        transform: translateX(100px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+@keyframes slideOutRight {
+    from {
+        opacity: 1;
+        transform: translateX(0);
+    }
+    to {
+        opacity: 0;
+        transform: translateX(100px);
+    }
+}
+
+.user-toast.hiding {
+    animation: slideOutRight 0.3s ease forwards;
+}
+
