@@ -24,6 +24,10 @@ const backButton = document.getElementById('backToCourseBtn');
 // Для просмотра теории
 let quillPreview = null;
 
+// Текущие разделы для навигации
+let currentEditingTheorySection = null;
+let currentEditingExerciseSection = null;
+
 function getToken() {
     return localStorage.getItem('token');
 }
@@ -229,7 +233,7 @@ function renderThemes(themes) {
     }
 
     themesListEl.innerHTML = themes.map((theme) => {
-        const hasActiveBlock = theme.blocks?.some(block => block.id === blockId);
+        const hasActiveBlock = theme.blocks?.some(block => block.id === (currentBlock?.id || blockId));
         const isInitiallyExpanded = hasActiveBlock;
         
         return `
@@ -246,17 +250,17 @@ function renderThemes(themes) {
                             ? theme.blocks.map((block) => `
                                 <div class="block-item-wrapper" data-block-id="${block.id}">
                                     <div class="block-header-wrapper">
-                                        <div class="block-item ${blockId === block.id ? 'active' : ''}" 
+                                        <div class="block-item ${(currentBlock?.id === block.id || blockId === block.id) ? 'active' : ''}" 
                                              data-block-id="${block.id}" 
                                              data-block-title="${escapeHtml(block.title)}" 
                                              data-block-description="${escapeHtml(block.description || '')}">
                                             ${escapeHtml(block.title)}
                                         </div>
-                                        <button class="block-toggle ${blockId === block.id ? '' : 'collapsed'}" data-block-id="${block.id}">
+                                        <button class="block-toggle ${(currentBlock?.id === block.id || blockId === block.id) ? '' : 'collapsed'}" data-block-id="${block.id}">
                                             <img src="/images/taskCreationPage/chevronDown.svg" alt="toggle">
                                         </button>
                                     </div>
-                                    <div class="block-sections-list" id="block-sections-${block.id}" style="display: ${blockId === block.id ? 'block' : 'none'};">
+                                    <div class="block-sections-list" id="block-sections-${block.id}" style="display: ${(currentBlock?.id === block.id || blockId === block.id) ? 'block' : 'none'};">
                                         ${renderBlockSections(block.sections || [])}
                                     </div>
                                 </div>
@@ -273,20 +277,23 @@ function renderThemes(themes) {
         const themeId = toggle.dataset.themeId;
         const container = document.getElementById(`theme-blocks-${themeId}`);
         
-        toggle.addEventListener('click', (e) => {
+        toggle.removeEventListener('click', toggle._listener);
+        toggle._listener = (e) => {
             e.stopPropagation();
             if (container) {
                 container.classList.toggle('collapsed');
                 toggle.classList.toggle('collapsed');
             }
-        });
+        };
+        toggle.addEventListener('click', toggle._listener);
     });
 
     document.querySelectorAll('.block-toggle').forEach(toggle => {
         const blockId = toggle.dataset.blockId;
         const sectionsList = document.getElementById(`block-sections-${blockId}`);
         
-        toggle.addEventListener('click', (e) => {
+        toggle.removeEventListener('click', toggle._listener);
+        toggle._listener = (e) => {
             e.stopPropagation();
             if (sectionsList) {
                 if (sectionsList.style.display === 'none') {
@@ -297,17 +304,20 @@ function renderThemes(themes) {
                     toggle.classList.add('collapsed');
                 }
             }
-        });
+        };
+        toggle.addEventListener('click', toggle._listener);
     });
 
     document.querySelectorAll('.block-item').forEach(blockEl => {
-        blockEl.addEventListener('click', () => {
+        blockEl.removeEventListener('click', blockEl._listener);
+        blockEl._listener = () => {
             const clickedBlockId = blockEl.dataset.blockId;
             const blockTitle = blockEl.dataset.blockTitle;
             const blockDescription = blockEl.dataset.blockDescription;
             
             performBlockSwitch(clickedBlockId, blockTitle, blockDescription);
-        });
+        };
+        blockEl.addEventListener('click', blockEl._listener);
     });
 }
 
@@ -343,7 +353,8 @@ function updateSidebarSections(blockId, sections) {
             const sectionId = sectionEl.dataset.sectionId;
             const section = sections.find(s => s.id === sectionId);
             
-            sectionEl.addEventListener('click', (e) => {
+            sectionEl.removeEventListener('click', sectionEl._listener);
+            sectionEl._listener = (e) => {
                 e.stopPropagation();
                 if (section) {
                     if (section.type === 'theory') {
@@ -354,7 +365,8 @@ function updateSidebarSections(blockId, sections) {
                         loadTestSection(section.id);
                     }
                 }
-            });
+            };
+            sectionEl.addEventListener('click', sectionEl._listener);
         });
     }
 }
@@ -391,10 +403,60 @@ async function loadBlockSections(blockId, blockTitle, blockDescription) {
             currentBlockDescription.textContent = blockDescription;
             
             renderSections(currentSections);
+            
+            updateActiveBlockInSidebar(blockId);
         }
     } catch (error) {
         console.error('Ошибка:', error);
         showNotification('Не удалось загрузить разделы', 'error');
+    }
+}
+
+function updateActiveBlockInSidebar(blockId) {
+    document.querySelectorAll('.block-item').forEach(el => {
+        el.classList.remove('active');
+    });
+    const activeBlock = document.querySelector(`.block-item[data-block-id="${blockId}"]`);
+    if (activeBlock) {
+        activeBlock.classList.add('active');
+    }
+    
+    expandParentTheme(blockId);
+    
+    document.querySelectorAll('.block-sections-list').forEach(list => {
+        list.style.display = 'none';
+    });
+    const sectionsListContainer = document.getElementById(`block-sections-${blockId}`);
+    if (sectionsListContainer) {
+        sectionsListContainer.style.display = 'block';
+    }
+    
+    document.querySelectorAll('.block-toggle').forEach(toggle => {
+        const toggleBlockId = toggle.dataset.blockId;
+        if (toggleBlockId === blockId) {
+            toggle.classList.remove('collapsed');
+        } else {
+            toggle.classList.add('collapsed');
+        }
+    });
+}
+
+function expandParentTheme(blockId) {
+    const blockWrapper = document.querySelector(`.block-item-wrapper[data-block-id="${blockId}"]`);
+    if (!blockWrapper) return;
+    
+    const themeBlocksContainer = blockWrapper.closest('.theme-blocks-container');
+    if (!themeBlocksContainer) return;
+    
+    const themeItem = themeBlocksContainer.closest('.theme-item');
+    if (!themeItem) return;
+    
+    const themeToggle = themeItem.querySelector('.theme-toggle');
+    const themeContainer = themeItem.querySelector('.theme-blocks-container');
+    
+    if (themeContainer && themeContainer.classList.contains('collapsed')) {
+        themeContainer.classList.remove('collapsed');
+        if (themeToggle) themeToggle.classList.remove('collapsed');
     }
 }
 
@@ -442,7 +504,8 @@ function renderSections(sections) {
     }).join('');
     
     document.querySelectorAll('.section-card').forEach(card => {
-        card.addEventListener('click', () => {
+        card.removeEventListener('click', card._listener);
+        card._listener = () => {
             const sectionId = card.dataset.sectionId;
             const section = currentSections.find(s => s.id === sectionId);
             if (section) {
@@ -454,7 +517,8 @@ function renderSections(sections) {
                     loadTestSection(sectionId);
                 }
             }
-        });
+        };
+        card.addEventListener('click', card._listener);
     });
 }
 
@@ -467,32 +531,12 @@ function performBlockSwitch(clickedBlockId, blockTitle, blockDescription) {
     if (exercisePreviewContainer) exercisePreviewContainer.style.display = 'none';
     if (testPreviewContainer) testPreviewContainer.style.display = 'none';
     
-    document.querySelectorAll('.block-item').forEach(el => el.classList.remove('active'));
-    const activeBlock = document.querySelector(`.block-item[data-block-id="${clickedBlockId}"]`);
-    if (activeBlock) activeBlock.classList.add('active');
+    document.getElementById('theoryNextStep').style.display = 'none';
+    document.getElementById('exerciseNextStep').style.display = 'none';
+    document.getElementById('testNextStep').style.display = 'none';
     
-    document.querySelectorAll('.block-sections-list').forEach(list => {
-        list.style.display = 'none';
-        const parentWrapper = list.closest('.block-item-wrapper');
-        if (parentWrapper) {
-            const blockToggle = parentWrapper.querySelector('.block-toggle');
-            if (blockToggle && !blockToggle.classList.contains('collapsed')) {
-                blockToggle.classList.add('collapsed');
-            }
-        }
-    });
-    
-    const sectionsListContainer = document.getElementById(`block-sections-${clickedBlockId}`);
-    if (sectionsListContainer) {
-        sectionsListContainer.style.display = 'block';
-        const currentBlockWrapper = document.querySelector(`.block-item-wrapper[data-block-id="${clickedBlockId}"]`);
-        if (currentBlockWrapper) {
-            const blockToggle = currentBlockWrapper.querySelector('.block-toggle');
-            if (blockToggle && blockToggle.classList.contains('collapsed')) {
-                blockToggle.classList.remove('collapsed');
-            }
-        }
-    }
+    expandParentTheme(clickedBlockId);
+    updateActiveBlockInSidebar(clickedBlockId);
     
     const newUrl = `/teacher/course-constructor-preview?courseId=${courseId}&blockId=${clickedBlockId}&themeId=${themeId}`;
     window.history.pushState({}, '', newUrl);
@@ -517,6 +561,11 @@ function initQuillPreview() {
 
 async function loadTheorySection(sectionId) {
     try {
+        const sectionsAreaEl = document.getElementById('sectionsArea');
+        const welcomeScreenEl = document.getElementById('welcomeScreen');
+        if (sectionsAreaEl) sectionsAreaEl.style.display = 'none';
+        if (welcomeScreenEl) welcomeScreenEl.style.display = 'none';
+        
         const token = getToken();
         const response = await fetch(`${apiBaseUrl}/sections/${sectionId}`, {
             headers: { 'Authorization': `Bearer ${token}` }
@@ -526,6 +575,9 @@ async function loadTheorySection(sectionId) {
         
         if (data.success) {
             const section = data.section;
+            
+            currentEditingTheorySection = section;
+            currentEditingExerciseSection = null;
             
             const theoryTitleEl = document.getElementById('currentTheoryTitle');
             if (theoryTitleEl) {
@@ -542,16 +594,14 @@ async function loadTheorySection(sectionId) {
             }
             
             const previewContainer = document.getElementById('theoryPreviewContainer');
-            const sectionsAreaEl = document.getElementById('sectionsArea');
-            const welcomeScreenEl = document.getElementById('welcomeScreen');
             const exercisePreviewContainer = document.getElementById('exercisePreviewContainer');
             const testPreviewContainer = document.getElementById('testPreviewContainer');
             
             if (exercisePreviewContainer) exercisePreviewContainer.style.display = 'none';
             if (testPreviewContainer) testPreviewContainer.style.display = 'none';
             if (previewContainer) previewContainer.style.display = 'block';
-            if (sectionsAreaEl) sectionsAreaEl.style.display = 'none';
-            if (welcomeScreenEl) welcomeScreenEl.style.display = 'none';
+            
+            updateNextStepButton(sectionId);
         } else {
             showNotification('Ошибка загрузки раздела', 'error');
         }
@@ -565,6 +615,11 @@ async function loadTheorySection(sectionId) {
 
 async function loadExerciseSection(sectionId) {
     try {
+        const sectionsAreaEl = document.getElementById('sectionsArea');
+        const welcomeScreenEl = document.getElementById('welcomeScreen');
+        if (sectionsAreaEl) sectionsAreaEl.style.display = 'none';
+        if (welcomeScreenEl) welcomeScreenEl.style.display = 'none';
+        
         const token = getToken();
         const response = await fetch(`${apiBaseUrl}/sections/${sectionId}`, {
             headers: { 'Authorization': `Bearer ${token}` }
@@ -574,6 +629,9 @@ async function loadExerciseSection(sectionId) {
         
         if (data.success) {
             const section = data.section;
+            
+            currentEditingExerciseSection = section;
+            currentEditingTheorySection = null;
             
             const exerciseTitleEl = document.getElementById('currentExerciseTitle');
             if (exerciseTitleEl) {
@@ -594,12 +652,10 @@ async function loadExerciseSection(sectionId) {
             const typeBadge = document.querySelector('.exercise-type-badge-preview .type-badge');
             if (typeBadge) typeBadge.textContent = typeText;
             
-            // Скрываем все контейнеры
             document.getElementById('matchingExercisePreview').style.display = 'none';
             document.getElementById('choiceExercisePreview').style.display = 'none';
             document.getElementById('fillBlanksExercisePreview').style.display = 'none';
             
-            // Показываем нужный и рендерим
             if (exerciseType === 'matching') {
                 document.getElementById('matchingExercisePreview').style.display = 'block';
                 renderPreviewMatching(exerciseData);
@@ -612,16 +668,14 @@ async function loadExerciseSection(sectionId) {
             }
             
             const previewContainer = document.getElementById('exercisePreviewContainer');
-            const sectionsAreaEl = document.getElementById('sectionsArea');
-            const welcomeScreenEl = document.getElementById('welcomeScreen');
             const theoryPreviewContainer = document.getElementById('theoryPreviewContainer');
             const testPreviewContainer = document.getElementById('testPreviewContainer');
             
             if (theoryPreviewContainer) theoryPreviewContainer.style.display = 'none';
             if (testPreviewContainer) testPreviewContainer.style.display = 'none';
             if (previewContainer) previewContainer.style.display = 'block';
-            if (sectionsAreaEl) sectionsAreaEl.style.display = 'none';
-            if (welcomeScreenEl) welcomeScreenEl.style.display = 'none';
+            
+            updateNextStepButton(sectionId);
             
         } else {
             showNotification('Ошибка загрузки раздела', 'error');
@@ -641,7 +695,6 @@ function renderPreviewMatching(exerciseData) {
     const taskTextEl = document.getElementById('matchingTaskText');
     if (taskTextEl) taskTextEl.textContent = taskText;
     
-    // Рендер элементов
     const itemsContainer = document.getElementById('previewItemsList');
     if (itemsContainer) {
         if (items.length === 0) {
@@ -656,7 +709,6 @@ function renderPreviewMatching(exerciseData) {
         }
     }
     
-    // Рендер элементов сопоставления
     const targetsContainer = document.getElementById('previewTargetsList');
     if (targetsContainer) {
         if (targets.length === 0) {
@@ -671,7 +723,6 @@ function renderPreviewMatching(exerciseData) {
         }
     }
     
-    // Рендер таблицы сопоставления
     const rowsContainer = document.getElementById('previewMatchingRows');
     if (rowsContainer) {
         if (targets.length === 0) {
@@ -743,7 +794,6 @@ function renderPreviewFillBlanks(exerciseData) {
     const taskTextEl = document.getElementById('fillBlanksTaskText');
     if (taskTextEl) taskTextEl.textContent = taskText;
     
-    // Рендер слов
     const wordsContainer = document.getElementById('previewWordsList');
     if (wordsContainer) {
         if (words.length === 0) {
@@ -755,7 +805,6 @@ function renderPreviewFillBlanks(exerciseData) {
         }
     }
     
-    // Рендер предложений
     const sentencesContainer = document.getElementById('previewSentencesList');
     if (sentencesContainer) {
         if (sentences.length === 0) {
@@ -765,7 +814,6 @@ function renderPreviewFillBlanks(exerciseData) {
                 let textWithBlanks = sentence.text || '';
                 const blanks = sentence.correctAnswers || [];
                 
-                // Заменяем _______ на красивые плейсхолдеры
                 let blankIndex = 0;
                 textWithBlanks = textWithBlanks.replace(/_______/g, () => {
                     const answer = blanks[blankIndex] || '???';
@@ -801,6 +849,11 @@ function renderPreviewFillBlanks(exerciseData) {
 
 async function loadTestSection(sectionId) {
     try {
+        const sectionsAreaEl = document.getElementById('sectionsArea');
+        const welcomeScreenEl = document.getElementById('welcomeScreen');
+        if (sectionsAreaEl) sectionsAreaEl.style.display = 'none';
+        if (welcomeScreenEl) welcomeScreenEl.style.display = 'none';
+        
         const token = getToken();
         const response = await fetch(`${apiBaseUrl}/sections/${sectionId}`, {
             headers: { 'Authorization': `Bearer ${token}` }
@@ -811,6 +864,9 @@ async function loadTestSection(sectionId) {
         if (data.success) {
             const section = data.section;
             
+            currentEditingExerciseSection = section;
+            currentEditingTheorySection = null;
+            
             const testTitleEl = document.getElementById('currentTestTitle');
             if (testTitleEl) {
                 testTitleEl.textContent = section.title;
@@ -818,7 +874,6 @@ async function loadTestSection(sectionId) {
             
             const testData = section.test || {};
             
-            // Отображаем дедлайн
             const deadlineSpan = document.getElementById('previewDeadline');
             if (deadlineSpan) {
                 if (testData.deadline) {
@@ -829,7 +884,6 @@ async function loadTestSection(sectionId) {
                 }
             }
             
-            // Отображаем время прохождения
             const timeLimitSpan = document.getElementById('previewTimeLimit');
             if (timeLimitSpan) {
                 const timeLimitMinutes = testData.time_limit;
@@ -848,21 +902,18 @@ async function loadTestSection(sectionId) {
                 }
             }
             
-            // Рендерим упражнения
             const exercises = testData.exercises || [];
             renderPreviewTestExercises(exercises);
             
             const previewContainer = document.getElementById('testPreviewContainer');
-            const sectionsAreaEl = document.getElementById('sectionsArea');
-            const welcomeScreenEl = document.getElementById('welcomeScreen');
             const theoryPreviewContainer = document.getElementById('theoryPreviewContainer');
             const exercisePreviewContainer = document.getElementById('exercisePreviewContainer');
             
             if (theoryPreviewContainer) theoryPreviewContainer.style.display = 'none';
             if (exercisePreviewContainer) exercisePreviewContainer.style.display = 'none';
             if (previewContainer) previewContainer.style.display = 'block';
-            if (sectionsAreaEl) sectionsAreaEl.style.display = 'none';
-            if (welcomeScreenEl) welcomeScreenEl.style.display = 'none';
+            
+            updateNextStepButton(sectionId);
             
         } else {
             showNotification('Ошибка загрузки раздела', 'error');
@@ -1138,6 +1189,10 @@ function backToSections() {
     if (exercisePreviewContainer) exercisePreviewContainer.style.display = 'none';
     if (testPreviewContainer) testPreviewContainer.style.display = 'none';
     
+    document.getElementById('theoryNextStep').style.display = 'none';
+    document.getElementById('exerciseNextStep').style.display = 'none';
+    document.getElementById('testNextStep').style.display = 'none';
+    
     if (currentBlock && sectionsAreaEl) {
         sectionsAreaEl.style.display = 'block';
         welcomeScreenEl.style.display = 'none';
@@ -1147,9 +1202,7 @@ function backToSections() {
         
         renderSections(currentSections);
         
-        document.querySelectorAll('.block-item').forEach(el => el.classList.remove('active'));
-        const activeBlock = document.querySelector(`.block-item[data-block-id="${currentBlock.id}"]`);
-        if (activeBlock) activeBlock.classList.add('active');
+        updateActiveBlockInSidebar(currentBlock.id);
         
         const newUrl = `/teacher/course-constructor-preview?courseId=${courseId}&blockId=${currentBlock.id}&themeId=${themeId}`;
         window.history.pushState({}, '', newUrl);
@@ -1167,6 +1220,124 @@ function escapeHtml(text) {
     return div.innerHTML;
 }
 
+// ===== НАВИГАЦИЯ "СЛЕДУЮЩИЙ ШАГ" =====
+
+function getAllSectionsInOrder() {
+    const sectionsList = [];
+    
+    if (!currentCourse || !currentCourse.themes) return sectionsList;
+    
+    const sortedThemes = [...currentCourse.themes].sort((a, b) => (a.order_index || 0) - (b.order_index || 0));
+    
+    for (const theme of sortedThemes) {
+        const sortedBlocks = (theme.blocks || []).sort((a, b) => (a.order_index || 0) - (b.order_index || 0));
+        
+        for (const block of sortedBlocks) {
+            const sortedSections = (block.sections || []).sort((a, b) => (a.order_index || 0) - (b.order_index || 0));
+            
+            for (const section of sortedSections) {
+                sectionsList.push({
+                    sectionId: section.id,
+                    sectionType: section.type,
+                    blockId: block.id,
+                    blockTitle: block.title,
+                    blockDescription: block.description || '',
+                    themeId: theme.id,
+                    themeTitle: theme.title
+                });
+            }
+        }
+    }
+    
+    return sectionsList;
+}
+
+function findNextSection(currentSectionId) {
+    const allSections = getAllSectionsInOrder();
+    const currentIndex = allSections.findIndex(s => s.sectionId === currentSectionId);
+    
+    if (currentIndex !== -1 && currentIndex < allSections.length - 1) {
+        return allSections[currentIndex + 1];
+    }
+    
+    return null;
+}
+
+function navigateToNextSection() {
+    let currentSectionId = null;
+    
+    if (document.getElementById('theoryPreviewContainer').style.display === 'block') {
+        currentSectionId = currentEditingTheorySection?.id;
+    } else if (document.getElementById('exercisePreviewContainer').style.display === 'block') {
+        currentSectionId = currentEditingExerciseSection?.id;
+    } else if (document.getElementById('testPreviewContainer').style.display === 'block') {
+        currentSectionId = currentEditingExerciseSection?.id;
+    }
+    
+    if (!currentSectionId) return;
+    
+    const nextSection = findNextSection(currentSectionId);
+    
+    if (nextSection) {
+        const theoryPreviewContainer = document.getElementById('theoryPreviewContainer');
+        const exercisePreviewContainer = document.getElementById('exercisePreviewContainer');
+        const testPreviewContainer = document.getElementById('testPreviewContainer');
+        
+        if (theoryPreviewContainer) theoryPreviewContainer.style.display = 'none';
+        if (exercisePreviewContainer) exercisePreviewContainer.style.display = 'none';
+        if (testPreviewContainer) testPreviewContainer.style.display = 'none';
+        
+        document.getElementById('theoryNextStep').style.display = 'none';
+        document.getElementById('exerciseNextStep').style.display = 'none';
+        document.getElementById('testNextStep').style.display = 'none';
+        
+        currentBlock = {
+            id: nextSection.blockId,
+            title: nextSection.blockTitle,
+            description: nextSection.blockDescription
+        };
+        
+        currentBlockTitle.textContent = currentBlock.title;
+        currentBlockDescription.textContent = currentBlock.description;
+        
+        expandParentTheme(nextSection.blockId);
+        updateActiveBlockInSidebar(nextSection.blockId);
+        
+        loadBlockSections(nextSection.blockId, nextSection.blockTitle, nextSection.blockDescription)
+            .then(() => {
+                if (nextSection.sectionType === 'theory') {
+                    loadTheorySection(nextSection.sectionId);
+                } else if (nextSection.sectionType === 'exercise') {
+                    loadExerciseSection(nextSection.sectionId);
+                } else if (nextSection.sectionType === 'test') {
+                    loadTestSection(nextSection.sectionId);
+                }
+            });
+        
+        const newUrl = `/teacher/course-constructor-preview?courseId=${courseId}&blockId=${nextSection.blockId}&themeId=${nextSection.themeId}`;
+        window.history.pushState({}, '', newUrl);
+    }
+}
+
+function updateNextStepButton(sectionId) {
+    const nextSection = findNextSection(sectionId);
+    const hasNext = nextSection !== null;
+    
+    document.getElementById('theoryNextStep').style.display = 'none';
+    document.getElementById('exerciseNextStep').style.display = 'none';
+    document.getElementById('testNextStep').style.display = 'none';
+    
+    if (hasNext) {
+        if (document.getElementById('theoryPreviewContainer').style.display === 'block') {
+            document.getElementById('theoryNextStep').style.display = 'flex';
+        } else if (document.getElementById('exercisePreviewContainer').style.display === 'block') {
+            document.getElementById('exerciseNextStep').style.display = 'flex';
+        } else if (document.getElementById('testPreviewContainer').style.display === 'block') {
+            document.getElementById('testNextStep').style.display = 'flex';
+        }
+    }
+}
+
 // ===== ОБРАБОТЧИКИ СОБЫТИЙ =====
 
 backButton.addEventListener('click', () => {
@@ -1177,12 +1348,15 @@ document.getElementById('backToStructureBtn')?.addEventListener('click', backToS
 document.getElementById('backToStructureFromExerciseBtn')?.addEventListener('click', backToSections);
 document.getElementById('backToStructureFromTestBtn')?.addEventListener('click', backToSections);
 
+document.getElementById('theoryNextBtn')?.addEventListener('click', navigateToNextSection);
+document.getElementById('exerciseNextBtn')?.addEventListener('click', navigateToNextSection);
+document.getElementById('testNextBtn')?.addEventListener('click', navigateToNextSection);
+
 // ===== ИНИЦИАЛИЗАЦИЯ =====
 
 initQuillPreview();
 loadCourseData();
 
-// Анимации
 gsap.set('body', { opacity: 0 });
 gsap.to('body', { opacity: 1, duration: 0.8, ease: 'power3.out' });
 gsap.from('header', { y: -30, opacity: 0, duration: 0.8, delay: 0.2, ease: 'power3.out' });

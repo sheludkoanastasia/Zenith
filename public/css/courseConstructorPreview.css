@@ -101,6 +101,10 @@ body {
     border-radius: 4px;
 }
 
+.sidebar::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(180deg, rgb(168, 206, 252) 0%, #abb2ff 50%, #dec2ff 100%);
+}
+
 .sidebar-content {
     padding: 32px 40px;
 }
@@ -725,7 +729,6 @@ body {
     gap: 8px;
 }
 
-/* Серые прямоугольники для элементов */
 .preview-item-row, .preview-target-row {
     display: flex;
     align-items: center;
@@ -748,7 +751,6 @@ body {
     color: #1D1D1D;
 }
 
-/* Пустые элементы */
 .items-list-preview .empty-message,
 .targets-list-preview .empty-message {
     padding: 20px;
@@ -857,6 +859,11 @@ body {
     border: 1px solid #e5e7eb;
     border-radius: 16px;
     padding: 20px;
+    margin-bottom: 16px;
+}
+
+.preview-statement-card:last-child {
+    margin-bottom: 0;
 }
 
 .preview-statement-header {
@@ -864,6 +871,10 @@ body {
     align-items: center;
     gap: 12px;
     margin-bottom: 16px;
+    background: white;
+    padding: 12px 16px;
+    border-radius: 12px;
+    border: 1px solid #e5e7eb;
 }
 
 .statement-number-preview {
@@ -877,16 +888,19 @@ body {
     flex: 1;
     font-size: 14px;
     color: #1D1D1D;
+    background: white;
 }
 
 .preview-answers-section {
     padding-left: 42px;
+    margin-top: 8px;
 }
 
 .answers-header {
     font-size: 13px;
     color: #6b7280;
     margin-bottom: 12px;
+    font-weight: 500;
 }
 
 .preview-answers-list {
@@ -899,6 +913,10 @@ body {
     display: flex;
     align-items: center;
     gap: 12px;
+    background: white;
+    padding: 8px 12px;
+    border-radius: 10px;
+    border: 1px solid #e5e7eb;
 }
 
 .radio-indicator {
@@ -983,6 +1001,11 @@ body {
     border: 1px solid #e5e7eb;
     border-radius: 16px;
     padding: 20px;
+    margin-bottom: 16px;
+}
+
+.preview-sentence-card:last-child {
+    margin-bottom: 0;
 }
 
 .sentence-header-preview {
@@ -1005,6 +1028,10 @@ body {
     line-height: 1.6;
     margin-bottom: 16px;
     color: #1D1D1D;
+    background: white;
+    padding: 12px 16px;
+    border-radius: 12px;
+    border: 1px solid #e5e7eb;
 }
 
 .sentence-text-preview .blank-placeholder {
@@ -1040,6 +1067,10 @@ body {
     display: flex;
     align-items: center;
     gap: 12px;
+    background: white;
+    padding: 8px 12px;
+    border-radius: 10px;
+    border: 1px solid #e5e7eb;
 }
 
 .blank-number-preview {
@@ -1133,7 +1164,6 @@ body {
     margin-bottom: 20px;
 }
 
-/* Белый фон для карточек тестирований */
 .preview-test-exercise-card {
     background: white;
     border: 1px solid #e5e7eb;
@@ -1178,14 +1208,12 @@ body {
     color: #4C4C4C;
 }
 
-/* Контент упражнения внутри карточки */
 .preview-test-exercise-content {
     background: white;
     border-radius: 12px;
     margin-bottom: 16px;
 }
 
-/* Matching внутри теста - серые прямоугольники */
 .preview-test-exercise-content .preview-item-row,
 .preview-test-exercise-content .preview-target-row {
     display: flex;
@@ -1234,7 +1262,6 @@ body {
     font-size: 13px;
 }
 
-/* Стили для matching таблицы внутри теста */
 .preview-test-exercise-content .matching-table-section {
     margin-top: 24px;
     border-top: 1px solid #e5e7eb;
@@ -1293,7 +1320,6 @@ body {
     font-weight: 600;
 }
 
-/* Choice внутри теста */
 .preview-test-exercise-content .preview-statement-card {
     background: #faf9fb;
     border: 1px solid #e5e7eb;
@@ -1306,7 +1332,21 @@ body {
     margin-bottom: 0;
 }
 
-/* Fill Blanks внутри теста */
+.preview-test-exercise-content .preview-statement-header {
+    background: white;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    padding: 12px 16px;
+    margin-bottom: 16px;
+}
+
+.preview-test-exercise-content .preview-answer-row {
+    background: white;
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    padding: 8px 12px;
+}
+
 .preview-test-exercise-content .preview-sentence-card {
     background: #faf9fb;
     border: 1px solid #e5e7eb;
@@ -1319,16 +1359,28 @@ body {
     margin-bottom: 0;
 }
 
-.preview-test-exercise-content .preview-word-chip {
-    display: inline-block;
-    padding: 6px 12px;
+.preview-test-exercise-content .sentence-text-preview {
     background: white;
     border: 1px solid #e5e7eb;
     border-radius: 12px;
-    font-size: 14px;
+    padding: 12px 16px;
+    margin-bottom: 16px;
 }
 
-/* Блок с баллами */
+.preview-test-exercise-content .preview-blank-row {
+    background: white;
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    padding: 8px 12px;
+}
+
+.preview-test-exercise-content .preview-word-chip {
+    background: white;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    padding: 6px 12px;
+}
+
 .preview-scoring-section {
     margin-top: 16px;
     padding-top: 16px;
@@ -1372,6 +1424,47 @@ body {
     color: #1D1D1D;
 }
 
+/* ========== КНОПКА СЛЕДУЮЩИЙ ШАГ ========== */
+.next-step-container {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 40px;
+    padding-top: 24px;
+    border-top: 1px solid #e5e7eb;
+}
+
+.next-step-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 28px;
+    background: #7651BE;
+    color: white;
+    border: none;
+    border-radius: 40px;
+    font-size: 16px;
+    font-weight: 500;
+    font-family: 'Ysabeau', 'Inter', sans-serif;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.next-step-btn:hover {
+    background: #5e3c9e;
+    transform: translateX(4px);
+}
+
+.next-arrow-icon {
+    width: 20px;
+    height: 20px;
+    filter: brightness(0) invert(1);
+    transition: transform 0.3s ease;
+}
+
+.next-step-btn:hover .next-arrow-icon {
+    transform: translateX(4px);
+}
+
 /* ========== ANIMATIONS ========== */
 @keyframes fadeIn {
     from { opacity: 0; }
@@ -1382,19 +1475,6 @@ body {
 ::-webkit-scrollbar {
     width: 6px;
     height: 6px;
-}
-
-::-webkit-scrollbar-track {
-    background: #f1f1f1;
-}
-
-::-webkit-scrollbar-thumb {
-    background: #cbd5e1;
-    border-radius: 3px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-    background: #9ca3af;
 }
 
 /* ========== EMPTY STATES ========== */
