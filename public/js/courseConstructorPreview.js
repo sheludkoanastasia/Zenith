@@ -704,54 +704,92 @@ async function loadExerciseSection(sectionId) {
                 if (exerciseType === 'matching') {
                     document.getElementById('matchingExercisePreview').style.display = 'block';
                     renderStudentMatching(exerciseData, 'matchingExercisePreview');
-                    // В loadExerciseSection, после рендера студенческого matching:
-                    if (currentUserRole === 'student' && exerciseType === 'matching') {
-                        const isCompleted = await checkExerciseStatus(sectionId);
-                        
-                        // Восстанавливаем сохраненные ответы из localStorage
-                        const savedAnswers = localStorage.getItem(`matching_answers_${sectionId}`);
-                        if (savedAnswers) {
-                            const userPairs = JSON.parse(savedAnswers);
-                            setTimeout(() => {
-                                const selectWrappers = document.querySelectorAll('#matchingExercisePreview .matching-select-wrapper');
-                                selectWrappers.forEach(wrapper => {
-                                    const targetId = wrapper.dataset.targetId;
-                                    const savedItemId = userPairs[targetId];
-                                    if (savedItemId) {
-                                        const option = wrapper.querySelector(`.matching-select-option[data-value="${savedItemId}"]`);
-                                        if (option) {
-                                            const text = option.textContent;
-                                            const btn = wrapper.querySelector('.matching-select-btn');
-                                            btn.querySelector('.selected-text').textContent = text;
-                                            option.classList.add('selected');
-                                        }
+                    
+                    // Восстанавливаем сохраненные ответы и статус для matching
+                    const isCompleted = await checkExerciseStatus(sectionId);
+                    
+                    const savedAnswers = localStorage.getItem(`matching_answers_${sectionId}`);
+                    if (savedAnswers) {
+                        const userPairs = JSON.parse(savedAnswers);
+                        setTimeout(() => {
+                            const selectWrappers = document.querySelectorAll('#matchingExercisePreview .matching-select-wrapper');
+                            selectWrappers.forEach(wrapper => {
+                                const targetId = wrapper.dataset.targetId;
+                                const savedItemId = userPairs[targetId];
+                                if (savedItemId) {
+                                    const option = wrapper.querySelector(`.matching-select-option[data-value="${savedItemId}"]`);
+                                    if (option) {
+                                        const text = option.textContent;
+                                        const btn = wrapper.querySelector('.matching-select-btn');
+                                        btn.querySelector('.selected-text').textContent = text;
+                                        option.classList.add('selected');
                                     }
-                                });
-                            }, 100);
-                        }
-                        
-                        if (isCompleted) {
-                            setTimeout(() => {
-                                const selectWrappers = document.querySelectorAll('#matchingExercisePreview .matching-select-wrapper');
-                                selectWrappers.forEach(wrapper => {
-                                    const btn = wrapper.querySelector('.matching-select-btn');
-                                    btn.classList.add('success-highlight-permanent');
-                                    btn.disabled = true;
-                                    btn.style.cursor = 'default';
-                                    btn.style.opacity = '0.8';
-                                    const chevron = btn.querySelector('.select-chevron');
-                                    if (chevron) chevron.style.display = 'none';
-                                });
-                            }, 100);
-                        }
-                        updateExerciseButtonState(sectionId, isCompleted);
+                                }
+                            });
+                        }, 100);
                     }
+                    
+                    if (isCompleted) {
+                        setTimeout(() => {
+                            const selectWrappers = document.querySelectorAll('#matchingExercisePreview .matching-select-wrapper');
+                            selectWrappers.forEach(wrapper => {
+                                const btn = wrapper.querySelector('.matching-select-btn');
+                                btn.classList.add('success-highlight-permanent');
+                                btn.disabled = true;
+                                btn.style.cursor = 'default';
+                                btn.style.opacity = '0.8';
+                                const chevron = btn.querySelector('.select-chevron');
+                                if (chevron) chevron.style.display = 'none';
+                            });
+                        }, 100);
+                    }
+                    updateExerciseButtonState(sectionId, isCompleted);
+                    
                 } else if (exerciseType === 'choice') {
+                    console.log('Загружаем choice упражнение, section.id:', section.id);
                     document.getElementById('choiceExercisePreview').style.display = 'block';
                     renderStudentChoice(exerciseData, 'choiceExercisePreview');
+                    
+                    // Восстанавливаем сохраненные ответы и статус для choice
+                    const isCompleted = await checkExerciseStatus(sectionId);
+                    
+                    const savedAnswers = localStorage.getItem(`choice_answers_${sectionId}`);
+                    if (savedAnswers) {
+                        const userAnswers = JSON.parse(savedAnswers);
+                        setTimeout(() => {
+                            for (const [statementId, answerIds] of Object.entries(userAnswers)) {
+                                for (const answerId of answerIds) {
+                                    const checkbox = document.querySelector(`#choiceExercisePreview .checkbox-student[data-statement-id="${statementId}"][data-answer-id="${answerId}"]`);
+                                    if (checkbox) {
+                                        checkbox.classList.add('selected');
+                                    }
+                                }
+                            }
+                        }, 100);
+                    }
+                    
+                    if (isCompleted) {
+                        setTimeout(() => {
+                            const statementCards = document.querySelectorAll('#choiceExercisePreview .preview-statement-card');
+                            statementCards.forEach(card => {
+                                const checkboxes = card.querySelectorAll('.checkbox-student');
+                                checkboxes.forEach(checkbox => {
+                                    checkbox.style.pointerEvents = 'none';
+                                    checkbox.style.opacity = '0.8';
+                                    if (checkbox.classList.contains('selected')) {
+                                        checkbox.classList.add('success-highlight-permanent');
+                                    }
+                                });
+                            });
+                        }, 100);
+                    }
+                    updateExerciseButtonState(sectionId, isCompleted);
                 } else if (exerciseType === 'fill_blanks') {
                     document.getElementById('fillBlanksExercisePreview').style.display = 'block';
                     renderStudentFillBlanks(exerciseData, 'fillBlanksExercisePreview');
+                    
+                    const isCompleted = await checkExerciseStatus(sectionId);
+                    updateExerciseButtonState(sectionId, isCompleted);
                 }
             } else {
                 if (exerciseType === 'matching') {
@@ -773,14 +811,6 @@ async function loadExerciseSection(sectionId) {
             if (theoryPreviewContainer) theoryPreviewContainer.style.display = 'none';
             if (testPreviewContainer) testPreviewContainer.style.display = 'none';
             if (previewContainer) previewContainer.style.display = 'block';
-            
-            // Для студента проверяем статус упражнения
-            if (currentUserRole === 'student') {
-                const isCompleted = await checkExerciseStatus(sectionId);
-                updateExerciseButtonState(sectionId, isCompleted);
-            } else {
-                updateNextStepButton(sectionId);
-            }
             
         } else {
             showNotification('Ошибка загрузки раздела', 'error');
@@ -1463,7 +1493,6 @@ function initButtonsByRole() {
         document.getElementById('exerciseNextBtn')?.addEventListener('click', navigateToNextSection);
         document.getElementById('testNextBtn')?.addEventListener('click', navigateToNextSection);
     } 
-    // В функции initButtonsByRole, для студента:
     else if (currentUserRole === 'student') {
         document.querySelectorAll('.next-step-btn').forEach(btn => {
             btn.style.display = 'none';
@@ -1472,30 +1501,73 @@ function initButtonsByRole() {
             btn.style.display = 'flex';
         });
         
-        // Обработчик для упражнений с валидацией
-        document.getElementById('exerciseSubmitBtn')?.addEventListener('click', async () => {
-            const exerciseType = currentEditingExerciseSection?.exercise?.exercise_type || 'matching';
-            
-            if (exerciseType === 'matching') {
-                await submitMatchingSolution(currentEditingExerciseSection.id);
-            } else if (exerciseType === 'choice') {
-                // Пока заглушка
-                showNotification('Проверка выбора правильного в разработке', 'info');
-            } else if (exerciseType === 'fill_blanks') {
-                // Пока заглушка
-                showNotification('Проверка дополнения в разработке', 'info');
-            }
-        });
+        // Убираем старые обработчики и добавляем новые через делегирование
+        // или через setInterval для проверки существования кнопки
         
-        // Обработчик для теста с валидацией
-        document.getElementById('testSubmitBtn')?.addEventListener('click', async () => {
-            const isValid = validateCurrentTest();
-            if (isValid) {
-                showNotification('Тест отправлен на проверку', 'success');
+        // Функция для привязки обработчика к кнопке упражнения
+        function bindExerciseSubmitHandler() {
+            const exerciseSubmitBtn = document.getElementById('exerciseSubmitBtn');
+            if (exerciseSubmitBtn) {
+                // Удаляем старый обработчик, клонируя кнопку
+                const newBtn = exerciseSubmitBtn.cloneNode(true);
+                exerciseSubmitBtn.parentNode.replaceChild(newBtn, exerciseSubmitBtn);
+                
+                newBtn.addEventListener('click', async () => {
+                    console.log('Кнопка упражнения нажата');
+                    console.log('currentEditingExerciseSection:', currentEditingExerciseSection);
+                    const exerciseType = currentEditingExerciseSection?.exercise?.exercise_type || 'matching';
+                    console.log('Тип упражнения:', exerciseType);
+                    
+                    if (exerciseType === 'matching') {
+                        await submitMatchingSolution(currentEditingExerciseSection.id);
+                    } else if (exerciseType === 'choice') {
+                        await submitChoiceSolution(currentEditingExerciseSection.id);
+                    } else if (exerciseType === 'fill_blanks') {
+                        showNotification('Проверка дополнения в разработке', 'info');
+                    }
+                });
             }
-        });
+        }
         
-        document.getElementById('theoryNextBtn')?.addEventListener('click', navigateToNextSection);
+        // Функция для привязки обработчика к кнопке теста
+        function bindTestSubmitHandler() {
+            const testSubmitBtn = document.getElementById('testSubmitBtn');
+            if (testSubmitBtn && !testSubmitBtn.hasAttribute('data-listener-bound')) {
+                testSubmitBtn.setAttribute('data-listener-bound', 'true');
+                const newBtn = testSubmitBtn.cloneNode(true);
+                testSubmitBtn.parentNode.replaceChild(newBtn, testSubmitBtn);
+                newBtn.addEventListener('click', async () => {
+                    console.log('Кнопка теста нажата');
+                    const isValid = validateCurrentTest();
+                    if (isValid) {
+                        showNotification('Тест отправлен на проверку', 'success');
+                    }
+                });
+            }
+        }
+        
+        // Функция для привязки обработчика к кнопке теории
+        function bindTheoryNextHandler() {
+            const theoryNextBtn = document.getElementById('theoryNextBtn');
+            if (theoryNextBtn && !theoryNextBtn.hasAttribute('data-listener-bound')) {
+                theoryNextBtn.setAttribute('data-listener-bound', 'true');
+                const newBtn = theoryNextBtn.cloneNode(true);
+                theoryNextBtn.parentNode.replaceChild(newBtn, theoryNextBtn);
+                newBtn.addEventListener('click', navigateToNextSection);
+            }
+        }
+        
+        // Вызываем привязку сразу и через интервал (на случай, если кнопки появятся позже)
+        bindExerciseSubmitHandler();
+        bindTestSubmitHandler();
+        bindTheoryNextHandler();
+        
+        // Повторяем привязку через интервал, так как кнопки могут пересоздаваться
+        setInterval(() => {
+            bindExerciseSubmitHandler();
+            bindTestSubmitHandler();
+            bindTheoryNextHandler();
+        }, 500);
     }
 }
 
@@ -2455,6 +2527,7 @@ async function checkExerciseStatus(sectionId) {
 }
 
 async function submitMatchingSolution(sectionId) {
+    console.log('submitMatchingSolution вызван, sectionId:', sectionId);
     const selectWrappers = document.querySelectorAll('#matchingExercisePreview .matching-select-wrapper');
     const userPairs = {};
     let allSelected = true;
@@ -2577,6 +2650,130 @@ function updateExerciseButtonState(sectionId, isCompleted) {
     }
 }
 
+// Проверка выбора правильного (choice)
+// Проверка выбора правильного (choice)
+async function checkChoiceExercise(sectionId, userAnswers) {
+    try {
+        const token = getToken();
+        const response = await fetch(`${apiBaseUrl}/student/exercise/choice/check`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({ 
+                sectionId, 
+                userAnswers 
+            })
+        });
+        
+        const data = await response.json();
+        return data;
+    } catch (error) {
+        console.error('Ошибка проверки выбора правильного:', error);
+        return { success: false, correct: false, results: [] };
+    }
+}
+
+// Отправка решения для выбора правильного
+async function submitChoiceSolution(sectionId) {
+    console.log('submitChoiceSolution вызван, sectionId:', sectionId);
+    const statementCards = document.querySelectorAll('#choiceExercisePreview .preview-statement-card');
+    const userAnswers = {};
+    let allHaveSelection = true;
+    let emptyStatements = [];
+    
+    // Очищаем предыдущие подсветки
+    document.querySelectorAll('#choiceExercisePreview .preview-answers-section.error-highlight').forEach(el => {
+        el.classList.remove('error-highlight');
+    });
+    
+    statementCards.forEach((card, idx) => {
+        const statementId = card.dataset.statementId;
+        const selectedCheckboxes = card.querySelectorAll('.checkbox-student.selected');
+        const answerIds = [];
+        
+        selectedCheckboxes.forEach(checkbox => {
+            answerIds.push(checkbox.dataset.answerId);
+        });
+        
+        userAnswers[statementId] = answerIds;
+        
+        if (answerIds.length === 0) {
+            allHaveSelection = false;
+            emptyStatements.push(idx + 1);
+            const answersSection = card.querySelector('.preview-answers-section');
+            answersSection.classList.add('error-highlight');
+        }
+    });
+    
+    if (!allHaveSelection) {
+        const statementNumbers = emptyStatements.join(', ');
+        showNotification(`Пожалуйста, выберите ответ(ы) для утверждений: ${statementNumbers}`, 'warning');
+        setTimeout(() => {
+            document.querySelectorAll('#choiceExercisePreview .preview-answers-section.error-highlight').forEach(el => {
+                el.classList.remove('error-highlight');
+            });
+        }, 3000);
+        return false;
+    }
+    
+    const result = await checkChoiceExercise(sectionId, userAnswers);
+    
+    if (result.success && result.correct) {
+        console.log('Упражнение выполнено верно! Обновляем интерфейс...');
+        showNotification('Упражнение выполнено верно!', 'success');
+        
+        localStorage.setItem(`choice_answers_${sectionId}`, JSON.stringify(userAnswers));
+        
+        console.log('Блокируем чекбоксы...');
+        statementCards.forEach(card => {
+            const checkboxes = card.querySelectorAll('.checkbox-student');
+            console.log(`Найдено чекбоксов в карточке: ${checkboxes.length}`);
+            checkboxes.forEach(checkbox => {
+                checkbox.style.pointerEvents = 'none';
+                checkbox.style.opacity = '0.8';
+                if (checkbox.classList.contains('selected')) {
+                    checkbox.classList.add('success-highlight-permanent');
+                }
+            });
+        });
+        
+        console.log('Сохраняем прогресс...');
+        await markExerciseAsCompleted(sectionId, result.score, result.maxScore);
+        console.log('Обновляем состояние кнопки...');
+        updateExerciseButtonState(sectionId, true);
+        return true;
+    } else {
+        showNotification('Есть ошибки. Попробуйте еще раз.', 'warning');
+        
+        localStorage.setItem(`choice_answers_${sectionId}`, JSON.stringify(userAnswers));
+        
+        if (result.results) {
+            for (const [statementId, isCorrect] of Object.entries(result.results)) {
+                const card = document.querySelector(`#choiceExercisePreview .preview-statement-card[data-statement-id="${statementId}"]`);
+                if (card) {
+                    if (isCorrect) {
+                        const checkboxes = card.querySelectorAll('.checkbox-student.selected');
+                        checkboxes.forEach(cb => {
+                            cb.classList.add('success-highlight-temporary');
+                            setTimeout(() => {
+                                cb.classList.remove('success-highlight-temporary');
+                            }, 3000);
+                        });
+                    } else {
+                        const answersSection = card.querySelector('.preview-answers-section');
+                        answersSection.classList.add('error-highlight');
+                        setTimeout(() => {
+                            answersSection.classList.remove('error-highlight');
+                        }, 3000);
+                    }
+                }
+            }
+        }
+        return false;
+    }
+}
 // ===== ОБРАБОТЧИКИ СОБЫТИЙ =====
 
 backButton.addEventListener('click', () => {

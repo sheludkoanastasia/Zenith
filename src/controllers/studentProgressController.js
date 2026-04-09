@@ -171,5 +171,65 @@ module.exports = {
             await transaction.rollback();
             handleError(res, error, 'Ошибка при сохранении прогресса');
         }
+    },
+
+    // Проверка выбора правильного (choice)
+    checkChoice: async (req, res) => {
+        try {
+            const { sectionId, userAnswers } = req.body;
+            
+            console.log('userAnswers:', JSON.stringify(userAnswers, null, 2));
+            
+            const section = await db.Section.findByPk(sectionId, {
+                include: [{ model: db.Exercise, as: 'exercise' }]
+            });
+            
+            if (!section || !section.exercise) {
+                return res.status(404).json({ success: false, message: 'Упражнение не найдено' });
+            }
+            
+            const exercise = section.exercise;
+            const statements = exercise.options || [];
+            
+            console.log('statements from DB:', JSON.stringify(statements, null, 2));
+            
+            const results = {};
+            let correctCount = 0;
+            
+            for (const statement of statements) {
+                const userSelectedAnswerIds = userAnswers[statement.id] || [];
+                // Преобразуем строки в числа, если нужно
+                const userSelectedNumbers = userSelectedAnswerIds.map(id => parseInt(id));
+                const correctAnswers = statement.answers.filter(a => a.isCorrect === true).map(a => a.id);
+                
+                console.log(`Statement ${statement.id}: userSelected=${userSelectedNumbers}, correct=${correctAnswers}`);
+                
+                const hasAllCorrect = correctAnswers.every(id => userSelectedNumbers.includes(id));
+                const hasNoExtra = userSelectedNumbers.every(id => correctAnswers.includes(id));
+                const isCorrect = hasAllCorrect && hasNoExtra;
+                
+                console.log(`  hasAllCorrect: ${hasAllCorrect}, hasNoExtra: ${hasNoExtra}, isCorrect: ${isCorrect}`);
+                
+                results[statement.id] = isCorrect;
+                if (isCorrect) correctCount++;
+            }
+            
+            const totalStatements = statements.length;
+            const score = Math.round((correctCount / totalStatements) * 100);
+            const isFullyCorrect = correctCount === totalStatements;
+            
+            console.log(`correctCount: ${correctCount}, totalStatements: ${totalStatements}, score: ${score}, isFullyCorrect: ${isFullyCorrect}`);
+            
+            res.json({
+                success: true,
+                correct: isFullyCorrect,
+                score: score,
+                maxScore: 100,
+                results: results
+            });
+        } catch (error) {
+            console.error('Ошибка проверки выбора правильного:', error);
+            handleError(res, error, 'Ошибка проверки выбора правильного');
+        }
     }
 };

@@ -2114,6 +2114,33 @@ margin-bottom: 8px !important;
     transition: all 0.3s ease;
 }
 
+/* Постоянная зеленая подсветка для choice */
+.checkbox-student.success-highlight-permanent {
+    border-color: #4CAF50 !important;
+    background: #4CAF50 !important;
+}
+
+.checkbox-student.success-highlight-permanent::after {
+    content: '✓';
+    color: white;
+    font-size: 14px;
+    font-weight: bold;
+}
+
+/* Временная зеленая подсветка */
+.checkbox-student.success-highlight-temporary {
+    border-color: #4CAF50 !important;
+    background: #4CAF50 !important;
+    transition: all 0.3s ease;
+}
+
+.checkbox-student.success-highlight-temporary::after {
+    content: '✓';
+    color: white;
+    font-size: 14px;
+    font-weight: bold;
+}
+
 @keyframes successPulse {
     0% { transform: scale(1); }
     50% { transform: scale(1.02); }
