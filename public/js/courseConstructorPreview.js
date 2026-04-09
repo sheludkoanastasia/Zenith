@@ -27,7 +27,6 @@ let quillPreview = null;
 // Текущие разделы для навигации
 let currentEditingTheorySection = null;
 let currentEditingExerciseSection = null;
-// Добавляю в начало файла, после глобальных переменных
 let currentUserRole = null;
 
 function getToken() {
@@ -38,10 +37,8 @@ function getToken() {
 function sortBlocksInThemes(themes) {
     if (!themes) return themes;
     
-    // Сортируем темы
     const sortedThemes = [...themes].sort((a, b) => (a.order_index || 0) - (b.order_index || 0));
     
-    // Сортируем блоки в каждой теме
     sortedThemes.forEach(theme => {
         if (theme.blocks && theme.blocks.length > 0) {
             theme.blocks.sort((a, b) => (a.order_index || 0) - (b.order_index || 0));
@@ -166,27 +163,25 @@ function addNotificationStyles() {
     document.head.appendChild(style);
 }
 
-// В функцию loadCourseData добавляю получение роли
 async function loadCourseData() {
-        if (!courseId) {
-            console.error('ID курса не указан');
-            showNotification('ID курса не указан', 'error');
-            return;
+    if (!courseId) {
+        console.error('ID курса не указан');
+        showNotification('ID курса не указан', 'error');
+        return;
+    }
+
+    try {
+        const userResponse = await fetch('/api/auth/check', {
+            headers: { 'Authorization': `Bearer ${getToken()}` }
+        });
+        const userData = await userResponse.json();
+        if (userData.success) {
+            currentUserRole = userData.user.role;
         }
 
-        try {
-            // Получаем информацию о пользователе
-            const userResponse = await fetch('/api/auth/check', {
-                headers: { 'Authorization': `Bearer ${getToken()}` }
-            });
-            const userData = await userResponse.json();
-            if (userData.success) {
-                currentUserRole = userData.user.role;
-            }
-
-            const response = await fetch(`${apiBaseUrl}/courses/${courseId}`, {
-                headers: { 'Authorization': `Bearer ${getToken()}` }
-            });
+        const response = await fetch(`${apiBaseUrl}/courses/${courseId}`, {
+            headers: { 'Authorization': `Bearer ${getToken()}` }
+        });
 
         if (!response.ok) throw new Error('Ошибка загрузки курса');
 
@@ -194,7 +189,6 @@ async function loadCourseData() {
         if (data.success) {
             currentCourse = data.course;
             
-            // СОРТИРУЕМ ВСЕ БЛОКИ СРАЗУ ПОСЛЕ ЗАГРУЗКИ
             for (const theme of currentCourse.themes) {
                 if (theme.blocks && theme.blocks.length > 0) {
                     theme.blocks.sort((a, b) => (a.order_index || 0) - (b.order_index || 0));
@@ -270,11 +264,9 @@ function renderThemes(themes) {
         return;
     }
 
-    // СОРТИРУЕМ ТЕМЫ И БЛОКИ
     const sortedThemes = sortBlocksInThemes(themes);
 
     themesListEl.innerHTML = sortedThemes.map((theme) => {
-        // Блоки уже отсортированы в sortBlocksInThemes
         const sortedBlocks = theme.blocks || [];
         
         const hasActiveBlock = sortedBlocks.some(block => block.id === (currentBlock?.id || blockId));
@@ -700,15 +692,28 @@ async function loadExerciseSection(sectionId) {
             document.getElementById('choiceExercisePreview').style.display = 'none';
             document.getElementById('fillBlanksExercisePreview').style.display = 'none';
             
-            if (exerciseType === 'matching') {
-                document.getElementById('matchingExercisePreview').style.display = 'block';
-                renderPreviewMatching(exerciseData);
-            } else if (exerciseType === 'choice') {
-                document.getElementById('choiceExercisePreview').style.display = 'block';
-                renderPreviewChoice(exerciseData);
-            } else if (exerciseType === 'fill_blanks') {
-                document.getElementById('fillBlanksExercisePreview').style.display = 'block';
-                renderPreviewFillBlanks(exerciseData);
+            if (currentUserRole === 'student') {
+                if (exerciseType === 'matching') {
+                    document.getElementById('matchingExercisePreview').style.display = 'block';
+                    renderStudentMatching(exerciseData, 'matchingExercisePreview');
+                } else if (exerciseType === 'choice') {
+                    document.getElementById('choiceExercisePreview').style.display = 'block';
+                    renderStudentChoice(exerciseData, 'choiceExercisePreview');
+                } else if (exerciseType === 'fill_blanks') {
+                    document.getElementById('fillBlanksExercisePreview').style.display = 'block';
+                    renderStudentFillBlanks(exerciseData, 'fillBlanksExercisePreview');
+                }
+            } else {
+                if (exerciseType === 'matching') {
+                    document.getElementById('matchingExercisePreview').style.display = 'block';
+                    renderPreviewMatching(exerciseData);
+                } else if (exerciseType === 'choice') {
+                    document.getElementById('choiceExercisePreview').style.display = 'block';
+                    renderPreviewChoice(exerciseData);
+                } else if (exerciseType === 'fill_blanks') {
+                    document.getElementById('fillBlanksExercisePreview').style.display = 'block';
+                    renderPreviewFillBlanks(exerciseData);
+                }
             }
             
             const previewContainer = document.getElementById('exercisePreviewContainer');
@@ -977,7 +982,9 @@ function renderPreviewTestExercises(exercises) {
         return;
     }
     
-    container.innerHTML = exercises.map((exercise, idx) => {
+    container.innerHTML = '';
+    
+    exercises.forEach((exercise, idx) => {
         let typeText = '';
         switch (exercise.type) {
             case 'matching': typeText = 'Сопоставление'; break;
@@ -986,86 +993,97 @@ function renderPreviewTestExercises(exercises) {
             default: typeText = 'Сопоставление';
         }
         
-        let contentHtml = '';
-        if (exercise.type === 'matching') {
-            contentHtml = renderPreviewTestMatching(exercise.data);
-        } else if (exercise.type === 'choice') {
-            contentHtml = renderPreviewTestChoice(exercise.data);
-        } else if (exercise.type === 'fill_blanks') {
-            contentHtml = renderPreviewTestFillBlanks(exercise.data);
-        }
+        const exerciseContainerId = `test-exercise-${exercise.id}-${Date.now()}-${idx}`;
         
-        return `
-            <div class="preview-test-exercise-card">
-                <div class="preview-test-exercise-header">
-                    <div class="exercise-number-preview">${idx + 1}.</div>
-                    <div class="exercise-title-preview">${escapeHtml(exercise.title)}</div>
-                    <div class="exercise-type-preview">${typeText}</div>
-                </div>
-                <div class="preview-test-exercise-content">
-                    ${contentHtml}
-                </div>
-                <div class="preview-scoring-section">
-                    <div class="scoring-title">Баллы за попытки</div>
-                    <div class="scoring-row">
-                        <div class="scoring-field">
-                            <label>1 попытка:</label>
-                            <span class="scoring-value">${exercise.scoring?.firstAttempt ?? 100} баллов</span>
-                        </div>
-                        <div class="scoring-field">
-                            <label>2 попытка:</label>
-                            <span class="scoring-value">${exercise.scoring?.secondAttempt ?? 50} баллов</span>
-                        </div>
-                        <div class="scoring-field">
-                            <label>3 попытка:</label>
-                            <span class="scoring-value">${exercise.scoring?.thirdAttempt ?? 25} баллов</span>
-                        </div>
-                        <div class="scoring-field">
-                            <label>последующие:</label>
-                            <span class="scoring-value">${exercise.scoring?.subsequentAttempts ?? 0} баллов</span>
-                        </div>
+        const card = document.createElement('div');
+        card.className = 'preview-test-exercise-card';
+        card.dataset.exerciseId = exercise.id;
+        
+        // Для студента - скрываем баллы
+        const scoringHtml = currentUserRole === 'student' ? '' : `
+            <div class="preview-scoring-section">
+                <div class="scoring-title">Баллы за попытки</div>
+                <div class="scoring-row">
+                    <div class="scoring-field">
+                        <label>1 попытка:</label>
+                        <span class="scoring-value">${exercise.scoring?.firstAttempt ?? 100} баллов</span>
+                    </div>
+                    <div class="scoring-field">
+                        <label>2 попытка:</label>
+                        <span class="scoring-value">${exercise.scoring?.secondAttempt ?? 50} баллов</span>
+                    </div>
+                    <div class="scoring-field">
+                        <label>3 попытка:</label>
+                        <span class="scoring-value">${exercise.scoring?.thirdAttempt ?? 25} баллов</span>
+                    </div>
+                    <div class="scoring-field">
+                        <label>последующие:</label>
+                        <span class="scoring-value">${exercise.scoring?.subsequentAttempts ?? 0} баллов</span>
                     </div>
                 </div>
             </div>
         `;
-    }).join('');
+
+        card.innerHTML = `
+            <div class="preview-test-exercise-header">
+                <div class="exercise-number-preview">${idx + 1}.</div>
+                <div class="exercise-title-preview">${escapeHtml(exercise.title)}</div>
+                <div class="exercise-type-preview">${typeText}</div>
+            </div>
+            <div class="preview-test-exercise-content" id="${exerciseContainerId}">
+            </div>
+            ${scoringHtml}
+        `;
+        
+        container.appendChild(card);
+        
+        const contentContainer = document.getElementById(exerciseContainerId);
+        if (contentContainer) {
+            if (currentUserRole === 'student') {
+                if (exercise.type === 'matching') {
+                    renderStudentMatchingForTest(exercise.data, exerciseContainerId);
+                } else if (exercise.type === 'choice') {
+                    renderStudentChoiceForTest(exercise.data, exerciseContainerId);
+                } else if (exercise.type === 'fill_blanks') {
+                    renderStudentFillBlanksForTest(exercise.data, exerciseContainerId);
+                }
+            } else {
+                if (exercise.type === 'matching') {
+                    contentContainer.innerHTML = renderPreviewTestMatchingContent(exercise.data);
+                } else if (exercise.type === 'choice') {
+                    contentContainer.innerHTML = renderPreviewTestChoiceContent(exercise.data);
+                } else if (exercise.type === 'fill_blanks') {
+                    contentContainer.innerHTML = renderPreviewTestFillBlanksContent(exercise.data);
+                }
+            }
+        }
+    });
 }
 
-function renderPreviewTestMatching(data) {
+function renderPreviewTestMatchingContent(data) {
     const items = data?.items || [];
     const targets = data?.targets || [];
     const pairs = data?.pairs || [];
     const taskText = data?.question_text || 'Сопоставьте каждый элемент с его сопоставлением.';
     
-    let itemsHtml = '';
-    if (items.length === 0) {
-        itemsHtml = '<div class="empty-message">Нет элементов</div>';
-    } else {
-        itemsHtml = items.map((item, idx) => `
+    let itemsHtml = items.length === 0 ? '<div class="empty-message">Нет элементов</div>' : 
+        items.map((item, idx) => `
             <div class="preview-item-row">
                 <div class="item-number-preview">${idx + 1}.</div>
                 <div class="item-text-preview">${escapeHtml(item.text)}</div>
             </div>
         `).join('');
-    }
     
-    let targetsHtml = '';
-    if (targets.length === 0) {
-        targetsHtml = '<div class="empty-message">Нет элементов сопоставления</div>';
-    } else {
-        targetsHtml = targets.map((target, idx) => `
+    let targetsHtml = targets.length === 0 ? '<div class="empty-message">Нет элементов сопоставления</div>' : 
+        targets.map((target, idx) => `
             <div class="preview-target-row">
                 <div class="target-letter-preview">${String.fromCharCode(65 + idx)}.</div>
                 <div class="target-text-preview">${escapeHtml(target.text)}</div>
             </div>
         `).join('');
-    }
     
-    let rowsHtml = '';
-    if (targets.length === 0) {
-        rowsHtml = '<div class="empty-message">Добавьте элементы сопоставления</div>';
-    } else {
-        rowsHtml = targets.map((target, idx) => {
+    let rowsHtml = targets.length === 0 ? '<div class="empty-message">Добавьте элементы сопоставления</div>' : 
+        targets.map((target, idx) => {
             const pair = pairs.find(p => p.targetId == target.id);
             const item = items.find(i => i.id == pair?.itemId);
             const itemText = item ? `${items.findIndex(i => i.id == item.id) + 1}. ${item.text}` : '—';
@@ -1082,7 +1100,6 @@ function renderPreviewTestMatching(data) {
                 </div>
             `;
         }).join('');
-    }
     
     return `
         <div class="task-description">
@@ -1112,15 +1129,12 @@ function renderPreviewTestMatching(data) {
     `;
 }
 
-function renderPreviewTestChoice(data) {
+function renderPreviewTestChoiceContent(data) {
     const statements = data?.statements || [];
     const taskText = data?.question_text || 'Сопоставьте каждое утверждение с правильным ответом (правильных ответов может быть несколько).';
     
-    let statementsHtml = '';
-    if (statements.length === 0) {
-        statementsHtml = '<div class="empty-message">Нет утверждений</div>';
-    } else {
-        statementsHtml = statements.map((statement, stmtIdx) => `
+    let statementsHtml = statements.length === 0 ? '<div class="empty-message">Нет утверждений</div>' : 
+        statements.map((statement, stmtIdx) => `
             <div class="preview-statement-card">
                 <div class="preview-statement-header">
                     <div class="statement-number-preview">${stmtIdx + 1}.</div>
@@ -1140,7 +1154,6 @@ function renderPreviewTestChoice(data) {
                 </div>
             </div>
         `).join('');
-    }
     
     return `
         <div class="task-description">
@@ -1154,25 +1167,16 @@ function renderPreviewTestChoice(data) {
     `;
 }
 
-function renderPreviewTestFillBlanks(data) {
+function renderPreviewTestFillBlanksContent(data) {
     const words = data?.words || [];
     const sentences = data?.sentences || [];
     const taskText = data?.question_text || 'Вставьте подходящее по смыслу слово в каждое предложение.';
     
-    let wordsHtml = '';
-    if (words.length === 0) {
-        wordsHtml = '<div class="empty-message">Нет слов для справки</div>';
-    } else {
-        wordsHtml = words.map(word => `
-            <span class="preview-word-chip">${escapeHtml(word.text)}</span>
-        `).join('');
-    }
+    let wordsHtml = words.length === 0 ? '<div class="empty-message">Нет слов для справки</div>' : 
+        words.map(word => `<span class="preview-word-chip">${escapeHtml(word.text)}</span>`).join('');
     
-    let sentencesHtml = '';
-    if (sentences.length === 0) {
-        sentencesHtml = '<div class="empty-message">Нет предложений</div>';
-    } else {
-        sentencesHtml = sentences.map((sentence, idx) => {
+    let sentencesHtml = sentences.length === 0 ? '<div class="empty-message">Нет предложений</div>' : 
+        sentences.map((sentence, idx) => {
             let textWithBlanks = sentence.text || '';
             const blanks = sentence.correctAnswers || [];
             
@@ -1203,7 +1207,6 @@ function renderPreviewTestFillBlanks(data) {
                 </div>
             `;
         }).join('');
-    }
     
     return `
         <div class="task-description">
@@ -1271,15 +1274,12 @@ function getAllSectionsInOrder() {
     
     if (!currentCourse || !currentCourse.themes) return sectionsList;
     
-    // Сортируем темы
     const sortedThemes = [...currentCourse.themes].sort((a, b) => (a.order_index || 0) - (b.order_index || 0));
     
     for (const theme of sortedThemes) {
-        // Сортируем блоки в теме
         const sortedBlocks = (theme.blocks || []).sort((a, b) => (a.order_index || 0) - (b.order_index || 0));
         
         for (const block of sortedBlocks) {
-            // Сортируем разделы в блоке
             const sortedSections = (block.sections || []).sort((a, b) => (a.order_index || 0) - (b.order_index || 0));
             
             for (const section of sortedSections) {
@@ -1370,12 +1370,10 @@ function updateNextStepButton(sectionId) {
     const nextSection = findNextSection(sectionId);
     const hasNext = nextSection !== null;
     
-    // Скрываем все контейнеры
     document.getElementById('theoryNextStep').style.display = 'none';
     document.getElementById('exerciseNextStep').style.display = 'none';
     document.getElementById('testNextStep').style.display = 'none';
     
-    // Определяем, какой раздел сейчас открыт
     let activeContainer = null;
     if (document.getElementById('theoryPreviewContainer').style.display === 'block') {
         activeContainer = 'theory';
@@ -1387,21 +1385,17 @@ function updateNextStepButton(sectionId) {
     
     if (!activeContainer) return;
     
-    // Для преподавателя: показываем кнопку только если есть следующий раздел
     if (currentUserRole === 'teacher') {
         if (hasNext) {
             document.getElementById(`${activeContainer}NextStep`).style.display = 'flex';
         }
-    } 
-    // Для студента: показываем кнопку всегда (отправить решение)
-    else if (currentUserRole === 'student') {
+    } else if (currentUserRole === 'student') {
         document.getElementById(`${activeContainer}NextStep`).style.display = 'flex';
     }
 }
 
 function initButtonsByRole() {
     if (currentUserRole === 'teacher') {
-        // Показываем кнопки "Следующий шаг", скрываем "Отправить решение"
         document.querySelectorAll('.next-step-btn').forEach(btn => {
             btn.style.display = 'flex';
         });
@@ -1409,13 +1403,11 @@ function initButtonsByRole() {
             btn.style.display = 'none';
         });
         
-        // Назначаем обработчики для преподавателя
         document.getElementById('theoryNextBtn')?.addEventListener('click', navigateToNextSection);
         document.getElementById('exerciseNextBtn')?.addEventListener('click', navigateToNextSection);
         document.getElementById('testNextBtn')?.addEventListener('click', navigateToNextSection);
     } 
     else if (currentUserRole === 'student') {
-        // Показываем кнопки "Отправить решение", скрываем "Следующий шаг"
         document.querySelectorAll('.next-step-btn').forEach(btn => {
             btn.style.display = 'none';
         });
@@ -1423,7 +1415,6 @@ function initButtonsByRole() {
             btn.style.display = 'flex';
         });
         
-        // Назначаем обработчики для студента
         document.getElementById('theorySubmitBtn')?.addEventListener('click', () => {
             showNotification('Теория отмечена как пройденная', 'success');
         });
@@ -1434,6 +1425,588 @@ function initButtonsByRole() {
             showNotification('Тест отправлен на проверку', 'success');
         });
     }
+}
+
+// ===== ИНТЕРАКТИВНЫЕ ФУНКЦИИ ДЛЯ СТУДЕНТА =====
+
+function renderStudentMatching(exerciseData, containerId) {
+    const items = exerciseData.left_column || [];
+    const targets = exerciseData.right_column || [];
+    const taskText = exerciseData.question_text || 'Сопоставьте каждый элемент с его сопоставлением.';
+    
+    const container = document.getElementById(containerId);
+    if (!container) return;
+    
+    let html = `
+        <div class="task-description">
+            <label>Задача:</label>
+            <div class="task-text">${escapeHtml(taskText)}</div>
+        </div>
+        
+        <div class="two-columns">
+            <div class="left-column">
+                <div class="column-header">
+                    <span>Элементы</span>
+                </div>
+                <div class="items-list-preview">
+                    ${items.map((item, idx) => `
+                        <div class="preview-item-row">
+                            <div class="item-number-preview">${idx + 1}.</div>
+                            <div class="item-text-preview">${escapeHtml(item.text)}</div>
+                        </div>
+                    `).join('')}
+                </div>
+            </div>
+            
+            <div class="right-column">
+                <div class="column-header">
+                    <span>Элементы сопоставления</span>
+                </div>
+                <div class="targets-list-preview">
+                    ${targets.map((target, idx) => `
+                        <div class="preview-target-row">
+                            <div class="target-letter-preview">${String.fromCharCode(65 + idx)}.</div>
+                            <div class="target-text-preview">${escapeHtml(target.text)}</div>
+                        </div>
+                    `).join('')}
+                </div>
+            </div>
+        </div>
+        
+        <div class="matching-table-section">
+            <div class="table-label">Таблица сопоставления</div>
+            <div class="matching-table">
+                <div class="table-header">
+                    <div class="table-header-cell">Элементы</div>
+                    <div class="table-header-cell">Элементы сопоставления</div>
+                </div>
+                <div class="matching-rows">
+                    ${items.map((item, idx) => `
+                        <div class="matching-row-preview" data-item-id="${item.id}">
+                            <div class="matching-cell-preview">
+                                <div class="matching-item-text">${idx + 1}. ${escapeHtml(item.text)}</div>
+                            </div>
+                            <div class="matching-cell-preview">
+                                <div class="matching-select-wrapper" data-item-id="${item.id}">
+                                    <button class="matching-select-btn" data-item-id="${item.id}">
+                                        <span class="selected-text">-- выберите элемент --</span>
+                                        <img src="/images/taskCreationPage/chevronDown.svg" alt="toggle" class="select-chevron">
+                                    </button>
+                                    <div class="matching-select-menu" style="display: none;">
+                                        <button class="matching-select-option" data-value="">-- выберите элемент --</button>
+                                        ${targets.map((target, targetIdx) => `
+                                            <button class="matching-select-option" data-value="${target.id}">
+                                                ${String.fromCharCode(65 + targetIdx)}. ${escapeHtml(target.text)}
+                                            </button>
+                                        `).join('')}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+            </div>
+        </div>
+    `;
+    
+    container.innerHTML = html;
+    
+    function closeAllMenus() {
+        container.querySelectorAll('.matching-select-menu').forEach(menu => {
+            menu.style.display = 'none';
+        });
+        container.querySelectorAll('.matching-select-btn').forEach(btn => {
+            btn.classList.remove('active');
+        });
+        container.querySelectorAll('.matching-select-wrapper').forEach(wrapper => {
+            wrapper.style.zIndex = '';
+        });
+    }
+    
+    container.querySelectorAll('.matching-select-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const wrapper = btn.closest('.matching-select-wrapper');
+            const menu = wrapper.querySelector('.matching-select-menu');
+            const isOpen = menu.style.display === 'block';
+            
+            closeAllMenus();
+            
+            if (!isOpen) {
+                menu.style.display = 'block';
+                btn.classList.add('active');
+                wrapper.style.zIndex = '10000';
+            }
+        });
+    });
+    
+    container.querySelectorAll('.matching-select-option').forEach(option => {
+        option.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const text = option.textContent;
+            const wrapper = option.closest('.matching-select-wrapper');
+            const btn = wrapper.querySelector('.matching-select-btn');
+            const menu = wrapper.querySelector('.matching-select-menu');
+            
+            btn.querySelector('.selected-text').textContent = text;
+            menu.style.display = 'none';
+            btn.classList.remove('active');
+            wrapper.style.zIndex = '';
+            
+            wrapper.querySelectorAll('.matching-select-option').forEach(opt => {
+                opt.classList.remove('selected');
+            });
+            option.classList.add('selected');
+        });
+    });
+    
+    document.addEventListener('click', closeAllMenus);
+}
+
+function renderStudentChoice(exerciseData, containerId) {
+    const statements = exerciseData.options || [];
+    const taskText = exerciseData.question_text || 'Сопоставьте каждое утверждение с правильным ответом (правильных ответов может быть несколько).';
+    
+    const container = document.getElementById(containerId);
+    if (!container) return;
+    
+    let html = `
+        <div class="task-description">
+            <label>Задача:</label>
+            <div class="task-text">${escapeHtml(taskText)}</div>
+        </div>
+        <div class="statements-section">
+            <div class="section-header">Утверждения</div>
+            <div class="statements-list-preview">
+                ${statements.map((statement, stmtIdx) => `
+                    <div class="preview-statement-card" data-statement-id="${statement.id}">
+                        <div class="preview-statement-header">
+                            <div class="statement-number-preview">${stmtIdx + 1}.</div>
+                            <div class="statement-text-preview">${escapeHtml(statement.text)}</div>
+                        </div>
+                        <div class="preview-answers-section">
+                            <div class="answers-header">Выберите правильные ответы (можно несколько):</div>
+                            <div class="preview-answers-list">
+                                ${(statement.answers || []).map((answer, ansIdx) => `
+                                    <div class="preview-answer-row" data-answer-id="${answer.id}">
+                                        <div class="checkbox-student" data-statement-id="${statement.id}" data-answer-id="${answer.id}"></div>
+                                        <div class="answer-number-preview">${String.fromCharCode(65 + ansIdx)}.</div>
+                                        <div class="answer-text-preview">${escapeHtml(answer.text)}</div>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                    </div>
+                `).join('')}
+            </div>
+        </div>
+    `;
+    
+    container.innerHTML = html;
+    
+    container.querySelectorAll('.checkbox-student').forEach(checkbox => {
+        checkbox.addEventListener('click', (e) => {
+            e.stopPropagation();
+            checkbox.classList.toggle('selected');
+        });
+    });
+}
+
+function renderStudentFillBlanks(exerciseData, containerId) {
+    const words = exerciseData.options?.words || [];
+    const sentences = exerciseData.options?.sentences || [];
+    const taskText = exerciseData.question_text || 'Вставьте подходящее по смыслу слово в каждое предложение.';
+    
+    const container = document.getElementById(containerId);
+    if (!container) return;
+    
+    let html = `
+        <div class="task-description">
+            <label>Задача:</label>
+            <div class="task-text">${escapeHtml(taskText)}</div>
+        </div>
+        
+        <div class="words-section">
+            <div class="section-header">Слова для справки:</div>
+            <div class="words-list-preview">
+                ${words.map(word => `
+                    <span class="preview-word-chip">${escapeHtml(word.text)}</span>
+                `).join('')}
+            </div>
+        </div>
+        
+        <div class="sentences-section">
+            <div class="sentences-list-preview">
+                ${sentences.map((sentence, idx) => {
+                    let textWithBlanks = sentence.text || '';
+                    const blanks = sentence.correctAnswers || [];
+                    const blankWords = [...words];
+                    
+                    let blankIndex = 0;
+                    textWithBlanks = textWithBlanks.replace(/_______/g, () => {
+                        blankIndex++;
+                        return `<div class="fillblanks-select-wrapper" data-blank-index="${blankIndex - 1}" style="display: inline-block; min-width: 140px; margin: 0 4px; vertical-align: middle;">
+                                    <button class="fillblanks-select-btn">
+                                        <span class="selected-text">-- выберите слово --</span>
+                                        <img src="/images/taskCreationPage/chevronDown.svg" alt="toggle" class="select-chevron">
+                                    </button>
+                                    <div class="fillblanks-select-menu" style="display: none;">
+                                        <button class="fillblanks-select-option" data-value="">-- выберите слово --</button>
+                                        ${blankWords.map(word => `
+                                            <button class="fillblanks-select-option" data-value="${escapeHtml(word.text)}">
+                                                ${escapeHtml(word.text)}
+                                            </button>
+                                        `).join('')}
+                                    </div>
+                                </div>`;
+                    });
+                    
+                    return `
+                        <div class="preview-sentence-card" data-sentence-id="${sentence.id}">
+                            <div class="sentence-header-preview">
+                                <div class="sentence-number-preview">Предложение ${idx + 1}</div>
+                            </div>
+                            <div class="sentence-text-preview">${textWithBlanks}</div>
+                        </div>
+                    `;
+                }).join('')}
+            </div>
+        </div>
+    `;
+    
+    container.innerHTML = html;
+    
+    container.querySelectorAll('.fillblanks-select-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const wrapper = btn.closest('.fillblanks-select-wrapper');
+            const menu = wrapper.querySelector('.fillblanks-select-menu');
+            const isOpen = menu.style.display === 'block';
+            
+            document.querySelectorAll('.fillblanks-select-menu').forEach(m => {
+                m.style.display = 'none';
+            });
+            document.querySelectorAll('.fillblanks-select-btn').forEach(b => {
+                b.classList.remove('active');
+            });
+            
+            if (!isOpen) {
+                menu.style.display = 'block';
+                btn.classList.add('active');
+            }
+        });
+    });
+    
+    container.querySelectorAll('.fillblanks-select-option').forEach(option => {
+        option.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const value = option.dataset.value;
+            const text = option.textContent;
+            const wrapper = option.closest('.fillblanks-select-wrapper');
+            const btn = wrapper.querySelector('.fillblanks-select-btn');
+            const menu = wrapper.querySelector('.fillblanks-select-menu');
+            
+            btn.querySelector('.selected-text').textContent = text;
+            menu.style.display = 'none';
+            btn.classList.remove('active');
+            
+            wrapper.querySelectorAll('.fillblanks-select-option').forEach(opt => {
+                opt.classList.remove('selected');
+            });
+            option.classList.add('selected');
+        });
+    });
+}
+
+// ===== ФУНКЦИИ ДЛЯ ТЕСТА =====
+
+function renderStudentMatchingForTest(exerciseData, containerId) {
+    const items = exerciseData.items || [];
+    const targets = exerciseData.targets || [];
+    const taskText = exerciseData.question_text || 'Сопоставьте каждый элемент с его сопоставлением.';
+    
+    const container = document.getElementById(containerId);
+    if (!container) return;
+    
+    let html = `
+        <div class="task-description">
+            <label>Задача:</label>
+            <div class="task-text">${escapeHtml(taskText)}</div>
+        </div>
+        
+        <div class="two-columns">
+            <div class="left-column">
+                <div class="column-header">
+                    <span>Элементы</span>
+                </div>
+                <div class="items-list-preview">
+                    ${items.map((item, idx) => `
+                        <div class="preview-item-row">
+                            <div class="item-number-preview">${idx + 1}.</div>
+                            <div class="item-text-preview">${escapeHtml(item.text)}</div>
+                        </div>
+                    `).join('')}
+                </div>
+            </div>
+            
+            <div class="right-column">
+                <div class="column-header">
+                    <span>Элементы сопоставления</span>
+                </div>
+                <div class="targets-list-preview">
+                    ${targets.map((target, idx) => `
+                        <div class="preview-target-row">
+                            <div class="target-letter-preview">${String.fromCharCode(65 + idx)}.</div>
+                            <div class="target-text-preview">${escapeHtml(target.text)}</div>
+                        </div>
+                    `).join('')}
+                </div>
+            </div>
+        </div>
+        
+        <div class="matching-table-section">
+            <div class="table-label">Таблица сопоставления</div>
+            <div class="matching-table">
+                <div class="table-header">
+                    <div class="table-header-cell">Элементы</div>
+                    <div class="table-header-cell">Элементы сопоставления</div>
+                </div>
+                <div class="matching-rows">
+                    ${items.map((item, idx) => `
+                        <div class="matching-row-preview" data-item-id="${item.id}">
+                            <div class="matching-cell-preview">
+                                <div class="matching-item-text">${idx + 1}. ${escapeHtml(item.text)}</div>
+                            </div>
+                            <div class="matching-cell-preview">
+                                <div class="matching-select-wrapper" data-item-id="${item.id}">
+                                    <button class="matching-select-btn" data-item-id="${item.id}">
+                                        <span class="selected-text">-- выберите элемент --</span>
+                                        <img src="/images/taskCreationPage/chevronDown.svg" alt="toggle" class="select-chevron">
+                                    </button>
+                                    <div class="matching-select-menu" style="display: none;">
+                                        <button class="matching-select-option" data-value="">-- выберите элемент --</button>
+                                        ${targets.map((target, targetIdx) => `
+                                            <button class="matching-select-option" data-value="${target.id}">
+                                                ${String.fromCharCode(65 + targetIdx)}. ${escapeHtml(target.text)}
+                                            </button>
+                                        `).join('')}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+            </div>
+        </div>
+    `;
+    
+    container.innerHTML = html;
+    
+    function closeAllMenus() {
+        container.querySelectorAll('.matching-select-menu').forEach(menu => {
+            menu.style.display = 'none';
+        });
+        container.querySelectorAll('.matching-select-btn').forEach(btn => {
+            btn.classList.remove('active');
+        });
+        container.querySelectorAll('.matching-select-wrapper').forEach(wrapper => {
+            wrapper.style.zIndex = '';
+        });
+    }
+    
+    container.querySelectorAll('.matching-select-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const wrapper = btn.closest('.matching-select-wrapper');
+            const menu = wrapper.querySelector('.matching-select-menu');
+            const isOpen = menu.style.display === 'block';
+            
+            closeAllMenus();
+            
+            if (!isOpen) {
+                menu.style.display = 'block';
+                btn.classList.add('active');
+                wrapper.style.zIndex = '10000';
+            }
+        });
+    });
+    
+    container.querySelectorAll('.matching-select-option').forEach(option => {
+        option.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const text = option.textContent;
+            const wrapper = option.closest('.matching-select-wrapper');
+            const btn = wrapper.querySelector('.matching-select-btn');
+            const menu = wrapper.querySelector('.matching-select-menu');
+            
+            btn.querySelector('.selected-text').textContent = text;
+            menu.style.display = 'none';
+            btn.classList.remove('active');
+            wrapper.style.zIndex = '';
+            
+            wrapper.querySelectorAll('.matching-select-option').forEach(opt => {
+                opt.classList.remove('selected');
+            });
+            option.classList.add('selected');
+        });
+    });
+    
+    document.addEventListener('click', closeAllMenus);
+}
+
+function renderStudentChoiceForTest(exerciseData, containerId) {
+    const statements = exerciseData.statements || [];
+    const taskText = exerciseData.question_text || 'Сопоставьте каждое утверждение с правильным ответом (правильных ответов может быть несколько).';
+    
+    const container = document.getElementById(containerId);
+    if (!container) return;
+    
+    let html = `
+        <div class="task-description">
+            <label>Задача:</label>
+            <div class="task-text">${escapeHtml(taskText)}</div>
+        </div>
+        <div class="statements-section">
+            <div class="section-header">Утверждения</div>
+            <div class="statements-list-preview">
+                ${statements.map((statement, stmtIdx) => `
+                    <div class="preview-statement-card" data-statement-id="${statement.id}">
+                        <div class="preview-statement-header">
+                            <div class="statement-number-preview">${stmtIdx + 1}.</div>
+                            <div class="statement-text-preview">${escapeHtml(statement.text)}</div>
+                        </div>
+                        <div class="preview-answers-section">
+                            <div class="answers-header">Выберите правильные ответы (можно несколько):</div>
+                            <div class="preview-answers-list">
+                                ${(statement.answers || []).map((answer, ansIdx) => `
+                                    <div class="preview-answer-row" data-answer-id="${answer.id}">
+                                        <div class="checkbox-student" data-statement-id="${statement.id}" data-answer-id="${answer.id}"></div>
+                                        <div class="answer-number-preview">${String.fromCharCode(65 + ansIdx)}.</div>
+                                        <div class="answer-text-preview">${escapeHtml(answer.text)}</div>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                    </div>
+                `).join('')}
+            </div>
+        </div>
+    `;
+    
+    container.innerHTML = html;
+    
+    container.querySelectorAll('.checkbox-student').forEach(checkbox => {
+        checkbox.addEventListener('click', (e) => {
+            e.stopPropagation();
+            checkbox.classList.toggle('selected');
+        });
+    });
+}
+
+function renderStudentFillBlanksForTest(exerciseData, containerId) {
+    const words = exerciseData.words || [];
+    const sentences = exerciseData.sentences || [];
+    const taskText = exerciseData.question_text || 'Вставьте подходящее по смыслу слово в каждое предложение.';
+    
+    const container = document.getElementById(containerId);
+    if (!container) return;
+    
+    let html = `
+        <div class="task-description">
+            <label>Задача:</label>
+            <div class="task-text">${escapeHtml(taskText)}</div>
+        </div>
+        
+        <div class="words-section">
+            <div class="section-header">Слова для справки:</div>
+            <div class="words-list-preview">
+                ${words.map(word => `
+                    <span class="preview-word-chip">${escapeHtml(word.text)}</span>
+                `).join('')}
+            </div>
+        </div>
+        
+        <div class="sentences-section">
+            <div class="sentences-list-preview">
+                ${sentences.map((sentence, idx) => {
+                    let textWithBlanks = sentence.text || '';
+                    const blanks = sentence.correctAnswers || [];
+                    const blankWords = [...words];
+                    
+                    let blankIndex = 0;
+                    textWithBlanks = textWithBlanks.replace(/_______/g, () => {
+                        blankIndex++;
+                        return `<div class="fillblanks-select-wrapper" data-blank-index="${blankIndex - 1}" style="display: inline-block; min-width: 140px; margin: 0 4px; vertical-align: middle;">
+                                    <button class="fillblanks-select-btn">
+                                        <span class="selected-text">-- выберите слово --</span>
+                                        <img src="/images/taskCreationPage/chevronDown.svg" alt="toggle" class="select-chevron">
+                                    </button>
+                                    <div class="fillblanks-select-menu" style="display: none;">
+                                        <button class="fillblanks-select-option" data-value="">-- выберите слово --</button>
+                                        ${blankWords.map(word => `
+                                            <button class="fillblanks-select-option" data-value="${escapeHtml(word.text)}">
+                                                ${escapeHtml(word.text)}
+                                            </button>
+                                        `).join('')}
+                                    </div>
+                                </div>`;
+                    });
+                    
+                    return `
+                        <div class="preview-sentence-card" data-sentence-id="${sentence.id}">
+                            <div class="sentence-header-preview">
+                                <div class="sentence-number-preview">Предложение ${idx + 1}</div>
+                            </div>
+                            <div class="sentence-text-preview">${textWithBlanks}</div>
+                        </div>
+                    `;
+                }).join('')}
+            </div>
+        </div>
+    `;
+    
+    container.innerHTML = html;
+    
+    container.querySelectorAll('.fillblanks-select-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const wrapper = btn.closest('.fillblanks-select-wrapper');
+            const menu = wrapper.querySelector('.fillblanks-select-menu');
+            const isOpen = menu.style.display === 'block';
+            
+            document.querySelectorAll('.fillblanks-select-menu').forEach(m => {
+                m.style.display = 'none';
+            });
+            document.querySelectorAll('.fillblanks-select-btn').forEach(b => {
+                b.classList.remove('active');
+            });
+            
+            if (!isOpen) {
+                menu.style.display = 'block';
+                btn.classList.add('active');
+            }
+        });
+    });
+    
+    container.querySelectorAll('.fillblanks-select-option').forEach(option => {
+        option.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const value = option.dataset.value;
+            const text = option.textContent;
+            const wrapper = option.closest('.fillblanks-select-wrapper');
+            const btn = wrapper.querySelector('.fillblanks-select-btn');
+            const menu = wrapper.querySelector('.fillblanks-select-menu');
+            
+            btn.querySelector('.selected-text').textContent = text;
+            menu.style.display = 'none';
+            btn.classList.remove('active');
+            
+            wrapper.querySelectorAll('.fillblanks-select-option').forEach(opt => {
+                opt.classList.remove('selected');
+            });
+            option.classList.add('selected');
+        });
+    });
 }
 
 // ===== ОБРАБОТЧИКИ СОБЫТИЙ =====
@@ -1474,31 +2047,15 @@ if (collapseSidebarBtn) {
         sidebar.classList.add('collapsed');
     }
     
-    // Добавляем класс initialized после применения состояния
     setTimeout(() => {
         sidebar.classList.add('initialized');
     }, 10);
-}
-
-// Функция для обновления порядка блоков (если данные обновились)
-function refreshBlocksOrder() {
-    if (!currentCourse || !currentCourse.themes) return;
-    
-    for (const theme of currentCourse.themes) {
-        if (theme.blocks && theme.blocks.length > 0) {
-            theme.blocks.sort((a, b) => (a.order_index || 0) - (b.order_index || 0));
-        }
-    }
-    
-    renderThemes(currentCourse.themes);
 }
 
 // ===== ИНИЦИАЛИЗАЦИЯ =====
 
 initQuillPreview();
 loadCourseData();
-
-
 
 gsap.set('body', { opacity: 0 });
 gsap.to('body', { opacity: 1, duration: 0.8, ease: 'power3.out' });
