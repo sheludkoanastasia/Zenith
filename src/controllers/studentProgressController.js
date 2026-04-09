@@ -231,5 +231,60 @@ module.exports = {
             console.error('Ошибка проверки выбора правильного:', error);
             handleError(res, error, 'Ошибка проверки выбора правильного');
         }
+    },
+    // Проверка дополнения (fill_blanks)
+    checkFillBlanks: async (req, res) => {
+        try {
+            const { sectionId, userAnswers } = req.body; // userAnswers: { sentenceId: [selectedWords] }
+            
+            const section = await db.Section.findByPk(sectionId, {
+                include: [{ model: db.Exercise, as: 'exercise' }]
+            });
+            
+            if (!section || !section.exercise) {
+                return res.status(404).json({ success: false, message: 'Упражнение не найдено' });
+            }
+            
+            const exercise = section.exercise;
+            const sentences = exercise.options?.sentences || [];
+            
+            const results = {};
+            let correctCount = 0;
+            let totalBlanks = 0;
+            
+            for (const sentence of sentences) {
+                const userSelectedWords = userAnswers[sentence.id] || [];
+                const correctWords = sentence.correctAnswers || [];
+                totalBlanks += correctWords.length;
+                
+                let sentenceCorrect = true;
+                const blankResults = [];
+                
+                for (let i = 0; i < correctWords.length; i++) {
+                    const isBlankCorrect = userSelectedWords[i] === correctWords[i];
+                    blankResults.push(isBlankCorrect);
+                    if (!isBlankCorrect) sentenceCorrect = false;
+                }
+                
+                results[sentence.id] = {
+                    correct: sentenceCorrect,
+                    blanks: blankResults
+                };
+                if (sentenceCorrect) correctCount++;
+            }
+            
+            const score = Math.round((correctCount / sentences.length) * 100);
+            const isFullyCorrect = correctCount === sentences.length;
+            
+            res.json({
+                success: true,
+                correct: isFullyCorrect,
+                score: score,
+                maxScore: 100,
+                results: results
+            });
+        } catch (error) {
+            handleError(res, error, 'Ошибка проверки дополнения');
+        }
     }
 };

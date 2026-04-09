@@ -2141,6 +2141,24 @@ margin-bottom: 8px !important;
     font-weight: bold;
 }
 
+/* Постоянная зеленая подсветка для fillblanks */
+.fillblanks-select-btn.success-highlight-permanent {
+    border-color: #4CAF50 !important;
+    background: rgba(76, 175, 80, 0.15) !important;
+}
+
+.fillblanks-select-btn.success-highlight-permanent .selected-text {
+    color: #2c7a2c;
+    font-weight: 500;
+}
+
+/* Временная зеленая подсветка */
+.fillblanks-select-btn.success-highlight-temporary {
+    border-color: #4CAF50 !important;
+    background: rgba(76, 175, 80, 0.15) !important;
+    transition: all 0.3s ease;
+}
+
 @keyframes successPulse {
     0% { transform: scale(1); }
     50% { transform: scale(1.02); }

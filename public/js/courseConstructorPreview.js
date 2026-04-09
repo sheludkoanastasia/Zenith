@@ -789,6 +789,45 @@ async function loadExerciseSection(sectionId) {
                     renderStudentFillBlanks(exerciseData, 'fillBlanksExercisePreview');
                     
                     const isCompleted = await checkExerciseStatus(sectionId);
+                    
+                    const savedAnswers = localStorage.getItem(`fillblanks_answers_${sectionId}`);
+                    if (savedAnswers) {
+                        const userAnswers = JSON.parse(savedAnswers);
+                        setTimeout(() => {
+                            for (const [sentenceId, words] of Object.entries(userAnswers)) {
+                                const sentenceCard = document.querySelector(`#fillBlanksExercisePreview .preview-sentence-card[data-sentence-id="${sentenceId}"]`);
+                                if (sentenceCard) {
+                                    const blankWrappers = sentenceCard.querySelectorAll('.fillblanks-select-wrapper');
+                                    blankWrappers.forEach((wrapper, idx) => {
+                                        const selectedWord = words[idx];
+                                        if (selectedWord) {
+                                            const option = wrapper.querySelector(`.fillblanks-select-option[data-value="${selectedWord}"]`);
+                                            if (option) {
+                                                const btn = wrapper.querySelector('.fillblanks-select-btn');
+                                                btn.querySelector('.selected-text').textContent = selectedWord;
+                                                option.classList.add('selected');
+                                            }
+                                        }
+                                    });
+                                }
+                            }
+                        }, 100);
+                    }
+                    
+                    if (isCompleted) {
+                        setTimeout(() => {
+                            const allSelectWrappers = document.querySelectorAll('#fillBlanksExercisePreview .fillblanks-select-wrapper');
+                            allSelectWrappers.forEach(wrapper => {
+                                const btn = wrapper.querySelector('.fillblanks-select-btn');
+                                btn.classList.add('success-highlight-permanent');
+                                btn.disabled = true;
+                                btn.style.cursor = 'default';
+                                btn.style.opacity = '0.8';
+                                const chevron = btn.querySelector('.select-chevron');
+                                if (chevron) chevron.style.display = 'none';
+                            });
+                        }, 100);
+                    }
                     updateExerciseButtonState(sectionId, isCompleted);
                 }
             } else {
@@ -1523,7 +1562,7 @@ function initButtonsByRole() {
                     } else if (exerciseType === 'choice') {
                         await submitChoiceSolution(currentEditingExerciseSection.id);
                     } else if (exerciseType === 'fill_blanks') {
-                        showNotification('Проверка дополнения в разработке', 'info');
+                        await submitFillBlanksSolution(currentEditingExerciseSection.id);
                     }
                 });
             }
@@ -2774,6 +2813,133 @@ async function submitChoiceSolution(sectionId) {
         return false;
     }
 }
+
+// Проверка дополнения (fill_blanks)
+async function checkFillBlanksExercise(sectionId, userAnswers) {
+    try {
+        const token = getToken();
+        const response = await fetch(`${apiBaseUrl}/student/exercise/fillblanks/check`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({ 
+                sectionId, 
+                userAnswers 
+            })
+        });
+        
+        const data = await response.json();
+        return data;
+    } catch (error) {
+        console.error('Ошибка проверки дополнения:', error);
+        return { success: false, correct: false, results: [] };
+    }
+}
+
+// Отправка решения для дополнения
+async function submitFillBlanksSolution(sectionId) {
+    console.log('submitFillBlanksSolution вызван, sectionId:', sectionId);
+    
+    const sentenceCards = document.querySelectorAll('#fillBlanksExercisePreview .preview-sentence-card');
+    const userAnswers = {};
+    let allSelected = true;
+    let emptyBlanks = [];
+    
+    // Очищаем предыдущие подсветки
+    document.querySelectorAll('#fillBlanksExercisePreview .fillblanks-select-btn.error-highlight').forEach(el => {
+        el.classList.remove('error-highlight');
+    });
+    
+    sentenceCards.forEach((card, cardIdx) => {
+        const sentenceId = card.dataset.sentenceId;
+        const selectWrappers = card.querySelectorAll('.fillblanks-select-wrapper');
+        const selectedWords = [];
+        
+        selectWrappers.forEach((wrapper, blankIdx) => {
+            const selectedOption = wrapper.querySelector('.fillblanks-select-option.selected');
+            if (selectedOption && selectedOption.dataset.value) {
+                selectedWords.push(selectedOption.dataset.value);
+            } else {
+                selectedWords.push('');
+                allSelected = false;
+                emptyBlanks.push(`предложение ${cardIdx + 1}, пропуск ${blankIdx + 1}`);
+                const btn = wrapper.querySelector('.fillblanks-select-btn');
+                btn.classList.add('error-highlight');
+            }
+        });
+        
+        userAnswers[sentenceId] = selectedWords;
+    });
+    
+    if (!allSelected) {
+        const blanksList = emptyBlanks.slice(0, 5).join(', ');
+        showNotification(`Пожалуйста, заполните все пропуски: ${blanksList}`, 'warning');
+        setTimeout(() => {
+            document.querySelectorAll('#fillBlanksExercisePreview .fillblanks-select-btn.error-highlight').forEach(el => {
+                el.classList.remove('error-highlight');
+            });
+        }, 3000);
+        return false;
+    }
+    
+    console.log('Отправляемые userAnswers:', JSON.stringify(userAnswers, null, 2));
+    
+    const result = await checkFillBlanksExercise(sectionId, userAnswers);
+    console.log('Результат проверки:', result);
+    
+    if (result.success && result.correct) {
+        showNotification('Упражнение выполнено верно!', 'success');
+        
+        localStorage.setItem(`fillblanks_answers_${sectionId}`, JSON.stringify(userAnswers));
+        
+        // Блокируем все dropdown и делаем зелеными
+        const allSelectWrappers = document.querySelectorAll('#fillBlanksExercisePreview .fillblanks-select-wrapper');
+        allSelectWrappers.forEach(wrapper => {
+            const btn = wrapper.querySelector('.fillblanks-select-btn');
+            btn.classList.add('success-highlight-permanent');
+            btn.disabled = true;
+            btn.style.cursor = 'default';
+            btn.style.opacity = '0.8';
+            const chevron = btn.querySelector('.select-chevron');
+            if (chevron) chevron.style.display = 'none';
+        });
+        
+        await markExerciseAsCompleted(sectionId, result.score, result.maxScore);
+        updateExerciseButtonState(sectionId, true);
+        return true;
+    } else {
+        showNotification('Есть ошибки. Попробуйте еще раз.', 'warning');
+        
+        localStorage.setItem(`fillblanks_answers_${sectionId}`, JSON.stringify(userAnswers));
+        
+        if (result.results) {
+            for (const [sentenceId, sentenceResult] of Object.entries(result.results)) {
+                const sentenceCard = document.querySelector(`#fillBlanksExercisePreview .preview-sentence-card[data-sentence-id="${sentenceId}"]`);
+                if (sentenceCard && sentenceResult.blanks) {
+                    const blankWrappers = sentenceCard.querySelectorAll('.fillblanks-select-wrapper');
+                    blankWrappers.forEach((wrapper, idx) => {
+                        const btn = wrapper.querySelector('.fillblanks-select-btn');
+                        if (sentenceResult.blanks[idx]) {
+                            btn.classList.add('success-highlight-temporary');
+                            setTimeout(() => {
+                                btn.classList.remove('success-highlight-temporary');
+                            }, 3000);
+                        } else {
+                            btn.classList.add('error-highlight');
+                            setTimeout(() => {
+                                btn.classList.remove('error-highlight');
+                            }, 3000);
+                        }
+                    });
+                }
+            }
+        }
+        return false;
+    }
+}
+
 // ===== ОБРАБОТЧИКИ СОБЫТИЙ =====
 
 backButton.addEventListener('click', () => {
