@@ -18,7 +18,6 @@ router.get('/join/:joinCode', async (req, res) => {
     try {
         const { joinCode } = req.params;
         
-        // Отправляем HTML страницу, которая обработает подключение
         res.send(`
             <!DOCTYPE html>
             <html>
@@ -102,6 +101,26 @@ router.get('/join/:joinCode', async (req, res) => {
     } catch (error) {
         res.status(500).send('Ошибка сервера');
     }
+});
+
+// Маршрут для просмотра курса (студент)
+router.get('/course-preview', (req, res) => {
+    res.sendFile(path.join(__dirname, '../../public/views/coursePreview.html'));
+});
+
+// Маршрут для просмотра конструктора курса (студент)
+router.get('/course-constructor-preview', (req, res) => {
+    res.sendFile(path.join(__dirname, '../../public/views/courseConstructorPreview.html'));
+});
+
+// Маршрут для создания/редактирования курса (преподаватель)
+router.get('/create-course', (req, res) => {
+    res.sendFile(path.join(__dirname, '../../public/views/createCourse.html'));
+});
+
+// Маршрут для конструктора курса (преподаватель)
+router.get('/course-constructor', (req, res) => {
+    res.sendFile(path.join(__dirname, '../../public/views/courseConstructor.html'));
 });
 
 module.exports = router;

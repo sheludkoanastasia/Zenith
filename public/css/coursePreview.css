@@ -114,16 +114,32 @@ header {
     border-radius: 23px;
 }
 
-/* Правая колонка - исправленные отступы */
+/* Правая колонка - информация о курсе */
 .course-details-column {
     display: flex;
     flex-direction: column;
-    justify-content: flex-start;
+    justify-content: center;
     height: 200px;
+    width: 100%;
+}
+
+/* Новая структура для расположения элементов */
+.course-info-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+}
+
+.course-info-left {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 8px;
 }
 
 .course-title {
-    margin: 0 0 30px 0; /* Увеличен отступ после названия */
+    margin: 0;
 }
 
 .course-title-input {
@@ -132,12 +148,12 @@ header {
     font-weight: 400;
     color: #1D1D1D;
     border: none;
-    border-bottom: 2px solid transparent;
-    padding: 5px 0;
+    padding: 0;
     width: 100%;
     background: transparent;
     pointer-events: none;
     cursor: default;
+    line-height: 1.2;
 }
 
 .course-title-input:focus {
@@ -147,7 +163,7 @@ header {
 .course-teacher {
     font-size: 20px;
     color: #4C4C4C;
-    margin-bottom: 8px; /* Небольшой отступ между преподавателем и студентами */
+    margin: 0;
 }
 
 .course-teacher span {
@@ -158,6 +174,57 @@ header {
 .course-students-count {
     font-size: 20px;
     color: #4C4C4C;
+}
+
+/* Правая часть с прогрессом */
+.course-info-right {
+    flex-shrink: 0;
+    margin-left: 40px;
+}
+
+/* Стили для прогресса курса */
+.course-progress {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    justify-content: flex-start;
+}
+
+.progress-label {
+    font-size: 47px;
+    font-weight: 400;
+    color: #1D1D1D;
+    margin-bottom: 20px;
+    white-space: nowrap;
+    line-height: 1.2;
+}
+
+.progress-visual {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.progress-image-wrapper {
+    position: relative;
+    width: 250px;
+    height: 100%;
+}
+
+.progress-image {
+    width: 100%;
+    height: 100%;
+    display: block;
+    object-fit: cover;
+}
+
+.progress-percent {
+    font-size: 47px;
+    font-weight: 400;
+    color: #7651BE;
+    text-align: right;
+    min-width: 45px;
+    
 }
 
 /* Навигация */
@@ -201,7 +268,7 @@ header {
 .themes-container {
     display: flex;
     flex-direction: column;
-    gap: 40px; /* Оригинальное расстояние между темами */
+    gap: 40px;
     margin-bottom: 30px;
 }
 
@@ -221,6 +288,20 @@ header {
     width: 100%;
     border-bottom: 2px solid #e0e0e0;
     padding-bottom: 10px;
+}
+
+/* Прогресс темы - только процент, без линии */
+.theme-progress-container {
+    display: flex;
+    align-items: center;
+}
+
+.theme-progress-percent {
+    font-size: 32px;
+    font-weight: 400;
+    color: #7651BE;
+    min-width: 60px;
+    text-align: right;
 }
 
 .theme-title-container {
@@ -270,6 +351,14 @@ header {
     padding: 0;
     overflow: hidden;
     will-change: height, opacity;
+}
+
+/* Прогресс блока - под карточкой */
+.block-wrapper {
+    display: flex;
+    flex-direction: column;
+    width: 300px;
+    margin-bottom: 10px;
 }
 
 .course-block {
@@ -339,6 +428,37 @@ header {
     max-width: 100%;
 }
 
+.block-progress-container {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 8px auto 0 auto;
+    width: 270px;
+}
+
+.block-progress-bar-wrapper {
+    flex: 1;
+    height: 6px;
+    background: #e5e7eb;
+    border-radius: 3px;
+    overflow: hidden;
+}
+
+.block-progress-bar-fill {
+    height: 100%;
+    background: linear-gradient(180deg, #F0EBFF 0%, #DBCFFF 50%, #A5B5FC 100%);
+    border-radius: 3px;
+    transition: width 0.3s ease;
+}
+
+.block-progress-percent {
+    font-size: 18px;
+    font-weight: 500;
+    color: #7651BE;
+    min-width: 40px;
+    text-align: right;
+}
+
 /* Пустые состояния */
 .empty-state {
     text-align: center;
@@ -400,6 +520,14 @@ header {
     .course-title-input {
         font-size: 37px;
     }
+    
+    .progress-label {
+        font-size: 37px;
+    }
+    
+    .theme-progress-percent {
+        font-size: 28px;
+    }
 }
 
 @media (max-width: 992px) {
@@ -417,8 +545,18 @@ header {
         height: auto;
     }
     
-    .course-title {
-        margin-bottom: 20px;
+    .course-info-row {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 20px;
+    }
+    
+    .course-info-right {
+        margin-left: 0;
+    }
+    
+    .course-progress {
+        align-items: flex-start;
     }
     
     .course-sections-nav {
@@ -452,25 +590,34 @@ header {
         font-size: 18px;
     }
     
-    .course-title {
-        margin-bottom: 16px;
-    }
-    
     .course-title-input {
         font-size: 32px;
     }
     
-    .course-teacher, .course-students-count {
+    .course-teacher, .progress-percent {
         font-size: 18px;
     }
     
+    .progress-label {
+        font-size: 32px;
+    }
+    
+    .progress-image-wrapper {
+        width: 150px;
+    }
+    
     .themes-container {
-        gap: 30px; /* Немного меньше на планшетах */
+        gap: 30px;
     }
     
     .course-theme-readonly {
         font-size: 28px;
         min-width: 200px;
+    }
+    
+    .theme-progress-percent {
+        font-size: 24px;
+        min-width: 50px;
     }
     
     .toggle-theme-btn {
@@ -526,8 +673,17 @@ header {
         font-size: 28px;
     }
     
-    .course-teacher, .course-students-count {
+    .course-teacher, .progress-percent {
         font-size: 16px;
+    }
+    
+    .progress-label {
+        font-size: 28px;
+        margin-bottom: 12px;
+    }
+    
+    .progress-image-wrapper {
+        width: 120px;
     }
     
     .course-sections-nav {
@@ -543,12 +699,17 @@ header {
     }
     
     .themes-container {
-        gap: 25px; /* Еще меньше на мобильных */
+        gap: 25px;
     }
     
     .course-theme-readonly {
         font-size: 24px;
         min-width: 150px;
+    }
+    
+    .theme-progress-percent {
+        font-size: 20px;
+        min-width: 45px;
     }
     
     .theme-title-container {

@@ -33,17 +33,37 @@
 
             <!-- Правая колонка - информация о курсе -->
             <div class="course-details-column">
-                <h1 class="course-title">
-                    <input type="text" id="courseTitle" class="course-title-input" placeholder="Название курса" disabled>
-                </h1>
-                
-                <div class="course-teacher" id="courseTeacher">
-                    Преподаватель: <span id="teacherName"></span>
+                <div class="course-info-row">
+                    <div class="course-info-left">
+                        <div>
+                            <h1 class="course-title">
+                                <input type="text" id="courseTitle" class="course-title-input" placeholder="Название курса" disabled>
+                            </h1>
+                        </div>
+                        <div>
+                            <div class="course-teacher" id="courseTeacher">
+                                Преподаватель: <span id="teacherName"></span>
+                            </div>
+                            <div class="course-students-count" id="courseStudentsCount">
+                                Количество студентов: <span id="countStudents">0</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="course-info-right" id="courseProgressContainer" style="display: none;">
+                        <div class="course-progress">
+                            <div class="progress-label">Ваш прогресс по курсу</div>
+                            <div class="progress-visual">
+                                <div class="progress-image-wrapper">
+                                    <img src="/images/userMainPanel/progress.svg" alt="Прогресс" class="progress-image">
+                                    <div class="progress-bar-fill-overlay" style="width: 0%"></div>
+                                </div>
+                                <span class="progress-percent" id="progressPercent">0%</span>
+                            </div>
+                        </div>
+                    </div>
                 </div>
-                
-                <div class="course-students-count" id="courseStudentsCount">
-                    Количество студентов: <span id="countStudents">0</span>
-                </div>
+            </div>
+            </div>
             </div>
         </div>
 

@@ -27,7 +27,25 @@ module.exports = {
                 });
             }
             
-            if (block.theme.course.teacher_id !== req.user.id) {
+            // Проверяем права доступа
+            // Если пользователь студент - проверяем, подключен ли он к курсу
+            if (req.user.role === 'student') {
+                const isEnrolled = await db.CourseStudent.findOne({
+                    where: {
+                        course_id: block.theme.course.id,
+                        student_id: req.user.id
+                    }
+                });
+                
+                if (!isEnrolled) {
+                    return res.status(403).json({
+                        success: false,
+                        message: 'Вы не подключены к этому курсу'
+                    });
+                }
+            } 
+            // Если преподаватель - проверяем, что он владелец курса
+            else if (block.theme.course.teacher_id !== req.user.id) {
                 return res.status(403).json({
                     success: false,
                     message: 'Нет доступа к этому блоку'
@@ -57,18 +75,9 @@ module.exports = {
             
             const section = await db.Section.findByPk(sectionId, {
                 include: [
-                    { 
-                        model: db.TheoryContent, 
-                        as: 'theoryContent' 
-                    },
-                    { 
-                        model: db.Exercise, 
-                        as: 'exercise' 
-                    },
-                    { 
-                        model: db.Test, 
-                        as: 'test' 
-                    },
+                    { model: db.TheoryContent, as: 'theoryContent' },
+                    { model: db.Exercise, as: 'exercise' },
+                    { model: db.Test, as: 'test' },
                     {
                         model: db.Block,
                         as: 'block',
@@ -76,12 +85,7 @@ module.exports = {
                             {
                                 model: db.Theme,
                                 as: 'theme',
-                                include: [
-                                    {
-                                        model: db.Course,
-                                        as: 'course'
-                                    }
-                                ]
+                                include: [{ model: db.Course, as: 'course' }]
                             }
                         ]
                     }
@@ -95,15 +99,29 @@ module.exports = {
                 });
             }
             
-            // Проверяем права доступа (только преподаватель-владелец курса)
-            if (section.block.theme.course.teacher_id !== req.user.id) {
+            // Проверяем права доступа
+            if (req.user.role === 'student') {
+                const isEnrolled = await db.CourseStudent.findOne({
+                    where: {
+                        course_id: section.block.theme.course.id,
+                        student_id: req.user.id
+                    }
+                });
+                
+                if (!isEnrolled) {
+                    return res.status(403).json({
+                        success: false,
+                        message: 'Вы не подключены к этому курсу'
+                    });
+                }
+            } 
+            else if (section.block.theme.course.teacher_id !== req.user.id) {
                 return res.status(403).json({
                     success: false,
                     message: 'Нет доступа к этому разделу'
                 });
             }
             
-            // Убираем лишние вложенности для чистоты ответа
             const responseData = {
                 id: section.id,
                 title: section.title,
