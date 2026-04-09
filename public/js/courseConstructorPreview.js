@@ -116,8 +116,10 @@ function addNotificationStyles() {
             border: 1px solid rgba(255, 255, 255, 0.3);
             animation: slideInRight 0.4s ease;
         }
+        .preview-toast.success { border-left: 6px solid #4CAF50; }
         .preview-toast.info { border-left: 6px solid #7651BE; }
         .preview-toast.warning { border-left: 6px solid #FFB800; }
+        .preview-toast.error { border-left: 6px solid #FF3B3B; }
         .toast-content { flex: 1; }
         .toast-title {
             font-weight: 600;
@@ -637,7 +639,13 @@ async function loadTheorySection(sectionId) {
             if (testPreviewContainer) testPreviewContainer.style.display = 'none';
             if (previewContainer) previewContainer.style.display = 'block';
             
-            updateNextStepButton(sectionId);
+            // Для студента проверяем статус теории
+            if (currentUserRole === 'student') {
+                const isCompleted = await checkTheoryStatus(sectionId);
+                updateTheoryButtonState(sectionId, isCompleted);
+            } else {
+                updateNextStepButton(sectionId);
+            }
         } else {
             showNotification('Ошибка загрузки раздела', 'error');
         }
@@ -1415,15 +1423,17 @@ function initButtonsByRole() {
             btn.style.display = 'flex';
         });
         
-        document.getElementById('theorySubmitBtn')?.addEventListener('click', () => {
-            showNotification('Теория отмечена как пройденная', 'success');
-        });
+        // Для теории обработчик добавляется динамически в updateTheoryButtonState
+        // Для упражнений и тестов пока оставляем старые
         document.getElementById('exerciseSubmitBtn')?.addEventListener('click', () => {
             showNotification('Решение отправлено на проверку', 'success');
         });
         document.getElementById('testSubmitBtn')?.addEventListener('click', () => {
             showNotification('Тест отправлен на проверку', 'success');
         });
+        
+        // Обработчик для кнопки "Следующий шаг" после прохождения теории
+        document.getElementById('theoryNextBtn')?.addEventListener('click', navigateToNextSection);
     }
 }
 
@@ -2007,6 +2017,90 @@ function renderStudentFillBlanksForTest(exerciseData, containerId) {
             option.classList.add('selected');
         });
     });
+}
+
+// Сохранение прогресса теории
+async function markTheoryAsCompleted(sectionId) {
+    try {
+        const token = getToken();
+        const response = await fetch(`${apiBaseUrl}/student/progress/theory`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({ sectionId })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            // Получаем название раздела
+            const sectionTitle = currentEditingTheorySection?.title || 'Раздел теории';
+            showNotification(`${sectionTitle} пройдено`, 'success');
+        }
+        
+        return data.success;
+    } catch (error) {
+        console.error('Ошибка сохранения прогресса теории:', error);
+        return false;
+    }
+}
+
+// Проверка статуса теории
+async function checkTheoryStatus(sectionId) {
+    try {
+        const token = getToken();
+        const response = await fetch(`${apiBaseUrl}/student/progress/theory/${sectionId}`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        const data = await response.json();
+        return data.completed || false;
+    } catch (error) {
+        console.error('Ошибка проверки статуса теории:', error);
+        return false;
+    }
+}
+
+function updateTheoryButtonState(sectionId, isCompleted) {
+    const theoryNextStep = document.getElementById('theoryNextStep');
+    if (!theoryNextStep) return;
+    
+    const theorySubmitBtn = document.getElementById('theorySubmitBtn');
+    const theoryNextBtn = document.getElementById('theoryNextBtn');
+    
+    if (isCompleted) {
+        // Теория пройдена - показываем кнопку "Следующий шаг"
+        if (theorySubmitBtn) theorySubmitBtn.style.display = 'none';
+        if (theoryNextBtn) {
+            theoryNextBtn.style.display = 'flex';
+            // Меняем стиль кнопки на фиолетовый
+            theoryNextBtn.style.background = '#7651BE';
+            const arrowIcon = theoryNextBtn.querySelector('.next-arrow-icon');
+            if (arrowIcon) arrowIcon.style.filter = 'brightness(0) invert(1)';
+        }
+        theoryNextStep.style.display = 'flex';
+    } else {
+        // Теория не пройдена - показываем кнопку "Отметить пройденным"
+        if (theorySubmitBtn) {
+            theorySubmitBtn.style.display = 'flex';
+            // Убираем старый обработчик и добавляем новый
+            const newSubmitBtn = theorySubmitBtn.cloneNode(true);
+            theorySubmitBtn.parentNode.replaceChild(newSubmitBtn, theorySubmitBtn);
+            newSubmitBtn.addEventListener('click', async () => {
+                const success = await markTheoryAsCompleted(sectionId);
+                if (success) {
+                    updateTheoryButtonState(sectionId, true);
+                    // Уведомление уже показывается в markTheoryAsCompleted
+                } else {
+                    showNotification('Ошибка при сохранении прогресса', 'error');
+                }
+            });
+        }
+        if (theoryNextBtn) theoryNextBtn.style.display = 'none';
+        theoryNextStep.style.display = 'flex';
+    }
 }
 
 // ===== ОБРАБОТЧИКИ СОБЫТИЙ =====

@@ -1817,7 +1817,6 @@ body {
     position: relative;
     display: inline-block;
     min-width: 180px;
-    margin-left: 12px;
 }
 
 .matching-select-btn {
@@ -2032,6 +2031,31 @@ margin-bottom: 8px !important;
 
 .checkbox-student:hover {
     border-color: #379B34;
+}
+
+.next-step-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 28px;
+    background: #7651BE;
+    color: white;
+    border: none;
+    border-radius: 40px;
+    font-size: 16px;
+    font-weight: 500;
+    font-family: 'Ysabeau', 'Inter', sans-serif;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.next-step-btn:hover {
+    background: #5e3c9e;
+    transform: translateX(4px);
+}
+
+.preview-toast.success {
+    border-left: 6px solid #4CAF50;
 }
 
 /* ========== ANIMATIONS ========== */

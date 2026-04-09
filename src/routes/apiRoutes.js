@@ -4,6 +4,7 @@ const router = express.Router();
 const authController = require('../controllers/authController');
 const authMiddleware = require('../middleware/authMiddleware');
 const validationMiddleware = require('../middleware/validationMiddleware');
+const studentRoutes = require('./studentRoutes');
 
 // Маршруты
 router.post('/auth/register', 
@@ -22,6 +23,10 @@ router.get('/auth/check',
 );
 
 router.post('/auth/check-email', authController.checkEmail);
+
+router.use('/student', studentRoutes);
+
+module.exports = router;
 
 // Тестовый маршрут
 router.get('/test', (req, res) => {

@@ -26,6 +26,7 @@ db.TheoryContent = require('./TheoryContent')(sequelize);
 db.Exercise = require('./Exercise')(sequelize);
 db.Test = require('./Test')(sequelize);
 db.CourseStudent = require('./CourseStudent')(sequelize); // НОВАЯ МОДЕЛЬ
+db.StudentProgress = require('./StudentProgress')(sequelize);
 
 // ===== НАСТРАИВАЕМ СВЯЗИ =====
 
@@ -78,6 +79,14 @@ db.Exercise.belongsTo(db.Section, { as: 'section', foreignKey: 'section_id' });
 // Section <-> Test
 db.Section.hasOne(db.Test, { as: 'test', foreignKey: 'section_id', onDelete: 'CASCADE' });
 db.Test.belongsTo(db.Section, { as: 'section', foreignKey: 'section_id' });
+
+// User <-> StudentProgress
+db.User.hasMany(db.StudentProgress, { as: 'progress', foreignKey: 'student_id' });
+db.StudentProgress.belongsTo(db.User, { as: 'student', foreignKey: 'student_id' });
+
+// Section <-> StudentProgress
+db.Section.hasMany(db.StudentProgress, { as: 'progress', foreignKey: 'section_id' });
+db.StudentProgress.belongsTo(db.Section, { as: 'section', foreignKey: 'section_id' });
 
 db.sequelize = sequelize;
 db.Sequelize = Sequelize;
