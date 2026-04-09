@@ -1415,6 +1415,7 @@ function initButtonsByRole() {
         document.getElementById('exerciseNextBtn')?.addEventListener('click', navigateToNextSection);
         document.getElementById('testNextBtn')?.addEventListener('click', navigateToNextSection);
     } 
+    // В функции initButtonsByRole, для студента:
     else if (currentUserRole === 'student') {
         document.querySelectorAll('.next-step-btn').forEach(btn => {
             btn.style.display = 'none';
@@ -1423,16 +1424,22 @@ function initButtonsByRole() {
             btn.style.display = 'flex';
         });
         
-        // Для теории обработчик добавляется динамически в updateTheoryButtonState
-        // Для упражнений и тестов пока оставляем старые
-        document.getElementById('exerciseSubmitBtn')?.addEventListener('click', () => {
-            showNotification('Решение отправлено на проверку', 'success');
-        });
-        document.getElementById('testSubmitBtn')?.addEventListener('click', () => {
-            showNotification('Тест отправлен на проверку', 'success');
+        // Обработчик для упражнений с валидацией
+        document.getElementById('exerciseSubmitBtn')?.addEventListener('click', async () => {
+            const isValid = validateCurrentExercise();
+            if (isValid) {
+                showNotification('Решение отправлено на проверку', 'success');
+            }
         });
         
-        // Обработчик для кнопки "Следующий шаг" после прохождения теории
+        // Обработчик для теста с валидацией
+        document.getElementById('testSubmitBtn')?.addEventListener('click', async () => {
+            const isValid = validateCurrentTest();
+            if (isValid) {
+                showNotification('Тест отправлен на проверку', 'success');
+            }
+        });
+        
         document.getElementById('theoryNextBtn')?.addEventListener('click', navigateToNextSection);
     }
 }
@@ -2101,6 +2108,228 @@ function updateTheoryButtonState(sectionId, isCompleted) {
         if (theoryNextBtn) theoryNextBtn.style.display = 'none';
         theoryNextStep.style.display = 'flex';
     }
+}
+
+// Валидация текущего упражнения
+function validateCurrentExercise() {
+    const exerciseType = currentEditingExerciseSection?.type;
+    if (exerciseType !== 'exercise') return true;
+    
+    const exerciseData = currentEditingExerciseSection?.exercise || {};
+    const exerciseTypeName = exerciseData.exercise_type || 'matching';
+    
+    // Очищаем предыдущие подсветки
+    clearCurrentExerciseHighlights();
+    
+    if (exerciseTypeName === 'matching') {
+        const selectWrappers = document.querySelectorAll('#matchingExercisePreview .matching-select-wrapper');
+        let allSelected = true;
+        let emptyCount = 0;
+        
+        selectWrappers.forEach((wrapper, idx) => {
+            const selectedText = wrapper.querySelector('.selected-text')?.textContent || '';
+            if (selectedText === '-- выберите элемент --') {
+                allSelected = false;
+                emptyCount++;
+                const btn = wrapper.querySelector('.matching-select-btn');
+                btn.classList.add('error-highlight');
+            }
+        });
+        
+        if (!allSelected) {
+            setTimeout(() => clearCurrentExerciseHighlights(), 3000);
+            showNotification(`Пожалуйста, заполните все поля сопоставления (${emptyCount} пропущено)`, 'warning');
+            return false;
+        }
+        return true;
+    }
+    
+    else if (exerciseTypeName === 'choice') {
+        const statementCards = document.querySelectorAll('#choiceExercisePreview .preview-statement-card');
+        let allHaveSelection = true;
+        let emptyStatements = [];
+        
+        statementCards.forEach((card, idx) => {
+            const selectedCheckboxes = card.querySelectorAll('.checkbox-student.selected');
+            if (selectedCheckboxes.length === 0) {
+                allHaveSelection = false;
+                emptyStatements.push(idx + 1);
+                const answersSection = card.querySelector('.preview-answers-section');
+                answersSection.classList.add('error-highlight');
+            }
+        });
+        
+        if (!allHaveSelection) {
+            setTimeout(() => clearCurrentExerciseHighlights(), 3000);
+            const statementNumbers = emptyStatements.join(', ');
+            showNotification(`Пожалуйста, выберите ответ(ы) для утверждений: ${statementNumbers}`, 'warning');
+            return false;
+        }
+        return true;
+    }
+    
+    else if (exerciseTypeName === 'fill_blanks') {
+        const selectWrappers = document.querySelectorAll('#fillBlanksExercisePreview .fillblanks-select-wrapper');
+        let allSelected = true;
+        let emptyCount = 0;
+        
+        selectWrappers.forEach((wrapper, idx) => {
+            const selectedText = wrapper.querySelector('.selected-text')?.textContent || '';
+            if (selectedText === '-- выберите слово --') {
+                allSelected = false;
+                emptyCount++;
+                const btn = wrapper.querySelector('.fillblanks-select-btn');
+                btn.classList.add('error-highlight');
+            }
+        });
+        
+        if (!allSelected) {
+            setTimeout(() => clearCurrentExerciseHighlights(), 3000);
+            showNotification(`Пожалуйста, заполните все пропуски (${emptyCount} пропущено)`, 'warning');
+            return false;
+        }
+        return true;
+    }
+    
+    return true;
+}
+
+// Очистка подсветок текущего упражнения
+function clearCurrentExerciseHighlights() {
+    // Для сопоставления
+    document.querySelectorAll('#matchingExercisePreview .matching-select-btn.error-highlight').forEach(el => {
+        el.classList.remove('error-highlight');
+    });
+    // Для выбора правильного
+    document.querySelectorAll('#choiceExercisePreview .preview-answers-section.error-highlight').forEach(el => {
+        el.classList.remove('error-highlight');
+    });
+    // Для дополнения
+    document.querySelectorAll('#fillBlanksExercisePreview .fillblanks-select-btn.error-highlight').forEach(el => {
+        el.classList.remove('error-highlight');
+    });
+}
+
+// Валидация теста (проверяет все упражнения внутри с точечной подсветкой)
+function validateCurrentTest() {
+    const exerciseCards = document.querySelectorAll('#previewTestExercisesList .preview-test-exercise-card');
+    if (exerciseCards.length === 0) {
+        showNotification('В тесте нет упражнений', 'warning');
+        return false;
+    }
+    
+    let allValid = true;
+    let invalidFields = [];
+    
+    // Очищаем предыдущие подсветки
+    clearAllTestHighlights();
+    
+    exerciseCards.forEach((card, cardIndex) => {
+        const typeText = card.querySelector('.exercise-type-preview')?.textContent || '';
+        
+        if (typeText === 'Сопоставление') {
+            const selectWrappers = card.querySelectorAll('.matching-select-wrapper');
+            let hasError = false;
+            
+            selectWrappers.forEach((wrapper, idx) => {
+                const selectedText = wrapper.querySelector('.selected-text')?.textContent || '';
+                if (selectedText === '-- выберите элемент --') {
+                    hasError = true;
+                    allValid = false;
+                    // Подсвечиваем только кнопку
+                    const btn = wrapper.querySelector('.matching-select-btn');
+                    btn.classList.add('error-highlight');
+                    invalidFields.push(`упр.${cardIndex + 1} строка ${idx + 1}`);
+                }
+            });
+            
+            if (hasError) {
+                // Убираем подсветку через 3 секунды
+                setTimeout(() => {
+                    selectWrappers.forEach(w => {
+                        w.querySelector('.matching-select-btn')?.classList.remove('error-highlight');
+                    });
+                }, 3000);
+            }
+        }
+        else if (typeText === 'Выбор правильного') {
+            const statementCards = card.querySelectorAll('.preview-statement-card');
+            let hasError = false;
+            
+            statementCards.forEach((statementCard, stmtIdx) => {
+                const selectedCheckboxes = statementCard.querySelectorAll('.checkbox-student.selected');
+                if (selectedCheckboxes.length === 0) {
+                    hasError = true;
+                    allValid = false;
+                    // Подсвечиваем всю секцию с ответами
+                    const answersSection = statementCard.querySelector('.preview-answers-section');
+                    answersSection.classList.add('error-highlight');
+                    invalidFields.push(`упр.${cardIndex + 1} утверждение ${stmtIdx + 1}`);
+                }
+            });
+            
+            if (hasError) {
+                setTimeout(() => {
+                    statementCards.forEach(sc => {
+                        sc.querySelector('.preview-answers-section')?.classList.remove('error-highlight');
+                    });
+                }, 3000);
+            }
+        }
+        else if (typeText === 'Дополнение') {
+            const selectWrappers = card.querySelectorAll('.fillblanks-select-wrapper');
+            let hasError = false;
+            
+            selectWrappers.forEach((wrapper, idx) => {
+                const selectedText = wrapper.querySelector('.selected-text')?.textContent || '';
+                if (selectedText === '-- выберите слово --') {
+                    hasError = true;
+                    allValid = false;
+                    // Подсвечиваем кнопку
+                    const btn = wrapper.querySelector('.fillblanks-select-btn');
+                    btn.classList.add('error-highlight');
+                    invalidFields.push(`упр.${cardIndex + 1} пропуск ${idx + 1}`);
+                }
+            });
+            
+            if (hasError) {
+                setTimeout(() => {
+                    selectWrappers.forEach(w => {
+                        w.querySelector('.fillblanks-select-btn')?.classList.remove('error-highlight');
+                    });
+                }, 3000);
+            }
+        }
+    });
+    
+    if (!allValid) {
+        const fieldsList = invalidFields.slice(0, 5).join(', ');
+        const more = invalidFields.length > 5 ? ` и ещё ${invalidFields.length - 5}` : '';
+        showNotification(`Пожалуйста, заполните все поля: ${fieldsList}${more}`, 'warning');
+        return false;
+    }
+    
+    return true;
+}
+
+// Очистка всех подсветок в тесте
+function clearAllTestHighlights() {
+    // Очищаем подсветку сопоставления
+    document.querySelectorAll('#previewTestExercisesList .matching-select-btn.error-highlight').forEach(el => {
+        el.classList.remove('error-highlight');
+    });
+    // Очищаем подсветку выбора правильного
+    document.querySelectorAll('#previewTestExercisesList .preview-answers-section.error-highlight').forEach(el => {
+        el.classList.remove('error-highlight');
+    });
+    // Очищаем подсветку дополнения
+    document.querySelectorAll('#previewTestExercisesList .fillblanks-select-btn.error-highlight').forEach(el => {
+        el.classList.remove('error-highlight');
+    });
+    // Очищаем подсветку карточек
+    document.querySelectorAll('#previewTestExercisesList .preview-test-exercise-card.error-highlight').forEach(el => {
+        el.classList.remove('error-highlight');
+    });
 }
 
 // ===== ОБРАБОТЧИКИ СОБЫТИЙ =====

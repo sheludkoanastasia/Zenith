@@ -2058,6 +2058,43 @@ margin-bottom: 8px !important;
     border-left: 6px solid #4CAF50;
 }
 
+/* Подсветка ошибок для упражнений */
+.matching-select-btn.error-highlight,
+.fillblanks-select-btn.error-highlight {
+    border-color: #ff4444 !important;
+    background: rgba(255, 68, 68, 0.1) !important;
+    animation: errorShake 0.3s ease;
+}
+
+.preview-statement-card.error-highlight {
+    border-color: #ff4444 !important;
+    background: rgba(255, 68, 68, 0.05) !important;
+    animation: errorShake 0.3s ease;
+}
+
+/* Подсветка карточки теста при ошибке */
+.preview-test-exercise-card.error-highlight {
+    border: 2px solid #ff4444 !important;
+    background: rgba(255, 68, 68, 0.05) !important;
+    animation: errorShake 0.3s ease;
+}
+
+/* Подсветка секции ответов для выбора правильного */
+.preview-answers-section.error-highlight {
+    border: 2px solid #ff4444 !important;
+    border-radius: 12px;
+    padding: 12px;
+    margin-top: 8px;
+    background: rgba(255, 68, 68, 0.05);
+    animation: errorShake 0.3s ease;
+}
+
+@keyframes errorShake {
+    0%, 100% { transform: translateX(0); }
+    25% { transform: translateX(-3px); }
+    75% { transform: translateX(3px); }
+}
+
 /* ========== ANIMATIONS ========== */
 @keyframes fadeIn {
     from { opacity: 0; }
