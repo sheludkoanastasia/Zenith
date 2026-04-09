@@ -27,6 +27,8 @@ let quillPreview = null;
 // Текущие разделы для навигации
 let currentEditingTheorySection = null;
 let currentEditingExerciseSection = null;
+// Добавляю в начало файла, после глобальных переменных
+let currentUserRole = null;
 
 function getToken() {
     return localStorage.getItem('token');
@@ -164,17 +166,27 @@ function addNotificationStyles() {
     document.head.appendChild(style);
 }
 
+// В функцию loadCourseData добавляю получение роли
 async function loadCourseData() {
-    if (!courseId) {
-        console.error('ID курса не указан');
-        showNotification('ID курса не указан', 'error');
-        return;
-    }
+        if (!courseId) {
+            console.error('ID курса не указан');
+            showNotification('ID курса не указан', 'error');
+            return;
+        }
 
-    try {
-        const response = await fetch(`${apiBaseUrl}/courses/${courseId}`, {
-            headers: { 'Authorization': `Bearer ${getToken()}` }
-        });
+        try {
+            // Получаем информацию о пользователе
+            const userResponse = await fetch('/api/auth/check', {
+                headers: { 'Authorization': `Bearer ${getToken()}` }
+            });
+            const userData = await userResponse.json();
+            if (userData.success) {
+                currentUserRole = userData.user.role;
+            }
+
+            const response = await fetch(`${apiBaseUrl}/courses/${courseId}`, {
+                headers: { 'Authorization': `Bearer ${getToken()}` }
+            });
 
         if (!response.ok) throw new Error('Ошибка загрузки курса');
 
@@ -221,6 +233,7 @@ async function loadCourseData() {
                     loadBlockSections(blockId, targetBlockTitle, targetBlockDescription);
                 }
             }
+            initButtonsByRole();
         }
     } catch (error) {
         console.error('Ошибка:', error);
@@ -1357,18 +1370,69 @@ function updateNextStepButton(sectionId) {
     const nextSection = findNextSection(sectionId);
     const hasNext = nextSection !== null;
     
+    // Скрываем все контейнеры
     document.getElementById('theoryNextStep').style.display = 'none';
     document.getElementById('exerciseNextStep').style.display = 'none';
     document.getElementById('testNextStep').style.display = 'none';
     
-    if (hasNext) {
-        if (document.getElementById('theoryPreviewContainer').style.display === 'block') {
-            document.getElementById('theoryNextStep').style.display = 'flex';
-        } else if (document.getElementById('exercisePreviewContainer').style.display === 'block') {
-            document.getElementById('exerciseNextStep').style.display = 'flex';
-        } else if (document.getElementById('testPreviewContainer').style.display === 'block') {
-            document.getElementById('testNextStep').style.display = 'flex';
+    // Определяем, какой раздел сейчас открыт
+    let activeContainer = null;
+    if (document.getElementById('theoryPreviewContainer').style.display === 'block') {
+        activeContainer = 'theory';
+    } else if (document.getElementById('exercisePreviewContainer').style.display === 'block') {
+        activeContainer = 'exercise';
+    } else if (document.getElementById('testPreviewContainer').style.display === 'block') {
+        activeContainer = 'test';
+    }
+    
+    if (!activeContainer) return;
+    
+    // Для преподавателя: показываем кнопку только если есть следующий раздел
+    if (currentUserRole === 'teacher') {
+        if (hasNext) {
+            document.getElementById(`${activeContainer}NextStep`).style.display = 'flex';
         }
+    } 
+    // Для студента: показываем кнопку всегда (отправить решение)
+    else if (currentUserRole === 'student') {
+        document.getElementById(`${activeContainer}NextStep`).style.display = 'flex';
+    }
+}
+
+function initButtonsByRole() {
+    if (currentUserRole === 'teacher') {
+        // Показываем кнопки "Следующий шаг", скрываем "Отправить решение"
+        document.querySelectorAll('.next-step-btn').forEach(btn => {
+            btn.style.display = 'flex';
+        });
+        document.querySelectorAll('.submit-solution-btn').forEach(btn => {
+            btn.style.display = 'none';
+        });
+        
+        // Назначаем обработчики для преподавателя
+        document.getElementById('theoryNextBtn')?.addEventListener('click', navigateToNextSection);
+        document.getElementById('exerciseNextBtn')?.addEventListener('click', navigateToNextSection);
+        document.getElementById('testNextBtn')?.addEventListener('click', navigateToNextSection);
+    } 
+    else if (currentUserRole === 'student') {
+        // Показываем кнопки "Отправить решение", скрываем "Следующий шаг"
+        document.querySelectorAll('.next-step-btn').forEach(btn => {
+            btn.style.display = 'none';
+        });
+        document.querySelectorAll('.submit-solution-btn').forEach(btn => {
+            btn.style.display = 'flex';
+        });
+        
+        // Назначаем обработчики для студента
+        document.getElementById('theorySubmitBtn')?.addEventListener('click', () => {
+            showNotification('Теория отмечена как пройденная', 'success');
+        });
+        document.getElementById('exerciseSubmitBtn')?.addEventListener('click', () => {
+            showNotification('Решение отправлено на проверку', 'success');
+        });
+        document.getElementById('testSubmitBtn')?.addEventListener('click', () => {
+            showNotification('Тест отправлен на проверку', 'success');
+        });
     }
 }
 
@@ -1381,10 +1445,6 @@ backButton.addEventListener('click', () => {
 document.getElementById('backToStructureBtn')?.addEventListener('click', backToSections);
 document.getElementById('backToStructureFromExerciseBtn')?.addEventListener('click', backToSections);
 document.getElementById('backToStructureFromTestBtn')?.addEventListener('click', backToSections);
-
-document.getElementById('theoryNextBtn')?.addEventListener('click', navigateToNextSection);
-document.getElementById('exerciseNextBtn')?.addEventListener('click', navigateToNextSection);
-document.getElementById('testNextBtn')?.addEventListener('click', navigateToNextSection);
 
 // ===== СВОРАЧИВАНИЕ САЙДБАРА =====
 const collapseSidebarBtn = document.getElementById('collapseSidebarBtn');
@@ -1437,6 +1497,8 @@ function refreshBlocksOrder() {
 
 initQuillPreview();
 loadCourseData();
+
+
 
 gsap.set('body', { opacity: 0 });
 gsap.to('body', { opacity: 1, duration: 0.8, ease: 'power3.out' });

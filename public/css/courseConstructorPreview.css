@@ -1670,6 +1670,34 @@ body {
     transform: translateX(4px);
 }
 
+/* Зеленая кнопка отправки решения */
+.submit-solution-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    padding: 12px 28px;
+    background: #379B34;
+    color: white;
+    border: none;
+    border-radius: 40px;
+    font-size: 16px;
+    font-weight: 500;
+    font-family: 'Ysabeau', 'Inter', sans-serif;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.submit-solution-btn:hover {
+    background: #30842d;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(55, 155, 52, 0.3);
+}
+
+.submit-solution-btn:active {
+    transform: translateY(0);
+}
+
 /* ========== ANIMATIONS ========== */
 @keyframes fadeIn {
     from { opacity: 0; }
