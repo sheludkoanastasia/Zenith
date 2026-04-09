@@ -2089,6 +2089,37 @@ margin-bottom: 8px !important;
     animation: errorShake 0.3s ease;
 }
 
+/* Зеленая подсветка правильных ответов */
+.matching-select-btn.success-highlight {
+    border-color: #4CAF50 !important;
+    background: rgba(76, 175, 80, 0.1) !important;
+    animation: successPulse 0.5s ease;
+}
+
+/* Постоянная зеленая подсветка правильных ответов */
+.matching-select-btn.success-highlight-permanent {
+    border-color: #4CAF50 !important;
+    background: rgba(76, 175, 80, 0.15) !important;
+}
+
+.matching-select-btn.success-highlight-permanent .selected-text {
+    color: #2c7a2c;
+    font-weight: 500;
+}
+
+/* Временная зеленая подсветка (для частично правильных) */
+.matching-select-btn.success-highlight-temporary {
+    border-color: #4CAF50 !important;
+    background: rgba(76, 175, 80, 0.15) !important;
+    transition: all 0.3s ease;
+}
+
+@keyframes successPulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.02); }
+    100% { transform: scale(1); }
+}
+
 @keyframes errorShake {
     0%, 100% { transform: translateX(0); }
     25% { transform: translateX(-3px); }

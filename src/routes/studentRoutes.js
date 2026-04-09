@@ -11,4 +11,11 @@ router.use(authMiddleware.checkRole(['student']));
 router.get('/progress/theory/:sectionId', studentProgressController.getTheoryProgress);
 router.post('/progress/theory', studentProgressController.markTheoryCompleted);
 
+// Прогресс упражнения
+router.get('/progress/exercise/:sectionId', studentProgressController.getExerciseProgress);
+router.post('/progress/exercise', studentProgressController.markExerciseCompleted);
+
+// Проверка упражнений
+router.post('/exercise/matching/check', studentProgressController.checkMatching);
+
 module.exports = router;

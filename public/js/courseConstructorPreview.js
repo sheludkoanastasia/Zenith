@@ -704,6 +704,48 @@ async function loadExerciseSection(sectionId) {
                 if (exerciseType === 'matching') {
                     document.getElementById('matchingExercisePreview').style.display = 'block';
                     renderStudentMatching(exerciseData, 'matchingExercisePreview');
+                    // В loadExerciseSection, после рендера студенческого matching:
+                    if (currentUserRole === 'student' && exerciseType === 'matching') {
+                        const isCompleted = await checkExerciseStatus(sectionId);
+                        
+                        // Восстанавливаем сохраненные ответы из localStorage
+                        const savedAnswers = localStorage.getItem(`matching_answers_${sectionId}`);
+                        if (savedAnswers) {
+                            const userPairs = JSON.parse(savedAnswers);
+                            setTimeout(() => {
+                                const selectWrappers = document.querySelectorAll('#matchingExercisePreview .matching-select-wrapper');
+                                selectWrappers.forEach(wrapper => {
+                                    const targetId = wrapper.dataset.targetId;
+                                    const savedItemId = userPairs[targetId];
+                                    if (savedItemId) {
+                                        const option = wrapper.querySelector(`.matching-select-option[data-value="${savedItemId}"]`);
+                                        if (option) {
+                                            const text = option.textContent;
+                                            const btn = wrapper.querySelector('.matching-select-btn');
+                                            btn.querySelector('.selected-text').textContent = text;
+                                            option.classList.add('selected');
+                                        }
+                                    }
+                                });
+                            }, 100);
+                        }
+                        
+                        if (isCompleted) {
+                            setTimeout(() => {
+                                const selectWrappers = document.querySelectorAll('#matchingExercisePreview .matching-select-wrapper');
+                                selectWrappers.forEach(wrapper => {
+                                    const btn = wrapper.querySelector('.matching-select-btn');
+                                    btn.classList.add('success-highlight-permanent');
+                                    btn.disabled = true;
+                                    btn.style.cursor = 'default';
+                                    btn.style.opacity = '0.8';
+                                    const chevron = btn.querySelector('.select-chevron');
+                                    if (chevron) chevron.style.display = 'none';
+                                });
+                            }, 100);
+                        }
+                        updateExerciseButtonState(sectionId, isCompleted);
+                    }
                 } else if (exerciseType === 'choice') {
                     document.getElementById('choiceExercisePreview').style.display = 'block';
                     renderStudentChoice(exerciseData, 'choiceExercisePreview');
@@ -732,7 +774,13 @@ async function loadExerciseSection(sectionId) {
             if (testPreviewContainer) testPreviewContainer.style.display = 'none';
             if (previewContainer) previewContainer.style.display = 'block';
             
-            updateNextStepButton(sectionId);
+            // Для студента проверяем статус упражнения
+            if (currentUserRole === 'student') {
+                const isCompleted = await checkExerciseStatus(sectionId);
+                updateExerciseButtonState(sectionId, isCompleted);
+            } else {
+                updateNextStepButton(sectionId);
+            }
             
         } else {
             showNotification('Ошибка загрузки раздела', 'error');
@@ -1426,9 +1474,16 @@ function initButtonsByRole() {
         
         // Обработчик для упражнений с валидацией
         document.getElementById('exerciseSubmitBtn')?.addEventListener('click', async () => {
-            const isValid = validateCurrentExercise();
-            if (isValid) {
-                showNotification('Решение отправлено на проверку', 'success');
+            const exerciseType = currentEditingExerciseSection?.exercise?.exercise_type || 'matching';
+            
+            if (exerciseType === 'matching') {
+                await submitMatchingSolution(currentEditingExerciseSection.id);
+            } else if (exerciseType === 'choice') {
+                // Пока заглушка
+                showNotification('Проверка выбора правильного в разработке', 'info');
+            } else if (exerciseType === 'fill_blanks') {
+                // Пока заглушка
+                showNotification('Проверка дополнения в разработке', 'info');
             }
         });
         
@@ -1494,29 +1549,31 @@ function renderStudentMatching(exerciseData, containerId) {
             <div class="table-label">Таблица сопоставления</div>
             <div class="matching-table">
                 <div class="table-header">
-                    <div class="table-header-cell">Элементы</div>
+                    <div class="table-header-cell">Выберите соответствующий элемент</div>
                     <div class="table-header-cell">Элементы сопоставления</div>
                 </div>
                 <div class="matching-rows">
-                    ${items.map((item, idx) => `
-                        <div class="matching-row-preview" data-item-id="${item.id}">
+                    ${targets.map((target, idx) => `
+                        <div class="matching-row-preview" data-target-id="${target.id}">
                             <div class="matching-cell-preview">
-                                <div class="matching-item-text">${idx + 1}. ${escapeHtml(item.text)}</div>
-                            </div>
-                            <div class="matching-cell-preview">
-                                <div class="matching-select-wrapper" data-item-id="${item.id}">
-                                    <button class="matching-select-btn" data-item-id="${item.id}">
+                                <div class="matching-select-wrapper" data-target-id="${target.id}">
+                                    <button class="matching-select-btn" data-target-id="${target.id}">
                                         <span class="selected-text">-- выберите элемент --</span>
                                         <img src="/images/taskCreationPage/chevronDown.svg" alt="toggle" class="select-chevron">
                                     </button>
                                     <div class="matching-select-menu" style="display: none;">
                                         <button class="matching-select-option" data-value="">-- выберите элемент --</button>
-                                        ${targets.map((target, targetIdx) => `
-                                            <button class="matching-select-option" data-value="${target.id}">
-                                                ${String.fromCharCode(65 + targetIdx)}. ${escapeHtml(target.text)}
+                                        ${items.map((item, itemIdx) => `
+                                            <button class="matching-select-option" data-value="${item.id}">
+                                                ${itemIdx + 1}. ${escapeHtml(item.text)}
                                             </button>
                                         `).join('')}
                                     </div>
+                                </div>
+                            </div>
+                            <div class="matching-cell-preview">
+                                <div class="matching-target-text-preview">
+                                    <strong>${String.fromCharCode(65 + idx)}.</strong> ${escapeHtml(target.text)}
                                 </div>
                             </div>
                         </div>
@@ -1560,6 +1617,7 @@ function renderStudentMatching(exerciseData, containerId) {
     container.querySelectorAll('.matching-select-option').forEach(option => {
         option.addEventListener('click', (e) => {
             e.stopPropagation();
+            const value = option.dataset.value;
             const text = option.textContent;
             const wrapper = option.closest('.matching-select-wrapper');
             const btn = wrapper.querySelector('.matching-select-btn');
@@ -1785,29 +1843,31 @@ function renderStudentMatchingForTest(exerciseData, containerId) {
             <div class="table-label">Таблица сопоставления</div>
             <div class="matching-table">
                 <div class="table-header">
-                    <div class="table-header-cell">Элементы</div>
+                    <div class="table-header-cell">Выберите соответствующий элемент</div>
                     <div class="table-header-cell">Элементы сопоставления</div>
                 </div>
                 <div class="matching-rows">
-                    ${items.map((item, idx) => `
-                        <div class="matching-row-preview" data-item-id="${item.id}">
+                    ${targets.map((target, idx) => `
+                        <div class="matching-row-preview" data-target-id="${target.id}">
                             <div class="matching-cell-preview">
-                                <div class="matching-item-text">${idx + 1}. ${escapeHtml(item.text)}</div>
-                            </div>
-                            <div class="matching-cell-preview">
-                                <div class="matching-select-wrapper" data-item-id="${item.id}">
-                                    <button class="matching-select-btn" data-item-id="${item.id}">
+                                <div class="matching-select-wrapper" data-target-id="${target.id}">
+                                    <button class="matching-select-btn" data-target-id="${target.id}">
                                         <span class="selected-text">-- выберите элемент --</span>
                                         <img src="/images/taskCreationPage/chevronDown.svg" alt="toggle" class="select-chevron">
                                     </button>
                                     <div class="matching-select-menu" style="display: none;">
                                         <button class="matching-select-option" data-value="">-- выберите элемент --</button>
-                                        ${targets.map((target, targetIdx) => `
-                                            <button class="matching-select-option" data-value="${target.id}">
-                                                ${String.fromCharCode(65 + targetIdx)}. ${escapeHtml(target.text)}
+                                        ${items.map((item, itemIdx) => `
+                                            <button class="matching-select-option" data-value="${item.id}">
+                                                ${itemIdx + 1}. ${escapeHtml(item.text)}
                                             </button>
                                         `).join('')}
                                     </div>
+                                </div>
+                            </div>
+                            <div class="matching-cell-preview">
+                                <div class="matching-target-text-preview">
+                                    <strong>${String.fromCharCode(65 + idx)}.</strong> ${escapeHtml(target.text)}
                                 </div>
                             </div>
                         </div>
@@ -1851,6 +1911,7 @@ function renderStudentMatchingForTest(exerciseData, containerId) {
     container.querySelectorAll('.matching-select-option').forEach(option => {
         option.addEventListener('click', (e) => {
             e.stopPropagation();
+            const value = option.dataset.value;
             const text = option.textContent;
             const wrapper = option.closest('.matching-select-wrapper');
             const btn = wrapper.querySelector('.matching-select-btn');
@@ -2330,6 +2391,190 @@ function clearAllTestHighlights() {
     document.querySelectorAll('#previewTestExercisesList .preview-test-exercise-card.error-highlight').forEach(el => {
         el.classList.remove('error-highlight');
     });
+}
+
+// Проверка сопоставления (matching)
+async function checkMatchingExercise(sectionId, userPairs) {
+    try {
+        const token = getToken();
+        const response = await fetch(`${apiBaseUrl}/student/exercise/matching/check`, {  // ← добавил /student/
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({ 
+                sectionId, 
+                userPairs 
+            })
+        });
+        
+        const data = await response.json();
+        return data;
+    } catch (error) {
+        console.error('Ошибка проверки сопоставления:', error);
+        return { success: false, correct: false, results: [] };
+    }
+}
+
+// Сохранение прогресса упражнения
+async function markExerciseAsCompleted(sectionId, score, maxScore) {
+    try {
+        const token = getToken();
+        const response = await fetch(`${apiBaseUrl}/student/progress/exercise`, {  // ← добавил /student/
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({ sectionId, score, maxScore })
+        });
+        
+        const data = await response.json();
+        return data.success;
+    } catch (error) {
+        console.error('Ошибка сохранения прогресса упражнения:', error);
+        return false;
+    }
+}
+
+// Проверка статуса упражнения
+async function checkExerciseStatus(sectionId) {
+    try {
+        const token = getToken();
+        const response = await fetch(`${apiBaseUrl}/student/progress/exercise/${sectionId}`, {  // ← добавил /student/
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        const data = await response.json();
+        return data.completed || false;
+    } catch (error) {
+        console.error('Ошибка проверки статуса упражнения:', error);
+        return false;
+    }
+}
+
+async function submitMatchingSolution(sectionId) {
+    const selectWrappers = document.querySelectorAll('#matchingExercisePreview .matching-select-wrapper');
+    const userPairs = {};
+    let allSelected = true;
+    
+    selectWrappers.forEach(wrapper => {
+        const targetId = wrapper.dataset.targetId;
+        const selectedOption = wrapper.querySelector('.matching-select-option.selected');
+        if (selectedOption && selectedOption.dataset.value) {
+            userPairs[targetId] = selectedOption.dataset.value;
+        } else {
+            allSelected = false;
+        }
+    });
+    
+    if (!allSelected) {
+        showNotification('Пожалуйста, заполните все поля сопоставления', 'warning');
+        selectWrappers.forEach(wrapper => {
+            const selectedText = wrapper.querySelector('.selected-text')?.textContent || '';
+            if (selectedText === '-- выберите элемент --') {
+                wrapper.querySelector('.matching-select-btn')?.classList.add('error-highlight');
+            }
+        });
+        setTimeout(() => {
+            selectWrappers.forEach(w => {
+                w.querySelector('.matching-select-btn')?.classList.remove('error-highlight');
+            });
+        }, 3000);
+        return false;
+    }
+    
+    const result = await checkMatchingExercise(sectionId, userPairs);
+    
+    if (result.success && result.correct) {
+        showNotification('Упражнение выполнено верно!', 'success');
+        
+        // Сохраняем ответы в localStorage
+        localStorage.setItem(`matching_answers_${sectionId}`, JSON.stringify(userPairs));
+        
+        selectWrappers.forEach(wrapper => {
+            const btn = wrapper.querySelector('.matching-select-btn');
+            btn.classList.add('success-highlight-permanent');
+            btn.disabled = true;
+            btn.style.cursor = 'default';
+            btn.style.opacity = '0.8';
+            const chevron = btn.querySelector('.select-chevron');
+            if (chevron) chevron.style.display = 'none';
+        });
+        
+        await markExerciseAsCompleted(sectionId, result.score, result.maxScore);
+        updateExerciseButtonState(sectionId, true);
+        return true;
+    } else {
+        showNotification('Есть ошибки. Попробуйте еще раз.', 'warning');
+        
+        // Сохраняем ответы даже если есть ошибки
+        localStorage.setItem(`matching_answers_${sectionId}`, JSON.stringify(userPairs));
+        
+        if (result.results) {
+            for (const [targetId, isCorrect] of Object.entries(result.results)) {
+                const wrapper = document.querySelector(`#matchingExercisePreview .matching-select-wrapper[data-target-id="${targetId}"]`);
+                if (wrapper) {
+                    const btn = wrapper.querySelector('.matching-select-btn');
+                    if (isCorrect) {
+                        btn.classList.add('success-highlight-temporary');
+                        setTimeout(() => {
+                            btn.classList.remove('success-highlight-temporary');
+                        }, 3000);
+                    } else {
+                        btn.classList.add('error-highlight');
+                        setTimeout(() => {
+                            btn.classList.remove('error-highlight');
+                        }, 3000);
+                    }
+                }
+            }
+        }
+        return false;
+    }
+}
+
+// Обновление состояния кнопки упражнения
+function updateExerciseButtonState(sectionId, isCompleted) {
+    const exerciseNextStep = document.getElementById('exerciseNextStep');
+    if (!exerciseNextStep) return;
+    
+    const exerciseSubmitBtn = document.getElementById('exerciseSubmitBtn');
+    const exerciseNextBtn = document.getElementById('exerciseNextBtn');
+    
+    if (isCompleted) {
+        // Упражнение пройдено - показываем кнопку "Следующий шаг"
+        if (exerciseSubmitBtn) exerciseSubmitBtn.style.display = 'none';
+        if (exerciseNextBtn) {
+            exerciseNextBtn.style.display = 'flex';
+            exerciseNextBtn.style.background = '#7651BE';
+            const arrowIcon = exerciseNextBtn.querySelector('.next-arrow-icon');
+            if (arrowIcon) arrowIcon.style.filter = 'brightness(0) invert(1)';
+            
+            // Убеждаемся, что обработчик события привязан
+            const newNextBtn = exerciseNextBtn.cloneNode(true);
+            exerciseNextBtn.parentNode.replaceChild(newNextBtn, exerciseNextBtn);
+            newNextBtn.addEventListener('click', navigateToNextSection);
+        }
+        exerciseNextStep.style.display = 'flex';
+    } else {
+        // Упражнение не пройдено - показываем кнопку "Отправить решение"
+        if (exerciseSubmitBtn) {
+            exerciseSubmitBtn.style.display = 'flex';
+            // Убеждаемся, что обработчик события привязан
+            const newSubmitBtn = exerciseSubmitBtn.cloneNode(true);
+            exerciseSubmitBtn.parentNode.replaceChild(newSubmitBtn, exerciseSubmitBtn);
+            newSubmitBtn.addEventListener('click', async () => {
+                const exerciseType = currentEditingExerciseSection?.exercise?.exercise_type || 'matching';
+                if (exerciseType === 'matching') {
+                    await submitMatchingSolution(currentEditingExerciseSection.id);
+                }
+            });
+        }
+        if (exerciseNextBtn) exerciseNextBtn.style.display = 'none';
+        exerciseNextStep.style.display = 'flex';
+    }
 }
 
 // ===== ОБРАБОТЧИКИ СОБЫТИЙ =====
