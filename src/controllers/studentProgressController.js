@@ -399,42 +399,49 @@ module.exports = {
             }
             
             console.log('Тип упражнения:', exercise.type);
-            console.log('Данные упражнения:', JSON.stringify(exercise.data, null, 2));
+            
+            // Получаем максимальный балл за упражнение (из scoring.firstAttempt)
+            const maxScore = exercise.scoring?.firstAttempt ?? 100;
             
             // Проверяем в зависимости от типа
             if (exercise.type === 'matching') {
                 const correctPairs = exercise.data.pairs || [];
                 const targets = exercise.data.targets || [];
                 
-                const results = {};
+                let allCorrect = true;
                 let correctCount = 0;
                 
                 for (const target of targets) {
                     const userSelectedItemId = userAnswers[target.id];
                     const correctMatch = correctPairs.find(p => p.targetId == target.id);
                     const isCorrect = correctMatch && correctMatch.itemId == userSelectedItemId;
-                    results[target.id] = isCorrect;
-                    if (isCorrect) correctCount++;
+                    if (!isCorrect) {
+                        allCorrect = false;
+                    } else {
+                        correctCount++;
+                    }
                 }
                 
                 const totalTargets = targets.length;
-                const score = totalTargets > 0 ? Math.round((correctCount / totalTargets) * 100) : 0;
-                const isFullyCorrect = correctCount === totalTargets;
+                // Упражнение считается выполненным ТОЛЬКО если ВСЕ ответы правильные
+                const isFullyCorrect = allCorrect && correctCount === totalTargets && totalTargets > 0;
+                // Баллы: maxScore если всё правильно, иначе 0
+                const earnedScore = isFullyCorrect ? maxScore : 0;
+                
+                console.log(`Matching: correctCount=${correctCount}, totalTargets=${totalTargets}, isFullyCorrect=${isFullyCorrect}, earnedScore=${earnedScore}, maxScore=${maxScore}`);
                 
                 res.json({
                     success: true,
                     correct: isFullyCorrect,
-                    score: score,
-                    maxScore: 100,
-                    results: results
+                    score: earnedScore,
+                    maxScore: maxScore,
+                    results: {}
                 });
             }
             else if (exercise.type === 'choice') {
                 const statements = exercise.data.statements || [];
                 
-                console.log('statements:', JSON.stringify(statements, null, 2));
-                
-                const results = {};
+                let allCorrect = true;
                 let correctCount = 0;
                 
                 for (const statement of statements) {
@@ -445,81 +452,75 @@ module.exports = {
                         .filter(a => a.isCorrect === true)
                         .map(a => String(a.id));
                     
-                    console.log(`Statement ${statement.id}:`);
-                    console.log(`  userSelected: ${JSON.stringify(userSelectedStrings)}`);
-                    console.log(`  correctAnswers: ${JSON.stringify(correctAnswers)}`);
-                    
                     const hasAllCorrect = correctAnswers.every(id => userSelectedStrings.includes(id));
                     const hasNoExtra = userSelectedStrings.every(id => correctAnswers.includes(id));
                     const isCorrect = hasAllCorrect && hasNoExtra && userSelectedStrings.length === correctAnswers.length;
                     
-                    console.log(`  hasAllCorrect: ${hasAllCorrect}, hasNoExtra: ${hasNoExtra}, isCorrect: ${isCorrect}`);
-                    
-                    results[statement.id] = isCorrect;
-                    if (isCorrect) correctCount++;
+                    if (!isCorrect) {
+                        allCorrect = false;
+                    } else {
+                        correctCount++;
+                    }
                 }
                 
                 const totalStatements = statements.length;
-                const score = totalStatements > 0 ? Math.round((correctCount / totalStatements) * 100) : 0;
-                const isFullyCorrect = correctCount === totalStatements && totalStatements > 0;
+                // Упражнение считается выполненным ТОЛЬКО если ВСЕ утверждения правильные
+                const isFullyCorrect = allCorrect && correctCount === totalStatements && totalStatements > 0;
+                // Баллы: maxScore если всё правильно, иначе 0
+                const earnedScore = isFullyCorrect ? maxScore : 0;
                 
-                console.log(`correctCount: ${correctCount}, totalStatements: ${totalStatements}, score: ${score}, isFullyCorrect: ${isFullyCorrect}`);
+                console.log(`Choice: correctCount=${correctCount}, totalStatements=${totalStatements}, isFullyCorrect=${isFullyCorrect}, earnedScore=${earnedScore}, maxScore=${maxScore}`);
                 
                 res.json({
                     success: true,
                     correct: isFullyCorrect,
-                    score: score,
-                    maxScore: 100,
-                    results: results
+                    score: earnedScore,
+                    maxScore: maxScore,
+                    results: {}
                 });
             }
             else if (exercise.type === 'fill_blanks') {
                 const sentences = exercise.data.sentences || [];
                 
-                console.log('sentences:', JSON.stringify(sentences, null, 2));
-                
-                const results = {};
+                let allCorrect = true;
                 let correctCount = 0;
-                let totalBlanks = 0;
-                let correctBlanks = 0;
                 
                 for (const sentence of sentences) {
                     const userSelectedWords = userAnswers[sentence.id] || [];
                     const correctWords = sentence.correctAnswers || [];
                     
-                    console.log(`Sentence ${sentence.id}:`);
-                    console.log(`  userSelected: ${JSON.stringify(userSelectedWords)}`);
-                    console.log(`  correctWords: ${JSON.stringify(correctWords)}`);
-                    
-                    totalBlanks += correctWords.length;
                     let sentenceCorrect = true;
-                    const blankResults = [];
-                    
                     for (let i = 0; i < correctWords.length; i++) {
                         const isBlankCorrect = String(userSelectedWords[i]) === String(correctWords[i]);
-                        blankResults.push(isBlankCorrect);
-                        if (isBlankCorrect) correctBlanks++;
-                        if (!isBlankCorrect) sentenceCorrect = false;
+                        if (!isBlankCorrect) {
+                            sentenceCorrect = false;
+                            break;
+                        }
                     }
                     
-                    results[sentence.id] = {
-                        correct: sentenceCorrect,
-                        blanks: blankResults
-                    };
-                    if (sentenceCorrect) correctCount++;
+                    if (!sentenceCorrect) {
+                        allCorrect = false;
+                    } else {
+                        correctCount++;
+                    }
                 }
                 
-                const score = totalBlanks > 0 ? Math.round((correctBlanks / totalBlanks) * 100) : 0;
-                const isFullyCorrect = correctCount === sentences.length && correctBlanks === totalBlanks;
+                const totalSentences = sentences.length;
+                // Упражнение считается выполненным ТОЛЬКО если ВСЕ предложения правильные
+                const isFullyCorrect = allCorrect && correctCount === totalSentences && totalSentences > 0;
+                // Баллы: maxScore если всё правильно, иначе 0
+                const earnedScore = isFullyCorrect ? maxScore : 0;
                 
-                console.log(`correctCount: ${correctCount}, totalSentences: ${sentences.length}, correctBlanks: ${correctBlanks}, totalBlanks: ${totalBlanks}, score: ${score}`);
+                console.log(`FillBlanks: correctCount=${correctCount}, totalSentences=${totalSentences}, isFullyCorrect=${isFullyCorrect}, earnedScore=${earnedScore}, maxScore=${maxScore}`);
                 
+                // В studentProgressController.js, в checkTestExercise
                 res.json({
                     success: true,
-                    correct: isFullyCorrect,
-                    score: score,
-                    maxScore: 100,
-                    results: results
+                    correct: isFullyCorrect,  // true если все ответы правильные
+                    isFullyCorrect: isFullyCorrect,  // добавляем отдельный флаг
+                    score: earnedScore,
+                    maxScore: maxScore,
+                    results: {}
                 });
             }
             else {
