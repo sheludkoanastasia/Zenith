@@ -2159,6 +2159,80 @@ margin-bottom: 8px !important;
     transition: all 0.3s ease;
 }
 
+/* Стили для отображения баллов в тесте */
+.exercise-score-container {
+    margin-top: 16px;
+    padding-top: 12px;
+    border-top: 1px solid #e5e7eb;
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 12px;
+}
+
+.exercise-score-label {
+    font-size: 14px;
+    color: #4C4C4C;
+    font-weight: 500;
+}
+
+.exercise-score-value {
+    font-size: 16px;
+    font-weight: 600;
+    color: #379B34;
+}
+
+.exercise-score-max {
+    font-size: 14px;
+    color: #4C4C4C;
+}
+
+/* Контейнер для итоговых баллов */
+.total-score-container {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-right: 24px;
+    padding: 8px 16px;
+    background: #faf9fb;
+    border-radius: 40px;
+    border: 1px solid #e5e7eb;
+}
+
+.total-score-label {
+    font-size: 16px;
+    font-weight: 500;
+    color: #1D1D1D;
+}
+
+.total-score-value {
+    font-size: 20px;
+    font-weight: 700;
+    color: #379B34;
+}
+
+.total-score-max {
+    font-size: 16px;
+    font-weight: 500;
+    color: #4C4C4C;
+}
+
+.test-buttons {
+    display: flex;
+    gap: 12px;
+    margin-left: auto;
+}
+
+/* Обновленный контейнер для кнопок */
+.next-step-container {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 40px;
+    padding-top: 24px;
+    border-top: 1px solid #e5e7eb;
+}
+
 @keyframes successPulse {
     0% { transform: scale(1); }
     50% { transform: scale(1.02); }

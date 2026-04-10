@@ -249,15 +249,22 @@
                         </div>
                     </div>
                     
-                    <!-- Контейнер с двумя кнопками для теста -->
+                    <!-- Контейнер с итоговыми баллами и кнопками -->
                     <div class="next-step-container" id="testNextStep" style="display: none;">
-                        <button class="next-step-btn" id="testNextBtn">
-                            Следующий шаг
-                            <img src="/images/taskCreationPage/rightArrow.svg" alt="next" class="next-arrow-icon">
-                        </button>
-                        <button class="submit-solution-btn" id="testSubmitBtn" style="display: none;">
-                            Отправить решение
-                        </button>
+                        <div class="total-score-container">
+                            <span class="total-score-label">Итого баллов:</span>
+                            <span class="total-score-value" id="totalTestScore">0</span>
+                            <span class="total-score-max">/ <span id="totalTestMaxScore">0</span></span>
+                        </div>
+                        <div class="test-buttons">
+                            <button class="submit-solution-btn" id="testSubmitBtn" style="display: none;">
+                                Отправить решение
+                            </button>
+                            <button class="next-step-btn" id="testNextBtn">
+                                Следующий шаг
+                                <img src="/images/taskCreationPage/rightArrow.svg" alt="next" class="next-arrow-icon">
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>

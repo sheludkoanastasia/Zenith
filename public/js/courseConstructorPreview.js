@@ -1109,6 +1109,19 @@ function renderPreviewTestExercises(exercises) {
     
     container.innerHTML = '';
     
+    // Суммируем максимальные баллы за все упражнения
+    let totalMaxScore = 0;
+    exercises.forEach(exercise => {
+        const maxScore = exercise.scoring?.firstAttempt ?? 100;
+        totalMaxScore += maxScore;
+    });
+    
+    // Обновляем отображение итогового максимального балла
+    const totalMaxScoreElement = document.getElementById('totalTestMaxScore');
+    if (totalMaxScoreElement) {
+        totalMaxScoreElement.textContent = totalMaxScore;
+    }
+    
     exercises.forEach((exercise, idx) => {
         let typeText = '';
         switch (exercise.type) {
@@ -1120,12 +1133,22 @@ function renderPreviewTestExercises(exercises) {
         
         const exerciseContainerId = `test-exercise-${exercise.id}-${Date.now()}-${idx}`;
         
+        // Максимальный балл за упражнение
+        const maxScore = exercise.scoring?.firstAttempt ?? 100;
+        
         const card = document.createElement('div');
         card.className = 'preview-test-exercise-card';
         card.dataset.exerciseId = exercise.id;
+        card.dataset.maxScore = maxScore;
         
-        // Для студента - скрываем баллы
-        const scoringHtml = currentUserRole === 'student' ? '' : `
+        // Для студента - скрываем баллы за попытки, показываем только "Количество набранных баллов"
+        const scoringHtml = currentUserRole === 'student' ? `
+            <div class="exercise-score-container" id="score-container-${exercise.id}">
+                <span class="exercise-score-label">Количество набранных баллов:</span>
+                <span class="exercise-score-value" id="score-value-${exercise.id}">0</span>
+                <span class="exercise-score-max">/ ${maxScore}</span>
+            </div>
+        ` : `
             <div class="preview-scoring-section">
                 <div class="scoring-title">Баллы за попытки</div>
                 <div class="scoring-row">
@@ -1146,6 +1169,11 @@ function renderPreviewTestExercises(exercises) {
                         <span class="scoring-value">${exercise.scoring?.subsequentAttempts ?? 0} баллов</span>
                     </div>
                 </div>
+            </div>
+            <div class="exercise-score-container" id="score-container-${exercise.id}" style="margin-top: 12px;">
+                <span class="exercise-score-label">Количество набранных баллов:</span>
+                <span class="exercise-score-value" id="score-value-${exercise.id}">0</span>
+                <span class="exercise-score-max">/ ${maxScore}</span>
             </div>
         `;
 
@@ -1183,6 +1211,41 @@ function renderPreviewTestExercises(exercises) {
             }
         }
     });
+}
+
+// Функция для обновления итоговых баллов теста
+function updateTotalTestScore() {
+    let totalScore = 0;
+    let totalMaxScore = 0;
+    
+    // Суммируем баллы из каждого упражнения
+    const exerciseCards = document.querySelectorAll('#previewTestExercisesList .preview-test-exercise-card');
+    exerciseCards.forEach(card => {
+        const maxScoreSpan = card.querySelector('.exercise-score-max');
+        const scoreSpan = card.querySelector('.exercise-score-value');
+        
+        if (maxScoreSpan) {
+            const maxText = maxScoreSpan.textContent;
+            // Убираем символ '/' если есть
+            const maxValue = parseInt(maxText.replace('/', '').trim());
+            if (!isNaN(maxValue)) {
+                totalMaxScore += maxValue;
+            }
+        }
+        
+        if (scoreSpan) {
+            const scoreValue = parseInt(scoreSpan.textContent);
+            if (!isNaN(scoreValue)) {
+                totalScore += scoreValue;
+            }
+        }
+    });
+    
+    const totalScoreElement = document.getElementById('totalTestScore');
+    const totalMaxScoreElement = document.getElementById('totalTestMaxScore');
+    
+    if (totalScoreElement) totalScoreElement.textContent = totalScore;
+    if (totalMaxScoreElement) totalMaxScoreElement.textContent = totalMaxScore;
 }
 
 function renderPreviewTestMatchingContent(data) {
