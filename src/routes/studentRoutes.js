@@ -20,4 +20,7 @@ router.post('/exercise/matching/check', studentProgressController.checkMatching)
 router.post('/exercise/choice/check', studentProgressController.checkChoice);
 router.post('/exercise/fillblanks/check', studentProgressController.checkFillBlanks);
 
+// Проверка упражнения в тесте
+router.post('/test/:testId/exercise/:exerciseId/check', studentProgressController.checkTestExercise);
+
 module.exports = router;
