@@ -69,7 +69,7 @@ module.exports = {
     // Проверка сопоставления
     checkMatching: async (req, res) => {
         try {
-            const { sectionId, userPairs } = req.body; // userPairs: { targetId: itemId }
+            const { sectionId, userPairs } = req.body;
             
             const section = await db.Section.findByPk(sectionId, {
                 include: [{ model: db.Exercise, as: 'exercise' }]
@@ -80,7 +80,7 @@ module.exports = {
             }
             
             const exercise = section.exercise;
-            const correctPairs = exercise.matches || []; // [{ itemId, targetId }]
+            const correctPairs = exercise.matches || [];
             const targets = exercise.right_column || [];
             
             const results = {};
@@ -109,6 +109,7 @@ module.exports = {
             handleError(res, error, 'Ошибка проверки сопоставления');
         }
     },
+    
     // Получение прогресса упражнения
     getExerciseProgress: async (req, res) => {
         try {
@@ -198,7 +199,6 @@ module.exports = {
             
             for (const statement of statements) {
                 const userSelectedAnswerIds = userAnswers[statement.id] || [];
-                // Преобразуем строки в числа, если нужно
                 const userSelectedNumbers = userSelectedAnswerIds.map(id => parseInt(id));
                 const correctAnswers = statement.answers.filter(a => a.isCorrect === true).map(a => a.id);
                 
@@ -232,10 +232,11 @@ module.exports = {
             handleError(res, error, 'Ошибка проверки выбора правильного');
         }
     },
+    
     // Проверка дополнения (fill_blanks)
     checkFillBlanks: async (req, res) => {
         try {
-            const { sectionId, userAnswers } = req.body; // userAnswers: { sentenceId: [selectedWords] }
+            const { sectionId, userAnswers } = req.body;
             
             const section = await db.Section.findByPk(sectionId, {
                 include: [{ model: db.Exercise, as: 'exercise' }]
@@ -288,12 +289,13 @@ module.exports = {
         }
     },
 
-    // Получение количества попыток теста для студента
+    // Получение количества попыток теста для студента (из таблицы test_attempts)
     getTestAttempts: async (req, res) => {
         try {
             const { testId } = req.params;
             const studentId = req.user.id;
             
+            // Находим тест по section_id
             const test = await db.Test.findOne({
                 where: { section_id: testId }
             });
@@ -302,8 +304,14 @@ module.exports = {
                 return res.status(404).json({ success: false, message: 'Тест не найден' });
             }
             
-            const studentAttempts = test.student_attempts || {};
-            const attempts = studentAttempts[studentId] || [];
+            // Получаем попытки из таблицы test_attempts
+            const attempts = await db.TestAttempt.findAll({
+                where: {
+                    test_id: test.id,
+                    student_id: studentId
+                },
+                order: [['attempt_number', 'ASC']]
+            });
             
             res.json({
                 success: true,
@@ -317,13 +325,14 @@ module.exports = {
         }
     },
 
-    // Сохранение результата попытки теста
+    // Сохранение результата попытки теста (в таблицу test_attempts)
     saveTestAttempt: async (req, res) => {
         try {
             const { testId } = req.params;
             const studentId = req.user.id;
             const { attemptNumber, totalScore, maxScore, exerciseResults } = req.body;
             
+            // Находим тест по section_id
             const test = await db.Test.findOne({
                 where: { section_id: testId }
             });
@@ -332,37 +341,36 @@ module.exports = {
                 return res.status(404).json({ success: false, message: 'Тест не найден' });
             }
             
-            // Получаем существующие попытки студента
-            const studentAttempts = test.student_attempts || {};
-            const attempts = studentAttempts[studentId] || [];
-            
             // Проверяем лимит попыток
-            if (attempts.length >= 4) {
+            const existingAttemptsCount = await db.TestAttempt.count({
+                where: {
+                    test_id: test.id,
+                    student_id: studentId
+                }
+            });
+            
+            if (existingAttemptsCount >= 4) {
                 return res.status(400).json({
                     success: false,
                     message: 'Лимит попыток исчерпан'
                 });
             }
             
-            // Добавляем новую попытку
-            const newAttempt = {
-                attemptNumber,
-                totalScore,
-                maxScore,
-                exerciseResults,
-                completedAt: new Date().toISOString()
-            };
-            
-            attempts.push(newAttempt);
-            studentAttempts[studentId] = attempts;
-            
-            // Сохраняем в базу
-            await test.update({ student_attempts: studentAttempts });
+            // Сохраняем попытку в таблицу test_attempts
+            const attempt = await db.TestAttempt.create({
+                test_id: test.id,
+                student_id: studentId,
+                attempt_number: attemptNumber,
+                total_score: totalScore,
+                max_score: maxScore,
+                exercise_results: exerciseResults,
+                completed_at: new Date()
+            });
             
             res.json({
                 success: true,
-                attempt: newAttempt,
-                attemptsCount: attempts.length
+                attempt: attempt,
+                attemptsCount: existingAttemptsCount + 1
             });
         } catch (error) {
             console.error('Ошибка сохранения попытки теста:', error);
@@ -381,7 +389,7 @@ module.exports = {
             console.log('exerciseId:', exerciseId);
             console.log('userAnswers:', JSON.stringify(userAnswers, null, 2));
             
-            // Находим тест
+            // Находим тест по section_id
             const test = await db.Test.findOne({
                 where: { section_id: testId }
             });
@@ -423,9 +431,7 @@ module.exports = {
                 }
                 
                 const totalTargets = targets.length;
-                // Упражнение считается выполненным ТОЛЬКО если ВСЕ ответы правильные
                 const isFullyCorrect = allCorrect && correctCount === totalTargets && totalTargets > 0;
-                // Баллы: maxScore если всё правильно, иначе 0
                 const earnedScore = isFullyCorrect ? maxScore : 0;
                 
                 console.log(`Matching: correctCount=${correctCount}, totalTargets=${totalTargets}, isFullyCorrect=${isFullyCorrect}, earnedScore=${earnedScore}, maxScore=${maxScore}`);
@@ -433,6 +439,7 @@ module.exports = {
                 res.json({
                     success: true,
                     correct: isFullyCorrect,
+                    isFullyCorrect: isFullyCorrect,
                     score: earnedScore,
                     maxScore: maxScore,
                     results: {}
@@ -464,9 +471,7 @@ module.exports = {
                 }
                 
                 const totalStatements = statements.length;
-                // Упражнение считается выполненным ТОЛЬКО если ВСЕ утверждения правильные
                 const isFullyCorrect = allCorrect && correctCount === totalStatements && totalStatements > 0;
-                // Баллы: maxScore если всё правильно, иначе 0
                 const earnedScore = isFullyCorrect ? maxScore : 0;
                 
                 console.log(`Choice: correctCount=${correctCount}, totalStatements=${totalStatements}, isFullyCorrect=${isFullyCorrect}, earnedScore=${earnedScore}, maxScore=${maxScore}`);
@@ -474,6 +479,7 @@ module.exports = {
                 res.json({
                     success: true,
                     correct: isFullyCorrect,
+                    isFullyCorrect: isFullyCorrect,
                     score: earnedScore,
                     maxScore: maxScore,
                     results: {}
@@ -506,18 +512,15 @@ module.exports = {
                 }
                 
                 const totalSentences = sentences.length;
-                // Упражнение считается выполненным ТОЛЬКО если ВСЕ предложения правильные
                 const isFullyCorrect = allCorrect && correctCount === totalSentences && totalSentences > 0;
-                // Баллы: maxScore если всё правильно, иначе 0
                 const earnedScore = isFullyCorrect ? maxScore : 0;
                 
                 console.log(`FillBlanks: correctCount=${correctCount}, totalSentences=${totalSentences}, isFullyCorrect=${isFullyCorrect}, earnedScore=${earnedScore}, maxScore=${maxScore}`);
                 
-                // В studentProgressController.js, в checkTestExercise
                 res.json({
                     success: true,
-                    correct: isFullyCorrect,  // true если все ответы правильные
-                    isFullyCorrect: isFullyCorrect,  // добавляем отдельный флаг
+                    correct: isFullyCorrect,
+                    isFullyCorrect: isFullyCorrect,
                     score: earnedScore,
                     maxScore: maxScore,
                     results: {}
@@ -529,6 +532,39 @@ module.exports = {
         } catch (error) {
             console.error('Ошибка проверки упражнения теста:', error);
             handleError(res, error, 'Ошибка проверки упражнения');
+        }
+    },
+
+    // Очистка попыток теста (для администратора/преподавателя)
+    clearTestAttempts: async (req, res) => {
+        try {
+            const { testId } = req.params;
+            const { studentId } = req.body;
+            
+            // Находим тест по section_id
+            const test = await db.Test.findOne({
+                where: { section_id: testId }
+            });
+            
+            if (!test) {
+                return res.status(404).json({ success: false, message: 'Тест не найден' });
+            }
+            
+            const whereClause = { test_id: test.id };
+            if (studentId) {
+                whereClause.student_id = studentId;
+            }
+            
+            const deletedCount = await db.TestAttempt.destroy({ where: whereClause });
+            
+            res.json({
+                success: true,
+                message: `Удалено ${deletedCount} записей о попытках`,
+                deletedCount
+            });
+        } catch (error) {
+            console.error('Ошибка очистки попыток теста:', error);
+            handleError(res, error, 'Ошибка очистки попыток теста');
         }
     }
 };

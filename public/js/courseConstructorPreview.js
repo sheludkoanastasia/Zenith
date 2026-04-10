@@ -1067,7 +1067,7 @@ async function loadTestSection(sectionId) {
             // Сохраняем ID текущего теста
             currentTestId = sectionId;
             
-            // Получаем количество попыток
+            // Получаем количество попыток ИЗ БД (не из localStorage)
             if (currentUserRole === 'student') {
                 testAttemptsCount = await getTestAttempts(sectionId);
                 updateTestAttemptsDisplay();
@@ -1127,8 +1127,12 @@ async function loadTestSection(sectionId) {
             if (exercisePreviewContainer) exercisePreviewContainer.style.display = 'none';
             if (previewContainer) previewContainer.style.display = 'block';
             
-            // Загружаем сохранённое состояние теста
-            const loaded = loadTestState(sectionId);
+            // НЕ загружаем из localStorage, а загружаем из БД
+            // Удаляем или комментируем эту строку:
+            // const loaded = loadTestState(sectionId);
+            
+            // Вместо этого загружаем данные из БД через API
+            await loadTestAttemptsFromServer(sectionId);
             
             // Обновляем кнопки в зависимости от статуса
             updateTestButtons();
@@ -1142,6 +1146,101 @@ async function loadTestSection(sectionId) {
         console.error('Ошибка:', error);
         showNotification('Ошибка загрузки раздела', 'error');
     }
+}
+
+// Новая функция для загрузки попыток теста с сервера и восстановления состояния
+async function loadTestAttemptsFromServer(testId) {
+    try {
+        const token = getToken();
+        const response = await fetch(`${apiBaseUrl}/student/test/${testId}/attempts`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        if (response.ok) {
+            const data = await response.json();
+            console.log('Загружены попытки с сервера:', data);
+            
+            // Если есть успешные попытки, восстанавливаем состояние
+            if (data.attempts && data.attempts.length > 0) {
+                // Находим последнюю успешную попытку
+                const lastSuccessfulAttempt = data.attempts.find(a => a.isSuccessful) || data.attempts[data.attempts.length - 1];
+                
+                if (lastSuccessfulAttempt && lastSuccessfulAttempt.exercise_results) {
+                    // Восстанавливаем состояние упражнений из последней попытки
+                    restoreExercisesFromAttempt(lastSuccessfulAttempt.exercise_results);
+                }
+            }
+            
+            testAttemptsCount = data.attemptsCount || 0;
+            updateTestAttemptsDisplay();
+            
+            return data;
+        }
+    } catch (error) {
+        console.error('Ошибка загрузки попыток с сервера:', error);
+    }
+    return null;
+}
+
+// Восстановление состояния упражнений из результатов попытки
+function restoreExercisesFromAttempt(exerciseResults) {
+    if (!exerciseResults) return;
+    
+    const exerciseCards = document.querySelectorAll('#previewTestExercisesList .preview-test-exercise-card');
+    
+    exerciseCards.forEach(card => {
+        const exerciseId = card.dataset.exerciseId;
+        const result = exerciseResults.find(r => r.exerciseId == exerciseId);
+        
+        if (result && result.isFullyCorrect) {
+            // Восстанавливаем баллы
+            const scoreSpan = card.querySelector('.exercise-score-value');
+            if (scoreSpan) {
+                scoreSpan.textContent = result.score;
+            }
+            
+            // Восстанавливаем тип упражнения
+            const typeText = card.querySelector('.exercise-type-preview')?.textContent || '';
+            let exerciseType = '';
+            if (typeText === 'Сопоставление') exerciseType = 'matching';
+            else if (typeText === 'Выбор правильного') exerciseType = 'choice';
+            else if (typeText === 'Дополнение') exerciseType = 'fill_blanks';
+            
+            // Восстанавливаем ответы, если они есть
+            if (result.userAnswers) {
+                restoreExerciseAnswers(card, result.userAnswers, typeText);
+            }
+            
+            // Блокируем упражнение
+            lockExercise(card, exerciseType);
+            
+            // Сохраняем флаг в localStorage для быстрого доступа
+            const testId = card.dataset.sectionId;
+            localStorage.setItem(`exercise_fully_correct_${testId}_${exerciseId}`, 'true');
+            
+            console.log(`Упражнение ${exerciseId} восстановлено из БД`);
+        }
+    });
+    
+    // Пересчитываем итоговые баллы
+    updateTotalTestScore();
+}
+
+// Добавьте функцию очистки локального состояния при несоответствии с БД
+function clearLocalTestState(testId) {
+    // Удаляем все локальные данные теста
+    localStorage.removeItem(`test_state_${testId}`);
+    
+    // Удаляем флаги выполненных упражнений
+    Object.keys(localStorage).forEach(key => {
+        if (key.startsWith(`exercise_fully_correct_${testId}`) ||
+            key.startsWith(`exercise_attempts_${testId}`) ||
+            key.startsWith(`exercise_result_${testId}`)) {
+            localStorage.removeItem(key);
+        }
+    });
+    
+    console.log(`Локальное состояние теста ${testId} очищено`);
 }
 
 function renderPreviewTestExercises(exercises) {
@@ -3078,6 +3177,7 @@ async function submitFillBlanksSolution(sectionId) {
 }
 
 // Проверка и отправка всего теста
+// Проверка и отправка всего теста
 async function validateAndSubmitTest() {
     // Проверяем, не превышен ли лимит попыток для теста в целом
     if (testAttemptsCount >= MAX_TEST_ATTEMPTS) {
@@ -3104,6 +3204,7 @@ async function validateAndSubmitTest() {
     let allValid = true;
     const results = [];
     let hasNewAttempts = false;
+    const exerciseResultsForServer = []; // Для отправки на сервер
     
     // Валидация всех упражнений и сбор ответов только для тех, которые ещё не выполнены
     for (let i = 0; i < exerciseCards.length; i++) {
@@ -3177,6 +3278,8 @@ async function validateAndSubmitTest() {
     console.log(`\n====== ОТПРАВКА НОВЫХ ОТВЕТОВ ======`);
     
     let anySuccess = false;
+    let totalScoreForAttempt = 0;
+    let totalMaxScoreForAttempt = 0;
     
     for (let i = 0; i < results.length; i++) {
         const result = results[i];
@@ -3198,9 +3301,11 @@ async function validateAndSubmitTest() {
             subsequentAttempts: parseInt(card.dataset.subsequentAttempts) || 0
         };
         
+        const maxAttemptScore = getScoreForAttempt(scoringData, attemptNumber);
+        
         console.log(`\n--- Упражнение ${exerciseId} (${exerciseType}) ---`);
         console.log('Номер попытки:', attemptNumber);
-        console.log('Баллы за попытку:', getScoreForAttempt(scoringData, attemptNumber));
+        console.log('Максимальный балл за попытку:', maxAttemptScore);
         console.log('Ответы студента:', JSON.stringify(result.userAnswers, null, 2));
         
         let checkResult = null;
@@ -3217,29 +3322,60 @@ async function validateAndSubmitTest() {
             console.error('Ошибка при проверке:', error);
         }
         
-        // В validateAndSubmitTest, при получении результата:
         if (checkResult && checkResult.success) {
-            const attemptScore = getScoreForAttempt(scoringData, attemptNumber);
-            const exerciseScore = checkResult.correct ? attemptScore : 0;
+            // Баллы за упражнение: если правильно - максимальный балл за попытку, иначе 0
+            const exerciseScore = checkResult.correct ? maxAttemptScore : 0;
             
             // Сохраняем флаг полностью правильного ответа
             const isFullyCorrect = checkResult.isFullyCorrect || checkResult.correct;
             
-            // Обновляем отображение баллов
+            console.log(`Результат: верно=${checkResult.correct}, полностью верно=${isFullyCorrect}, получено баллов=${exerciseScore}/${maxAttemptScore}`);
+            
+            // Обновляем отображение баллов в карточке
             const scoreValueSpan = card.querySelector('.exercise-score-value');
             if (scoreValueSpan) {
                 scoreValueSpan.textContent = exerciseScore;
             }
             
+            // Добавляем в общую сумму за попытку
+            totalScoreForAttempt += exerciseScore;
+            totalMaxScoreForAttempt += maxAttemptScore;
+            
+            // Добавляем результат упражнения для отправки на сервер
+            exerciseResultsForServer.push({
+                exerciseId: exerciseId,
+                exerciseType: exerciseType,
+                score: exerciseScore,
+                maxScore: maxAttemptScore,
+                isCorrect: checkResult.correct,
+                isFullyCorrect: isFullyCorrect,
+                userAnswers: result.userAnswers,
+                attemptNumber: attemptNumber
+            });
+            
             // Если упражнение выполнено верно (все ответы правильные)
             if (isFullyCorrect) {
                 lockExercise(card, exerciseType);
-                await saveExerciseAttempt(testId, exerciseId, attemptNumber, attemptScore, true);
+                await saveExerciseAttempt(testId, exerciseId, attemptNumber, maxAttemptScore, true);
                 // Сохраняем в специальное хранилище, что упражнение полностью выполнено
                 localStorage.setItem(`exercise_fully_correct_${testId}_${exerciseId}`, 'true');
+                anySuccess = true;
+                console.log(`Упражнение ${exerciseId} выполнено верно, заблокировано!`);
             } else {
                 await saveExerciseAttempt(testId, exerciseId, attemptNumber, exerciseScore, false);
             }
+        } else {
+            console.log(`Ошибка проверки упражнения ${exerciseId}:`, checkResult);
+            // Добавляем результат с ошибкой
+            exerciseResultsForServer.push({
+                exerciseId: exerciseId,
+                exerciseType: exerciseType,
+                score: 0,
+                maxScore: maxAttemptScore,
+                isCorrect: false,
+                isFullyCorrect: false,
+                error: checkResult?.message || 'Ошибка проверки'
+            });
         }
     }
     
@@ -3247,7 +3383,31 @@ async function validateAndSubmitTest() {
     if (results.length > 0) {
         testAttemptsCount++;
         updateTestAttemptsDisplay();
-        // Сохраняем новое состояние в localStorage
+        
+        // ОТПРАВЛЯЕМ РЕЗУЛЬТАТ НА СЕРВЕР В ТАБЛИЦУ test_attempts
+        console.log('\n====== ОТПРАВКА РЕЗУЛЬТАТА НА СЕРВЕР ======');
+        console.log('Номер попытки:', testAttemptsCount);
+        console.log('Набрано баллов:', totalScoreForAttempt);
+        console.log('Максимум баллов:', totalMaxScoreForAttempt);
+        console.log('Результаты упражнений:', exerciseResultsForServer);
+        
+        const saved = await saveTestAttemptOnServer(
+            testId, 
+            testAttemptsCount, 
+            totalScoreForAttempt, 
+            totalMaxScoreForAttempt, 
+            exerciseResultsForServer
+        );
+        
+        if (saved) {
+            console.log('Результат попытки успешно сохранён на сервере!');
+            // Очищаем локальное состояние, чтобы при следующей загрузке данные брались с сервера
+            clearLocalTestState(testId);
+        } else {
+            console.log('Ошибка при сохранении результата на сервере');
+        }
+        
+        // Сохраняем также в localStorage для резервного копирования
         saveTestState(testId);
     }
     
@@ -3262,10 +3422,42 @@ async function validateAndSubmitTest() {
     if (anySuccess) {
         showNotification(`Отлично! Некоторые упражнения решены правильно!`, 'success');
     } else if (results.length > 0) {
-        showNotification(`Попытка ${testAttemptsCount} завершена.`, 'info');
+        showNotification(`Попытка ${testAttemptsCount} завершена. Набрано ${totalScoreForAttempt} из ${totalMaxScoreForAttempt} баллов.`, 'info');
     }
     
     return true;
+}
+
+// Новая функция для отправки результата на сервер
+async function saveTestAttemptOnServer(testId, attemptNumber, totalScore, maxScore, exerciseResults) {
+    try {
+        const token = getToken();
+        const response = await fetch(`${apiBaseUrl}/student/test/${testId}/attempt`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({
+                attemptNumber: attemptNumber,
+                totalScore: totalScore,
+                maxScore: maxScore,
+                exerciseResults: exerciseResults
+            })
+        });
+        
+        const data = await response.json();
+        if (data.success) {
+            console.log('Попытка успешно сохранена на сервере:', data);
+            return true;
+        } else {
+            console.error('Ошибка при сохранении попытки:', data.message);
+            return false;
+        }
+    } catch (error) {
+        console.error('Ошибка сети при сохранении попытки:', error);
+        return false;
+    }
 }
 
 // Вспомогательная функция для получения ранее выполненных упражнений
@@ -3765,7 +3957,7 @@ async function checkTestFillBlanksExercise(testId, exerciseId, userAnswers) {
     }
 }
 
-// Получение количества попыток теста для студента
+// Получение количества попыток теста для студента (только с сервера)
 async function getTestAttempts(testId) {
     try {
         const token = getToken();
@@ -3775,7 +3967,17 @@ async function getTestAttempts(testId) {
         
         if (response.ok) {
             const data = await response.json();
-            return data.attemptsCount || 0;
+            console.log('Получены попытки с сервера:', data);
+            
+            // Синхронизируем testAttemptsCount с сервером
+            testAttemptsCount = data.attemptsCount || 0;
+            
+            // Если на сервере нет попыток, очищаем локальное состояние
+            if (testAttemptsCount === 0) {
+                clearLocalTestState(testId);
+            }
+            
+            return testAttemptsCount;
         }
         return 0;
     } catch (error) {
@@ -3784,10 +3986,18 @@ async function getTestAttempts(testId) {
     }
 }
 
-// Сохранение результата попытки теста
 async function saveTestAttempt(testId, attemptNumber, totalScore, maxScore, exerciseResults) {
+    console.log('=== saveTestAttempt вызван ===');
+    console.log('testId:', testId);
+    console.log('attemptNumber:', attemptNumber);
+    console.log('totalScore:', totalScore);
+    console.log('maxScore:', maxScore);
+    console.log('exerciseResults:', exerciseResults);
+    
     try {
         const token = getToken();
+        console.log('token:', token ? 'есть' : 'нет');
+        
         const response = await fetch(`${apiBaseUrl}/student/test/${testId}/attempt`, {
             method: 'POST',
             headers: {
@@ -3798,12 +4008,14 @@ async function saveTestAttempt(testId, attemptNumber, totalScore, maxScore, exer
                 attemptNumber,
                 totalScore,
                 maxScore,
-                exerciseResults,
-                timestamp: new Date().toISOString()
+                exerciseResults
             })
         });
         
+        console.log('Response status:', response.status);
         const data = await response.json();
+        console.log('Response data:', data);
+        
         return data.success;
     } catch (error) {
         console.error('Ошибка сохранения попытки теста:', error);
