@@ -29,6 +29,14 @@ let currentEditingTheorySection = null;
 let currentEditingExerciseSection = null;
 let currentUserRole = null;
 
+// Добавляем переменные для отслеживания попыток теста
+let currentTestId = null;
+let testAttemptsCount = 0;
+const MAX_TEST_ATTEMPTS = 4;
+
+// Хранилище для баллов за попытки
+let testAttemptsScores = []; // Массив для хранения результатов каждой попытки
+
 function getToken() {
     return localStorage.getItem('token');
 }
@@ -1041,6 +1049,15 @@ async function loadTestSection(sectionId) {
             currentEditingExerciseSection = section;
             currentEditingTheorySection = null;
             
+            // Сохраняем ID текущего теста
+            currentTestId = sectionId;
+            
+            // Получаем количество попыток
+            if (currentUserRole === 'student') {
+                testAttemptsCount = await getTestAttempts(sectionId);
+                updateTestAttemptsDisplay();
+            }
+            
             const testTitleEl = document.getElementById('currentTestTitle');
             if (testTitleEl) {
                 testTitleEl.textContent = section.title;
@@ -1078,12 +1095,8 @@ async function loadTestSection(sectionId) {
             
             const exercises = testData.exercises || [];
             
-            // ВАЖНО: добавляем sectionId к каждому упражнению
-            // sectionId - это ID раздела ТЕСТА (родительский раздел)
-            // Если каждое упражнение имеет свой собственный раздел, используйте exercise.sectionId
+            // Добавляем sectionId к каждому упражнению
             exercises.forEach(exercise => {
-                // Если у упражнения есть свой sectionId, используйте его
-                // Иначе используйте sectionId родительского теста
                 if (!exercise.sectionId) {
                     exercise.sectionId = sectionId;
                 }
@@ -1121,7 +1134,7 @@ function renderPreviewTestExercises(exercises) {
     
     container.innerHTML = '';
     
-    // Суммируем максимальные баллы за все упражнения
+    // Суммируем максимальные баллы за все упражнения (для первой попытки)
     let totalMaxScore = 0;
     exercises.forEach(exercise => {
         const maxScore = exercise.scoring?.firstAttempt ?? 100;
@@ -1134,9 +1147,6 @@ function renderPreviewTestExercises(exercises) {
         totalMaxScoreElement.textContent = totalMaxScore;
     }
     
-    // Сохраняем testId (sectionId первого упражнения, так как у всех один тест)
-    let testId = null;
-    
     exercises.forEach((exercise, idx) => {
         let typeText = '';
         switch (exercise.type) {
@@ -1148,14 +1158,19 @@ function renderPreviewTestExercises(exercises) {
         
         const exerciseContainerId = `test-exercise-${exercise.id}-${Date.now()}-${idx}`;
         
-        // Максимальный балл за упражнение
+        // Максимальный балл за упражнение (для первой попытки)
         const maxScore = exercise.scoring?.firstAttempt ?? 100;
         
         const card = document.createElement('div');
         card.className = 'preview-test-exercise-card';
         card.dataset.exerciseId = exercise.id;
-        card.dataset.sectionId = exercise.sectionId; // Это testId
+        card.dataset.sectionId = exercise.sectionId;
         card.dataset.maxScore = maxScore;
+        // Сохраняем данные о баллах за попытки
+        card.dataset.firstAttempt = exercise.scoring?.firstAttempt ?? 100;
+        card.dataset.secondAttempt = exercise.scoring?.secondAttempt ?? 50;
+        card.dataset.thirdAttempt = exercise.scoring?.thirdAttempt ?? 25;
+        card.dataset.subsequentAttempts = exercise.scoring?.subsequentAttempts ?? 0;
         
         // Сохраняем testId для первого упражнения
         if (idx === 0 && exercise.sectionId) {
@@ -3026,6 +3041,12 @@ async function submitFillBlanksSolution(sectionId) {
 // Проверка и отправка всего теста
 // Проверка и отправка всего теста
 async function validateAndSubmitTest() {
+    // Проверяем, не превышен ли лимит попыток для теста в целом
+    if (testAttemptsCount >= MAX_TEST_ATTEMPTS) {
+        showNotification(`Лимит попыток исчерпан! Вы использовали все ${MAX_TEST_ATTEMPTS} попыток.`, 'error');
+        return false;
+    }
+    
     const exerciseCards = document.querySelectorAll('#previewTestExercisesList .preview-test-exercise-card');
     if (exerciseCards.length === 0) {
         showNotification('В тесте нет упражнений', 'warning');
@@ -3035,21 +3056,34 @@ async function validateAndSubmitTest() {
     // Очищаем предыдущие подсветки
     clearAllTestHighlights();
     
-    // Получаем ID теста (sectionId из первой карточки, так как у всех один тест)
+    // Получаем ID теста
     const testId = exerciseCards[0]?.dataset.sectionId;
     if (!testId) {
         showNotification('Ошибка: ID теста не найден', 'error');
         return false;
     }
     
+    // Проверяем, какие упражнения уже были успешно выполнены в предыдущих попытках
+    const previouslyCompletedExercises = getPreviouslyCompletedExercises(testId);
+    
     let allValid = true;
     const results = [];
+    let hasNewAttempts = false;
     
-    // Валидация всех упражнений и сбор ответов
+    // Валидация всех упражнений и сбор ответов только для тех, которые ещё не выполнены
     for (let i = 0; i < exerciseCards.length; i++) {
         const card = exerciseCards[i];
         const exerciseId = card.dataset.exerciseId;
         const typeText = card.querySelector('.exercise-type-preview')?.textContent || '';
+        
+        // Проверяем, было ли это упражнение уже выполнено
+        if (previouslyCompletedExercises.includes(exerciseId)) {
+            console.log(`Упражнение ${exerciseId} уже выполнено, пропускаем`);
+            // Оставляем существующие баллы
+            continue;
+        }
+        
+        hasNewAttempts = true;
         
         let exerciseType = '';
         if (typeText === 'Сопоставление') exerciseType = 'matching';
@@ -3068,9 +3102,6 @@ async function validateAndSubmitTest() {
                 highlightMatchingErrors(card);
             }
         } else if (exerciseType === 'choice') {
-            console.log('=== Детали choice упражнения ===');
-            // Получаем данные упражнения из карточки (нужно сохранить их при рендере)
-            console.log('Правильные ответы из БД будут выведены на бэкенде');
             const result = collectChoiceAnswers(card);
             userAnswers = result.userAnswers;
             isValid = result.allHaveSelection;
@@ -3091,7 +3122,7 @@ async function validateAndSubmitTest() {
             card.classList.add('error-highlight');
             results.push({ exerciseId, exerciseType, isValid: false, error: 'Не все поля заполнены' });
         } else {
-            results.push({ exerciseId, exerciseType, isValid: true, userAnswers });
+            results.push({ exerciseId, exerciseType, isValid: true, userAnswers, card });
         }
     }
     
@@ -3103,20 +3134,45 @@ async function validateAndSubmitTest() {
         return false;
     }
     
-    // Теперь проверяем каждое упражнение на сервере
-    console.log('====== СОБРАННЫЕ ОТВЕТЫ СТУДЕНТА ======');
-    let totalScore = 0;
-    let totalMaxScore = 0;
+    // Если нет новых попыток (все упражнения уже выполнены)
+    if (!hasNewAttempts) {
+        showNotification('Все упражнения уже выполнены!', 'info');
+        return false;
+    }
+    
+    // Определяем номер текущей попытки для НОВЫХ упражнений
+    // Нужно получить количество попыток для каждого упражнения отдельно
+    console.log(`\n====== ОТПРАВКА НОВЫХ ОТВЕТОВ ======`);
+    
+    let totalNewScore = 0;
+    let totalNewMaxScore = 0;
+    const successfulExercises = [];
     
     for (let i = 0; i < results.length; i++) {
         const result = results[i];
-        const card = exerciseCards[i];
+        if (!result.isValid) continue;
+        
+        const card = result.card;
         const exerciseId = result.exerciseId;
         const exerciseType = result.exerciseType;
         
-        console.log(`\n--- Упражнение ${i + 1} (${exerciseType}) ---`);
-        console.log('TestId:', testId);
-        console.log('ExerciseId:', exerciseId);
+        // Получаем количество предыдущих попыток для этого упражнения
+        const exerciseAttemptsCount = getExerciseAttemptsCount(testId, exerciseId);
+        
+        // Определяем номер попытки для этого упражнения (1-индексация)
+        const attemptNumber = Math.min(exerciseAttemptsCount + 1, 4);
+        
+        // Получаем данные о баллах за попытки
+        const scoringData = {
+            firstAttempt: parseInt(card.dataset.firstAttempt) || 100,
+            secondAttempt: parseInt(card.dataset.secondAttempt) || 50,
+            thirdAttempt: parseInt(card.dataset.thirdAttempt) || 25,
+            subsequentAttempts: parseInt(card.dataset.subsequentAttempts) || 0
+        };
+        
+        console.log(`\n--- Упражнение ${exerciseId} (${exerciseType}) ---`);
+        console.log('Номер попытки для этого упражнения:', attemptNumber);
+        console.log('Баллы за эту попытку:', getScoreForAttempt(scoringData, attemptNumber));
         console.log('Ответы студента:', JSON.stringify(result.userAnswers, null, 2));
         
         let checkResult = null;
@@ -3134,18 +3190,28 @@ async function validateAndSubmitTest() {
         }
         
         if (checkResult && checkResult.success) {
-            console.log(`Результат проверки: верно=${checkResult.correct}, балл=${checkResult.score}`);
+            // Получаем баллы за упражнение с учетом номера попытки
+            const attemptScore = getScoreForAttempt(scoringData, attemptNumber);
+            // Итоговый балл за упражнение = процент правильных ответов * баллы за попытку / 100
+            const exerciseScore = Math.round((checkResult.score / 100) * attemptScore);
+            
+            console.log(`Результат проверки: верно=${checkResult.correct}, процент=${checkResult.score}%, балл за попытку=${attemptScore}, итого за упражнение=${exerciseScore}`);
             
             // Обновляем отображение баллов в карточке
-            const maxScore = parseInt(card.dataset.maxScore) || 100;
             const scoreValueSpan = card.querySelector('.exercise-score-value');
-            
             if (scoreValueSpan) {
-                scoreValueSpan.textContent = checkResult.score;
+                // Если упражнение выполнено верно, сохраняем максимальный балл за эту попытку
+                if (checkResult.correct) {
+                    scoreValueSpan.textContent = attemptScore;
+                    totalNewScore += attemptScore;
+                    successfulExercises.push(exerciseId);
+                } else {
+                    scoreValueSpan.textContent = exerciseScore;
+                    totalNewScore += exerciseScore;
+                }
             }
             
-            totalScore += checkResult.score;
-            totalMaxScore += maxScore;
+            totalNewMaxScore += attemptScore;
             
             // Подсвечиваем правильные/неправильные ответы в интерфейсе
             if (exerciseType === 'matching') {
@@ -3159,16 +3225,25 @@ async function validateAndSubmitTest() {
             // Если упражнение выполнено верно, блокируем его
             if (checkResult.correct) {
                 lockExercise(card, exerciseType);
+                // Сохраняем информацию о успешном выполнении
+                await saveExerciseAttempt(testId, exerciseId, attemptNumber, attemptScore, true);
+            } else {
+                await saveExerciseAttempt(testId, exerciseId, attemptNumber, exerciseScore, false);
             }
         } else {
             console.log(`Ошибка проверки упражнения ${exerciseId}:`, checkResult);
-            if (checkResult && checkResult.message) {
-                showNotification(`Ошибка: ${checkResult.message}`, 'error');
-            }
         }
     }
     
-    // Обновляем итоговые баллы
+    // Обновляем общее количество попыток теста (увеличиваем только если были новые попытки)
+    if (successfulExercises.length > 0 || results.length > 0) {
+        testAttemptsCount++;
+        updateTestAttemptsDisplay();
+    }
+    
+    // Получаем общие итоговые баллы (суммируем все успешные упражнения)
+    const { totalScore, totalMaxScore } = calculateTotalTestScore(testId);
+    
     console.log('\n====== ИТОГОВЫЕ БАЛЛЫ ======');
     console.log(`Набрано баллов: ${totalScore}`);
     console.log(`Максимально возможный балл: ${totalMaxScore}`);
@@ -3177,20 +3252,95 @@ async function validateAndSubmitTest() {
     const totalMaxScoreElement = document.getElementById('totalTestMaxScore');
     
     if (totalScoreElement) totalScoreElement.textContent = totalScore;
-    if (totalMaxScoreElement && totalMaxScoreElement.textContent !== String(totalMaxScore)) {
-        totalMaxScoreElement.textContent = totalMaxScore;
-    }
+    if (totalMaxScoreElement) totalMaxScoreElement.textContent = totalMaxScore;
     
     console.log('====== КОНЕЦ ПРОВЕРКИ ТЕСТА ======');
     
-    // Показываем итоговое уведомление
-    if (totalScore === totalMaxScore) {
-        showNotification(`Отлично! Вы набрали ${totalScore} из ${totalMaxScore} баллов!`, 'success');
-    } else {
-        showNotification(`Тест завершён! Вы набрали ${totalScore} из ${totalMaxScore} баллов.`, 'info');
+    // Показываем сообщение о результате
+    if (successfulExercises.length === results.length && results.length > 0) {
+        showNotification(`Отлично! Все новые упражнения решены правильно!`, 'success');
+    } else if (successfulExercises.length > 0) {
+        showNotification(`Правильно решено ${successfulExercises.length} из ${results.length} упражнений`, 'info');
     }
     
     return true;
+}
+
+// Вспомогательная функция для получения ранее выполненных упражнений
+function getPreviouslyCompletedExercises(testId) {
+    const completed = [];
+    const exerciseCards = document.querySelectorAll('#previewTestExercisesList .preview-test-exercise-card');
+    
+    exerciseCards.forEach(card => {
+        const scoreSpan = card.querySelector('.exercise-score-value');
+        const scoreValue = parseInt(scoreSpan?.textContent || '0');
+        const maxScore = parseInt(card.dataset.maxScore || '100');
+        
+        // Если набрано максимальное количество баллов, упражнение считается выполненным
+        if (scoreValue >= maxScore) {
+            completed.push(card.dataset.exerciseId);
+        }
+    });
+    
+    return completed;
+}
+
+// Вспомогательная функция для получения количества попыток упражнения
+function getExerciseAttemptsCount(testId, exerciseId) {
+    // Здесь можно получить из localStorage или с сервера
+    const key = `exercise_attempts_${testId}_${exerciseId}`;
+    const attempts = localStorage.getItem(key);
+    return attempts ? parseInt(attempts) : 0;
+}
+
+// Вспомогательная функция для сохранения попытки упражнения
+async function saveExerciseAttempt(testId, exerciseId, attemptNumber, score, isSuccessful) {
+    const key = `exercise_attempts_${testId}_${exerciseId}`;
+    const currentAttempts = parseInt(localStorage.getItem(key) || '0');
+    localStorage.setItem(key, currentAttempts + 1);
+    
+    // Сохраняем результат упражнения
+    const exerciseKey = `exercise_result_${testId}_${exerciseId}`;
+    const existingResult = localStorage.getItem(exerciseKey);
+    
+    if (!existingResult || (isSuccessful && JSON.parse(existingResult).score < score)) {
+        localStorage.setItem(exerciseKey, JSON.stringify({
+            score: score,
+            attemptNumber: attemptNumber,
+            isSuccessful: isSuccessful,
+            timestamp: new Date().toISOString()
+        }));
+    }
+}
+
+// Вспомогательная функция для подсчета общего балла теста
+function calculateTotalTestScore(testId) {
+    let totalScore = 0;
+    let totalMaxScore = 0;
+    
+    const exerciseCards = document.querySelectorAll('#previewTestExercisesList .preview-test-exercise-card');
+    
+    exerciseCards.forEach(card => {
+        const scoreSpan = card.querySelector('.exercise-score-value');
+        const maxScoreSpan = card.querySelector('.exercise-score-max');
+        
+        const score = parseInt(scoreSpan?.textContent || '0');
+        const maxScoreText = maxScoreSpan?.textContent || '/ 100';
+        const maxScore = parseInt(maxScoreText.replace('/', '').trim());
+        
+        totalScore += score;
+        totalMaxScore += maxScore;
+    });
+    
+    return { totalScore, totalMaxScore };
+}
+
+// Вспомогательная функция для получения баллов в зависимости от номера попытки
+function getScoreForAttempt(scoring, attemptNumber) {
+    if (attemptNumber === 1) return scoring.firstAttempt || 100;
+    if (attemptNumber === 2) return scoring.secondAttempt || 50;
+    if (attemptNumber === 3) return scoring.thirdAttempt || 25;
+    return scoring.subsequentAttempts || 0;
 }
 
 // Вспомогательная функция для получения данных раздела
@@ -3490,6 +3640,94 @@ async function checkTestFillBlanksExercise(testId, exerciseId, userAnswers) {
     } catch (error) {
         console.error('Ошибка проверки упражнения теста (fill_blanks):', error);
         return { success: false, correct: false, results: [] };
+    }
+}
+
+// Получение количества попыток теста для студента
+async function getTestAttempts(testId) {
+    try {
+        const token = getToken();
+        const response = await fetch(`${apiBaseUrl}/student/test/${testId}/attempts`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        if (response.ok) {
+            const data = await response.json();
+            return data.attemptsCount || 0;
+        }
+        return 0;
+    } catch (error) {
+        console.error('Ошибка получения попыток теста:', error);
+        return 0;
+    }
+}
+
+// Сохранение результата попытки теста
+async function saveTestAttempt(testId, attemptNumber, totalScore, maxScore, exerciseResults) {
+    try {
+        const token = getToken();
+        const response = await fetch(`${apiBaseUrl}/student/test/${testId}/attempt`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({
+                attemptNumber,
+                totalScore,
+                maxScore,
+                exerciseResults,
+                timestamp: new Date().toISOString()
+            })
+        });
+        
+        const data = await response.json();
+        return data.success;
+    } catch (error) {
+        console.error('Ошибка сохранения попытки теста:', error);
+        return false;
+    }
+}
+
+// Обновление отображения информации о попытках
+function updateTestAttemptsDisplay() {
+    const attemptsContainer = document.getElementById('testAttemptsInfo');
+    if (!attemptsContainer) {
+        // Создаем контейнер для информации о попытках, если его нет
+        const testSettingsPreview = document.querySelector('.test-settings-preview');
+        if (testSettingsPreview) {
+            const attemptsDiv = document.createElement('div');
+            attemptsDiv.id = 'testAttemptsInfo';
+            attemptsDiv.className = 'attempts-info';
+            attemptsDiv.style.marginTop = '12px';
+            attemptsDiv.style.paddingTop = '12px';
+            attemptsDiv.style.borderTop = '1px solid #e5e7eb';
+            testSettingsPreview.appendChild(attemptsDiv);
+        }
+    }
+    
+    const attemptsContainerEl = document.getElementById('testAttemptsInfo');
+    if (attemptsContainerEl) {
+        const remainingAttempts = MAX_TEST_ATTEMPTS - testAttemptsCount;
+        attemptsContainerEl.innerHTML = `
+            <div class="attempts-row">
+                <span class="attempts-label">Попытки:</span>
+                <span class="attempts-value">${testAttemptsCount} / ${MAX_TEST_ATTEMPTS}</span>
+                <span class="attempts-remaining">(осталось: ${remainingAttempts})</span>
+            </div>
+        `;
+        
+        // Если попытки закончились, блокируем кнопку
+        if (testAttemptsCount >= MAX_TEST_ATTEMPTS) {
+            const testSubmitBtn = document.getElementById('testSubmitBtn');
+            if (testSubmitBtn) {
+                testSubmitBtn.disabled = true;
+                testSubmitBtn.style.opacity = '0.5';
+                testSubmitBtn.style.cursor = 'not-allowed';
+                testSubmitBtn.title = 'Лимит попыток исчерпан';
+            }
+            showNotification('Лимит попыток исчерпан!', 'warning');
+        }
     }
 }
 

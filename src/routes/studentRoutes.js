@@ -23,4 +23,8 @@ router.post('/exercise/fillblanks/check', studentProgressController.checkFillBla
 // Проверка упражнения в тесте
 router.post('/test/:testId/exercise/:exerciseId/check', studentProgressController.checkTestExercise);
 
+// Попытки теста
+router.get('/test/:testId/attempts', studentProgressController.getTestAttempts);
+router.post('/test/:testId/attempt', studentProgressController.saveTestAttempt);
+
 module.exports = router;

@@ -36,6 +36,12 @@ module.exports = (sequelize) => {
       type: DataTypes.INTEGER,
       allowNull: true,
       field: 'time_limit'
+    },
+    student_attempts: {
+      type: DataTypes.JSONB,
+      allowNull: true,
+      defaultValue: {},
+      field: 'student_attempts'
     }
   }, {
     tableName: 'tests',

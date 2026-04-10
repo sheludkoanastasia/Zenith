@@ -2233,6 +2233,34 @@ margin-bottom: 8px !important;
     border-top: 1px solid #e5e7eb;
 }
 
+/* Стили для информации о попытках */
+.attempts-info {
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid #e5e7eb;
+}
+
+.attempts-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 14px;
+}
+
+.attempts-label {
+    font-weight: 500;
+    color: #1D1D1D;
+}
+
+.attempts-value {
+    font-weight: 600;
+    color: #7651BE;
+}
+
+.attempts-remaining {
+    color: #4CAF50;
+}
+
 @keyframes successPulse {
     0% { transform: scale(1); }
     50% { transform: scale(1.02); }
