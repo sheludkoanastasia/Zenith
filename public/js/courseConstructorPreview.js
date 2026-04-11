@@ -1787,6 +1787,15 @@ function bindTheorySubmitHandler() {
                 const success = await markTheoryAsCompleted(currentEditingTheorySection.id);
                 if (success) {
                     updateTheoryButtonState(currentEditingTheorySection.id, true);
+                    // После отметки теории пройденной, показываем кнопку "Следующий шаг"
+                    // и привязываем к ней обработчик перехода
+                    const theoryNextBtn = document.getElementById('theoryNextBtn');
+                    if (theoryNextBtn && !theoryNextBtn.hasAttribute('data-listener-bound')) {
+                        theoryNextBtn.setAttribute('data-listener-bound', 'true');
+                        const newNextBtn = theoryNextBtn.cloneNode(true);
+                        theoryNextBtn.parentNode.replaceChild(newNextBtn, theoryNextBtn);
+                        newNextBtn.addEventListener('click', navigateToNextSection);
+                    }
                 }
             }
         });
@@ -2550,6 +2559,14 @@ function updateTheoryButtonState(sectionId, isCompleted) {
                 theoryNextBtn.style.background = '#7651BE';
                 const arrowIcon = theoryNextBtn.querySelector('.next-arrow-icon');
                 if (arrowIcon) arrowIcon.style.filter = 'brightness(0) invert(1)';
+                
+                // Привязываем обработчик к кнопке "Следующий шаг"
+                if (!theoryNextBtn.hasAttribute('data-listener-bound')) {
+                    theoryNextBtn.setAttribute('data-listener-bound', 'true');
+                    const newNextBtn = theoryNextBtn.cloneNode(true);
+                    theoryNextBtn.parentNode.replaceChild(newNextBtn, theoryNextBtn);
+                    newNextBtn.addEventListener('click', navigateToNextSection);
+                }
             }
             theoryNextStep.style.display = 'flex';
         } else {
