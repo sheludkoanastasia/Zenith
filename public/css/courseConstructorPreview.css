@@ -2261,6 +2261,123 @@ margin-bottom: 8px !important;
     color: #4CAF50;
 }
 
+.correct-highlight {
+    background-color: #4CAF50 !important;
+    color: white !important;
+}
+
+.correct-answer-tooltip {
+    animation: fadeIn 0.3s ease;
+    pointer-events: none;
+}
+
+
+
+@keyframes fadeIn {
+    from { 
+        opacity: 0; 
+        transform: translateY(-10px); 
+    }
+    to { 
+        opacity: 1; 
+        transform: translateY(0); 
+    }
+}
+
+.success-highlight-permanent {
+    background-color: #4CAF50 !important;
+    border-color: #4CAF50 !important;
+    color: white !important;
+}
+
+.success-highlight-temporary {
+    background-color: #4CAF50 !important;
+    border-color: #4CAF50 !important;
+    color: white !important;
+    transition: background-color 0.3s ease;
+}
+
+.error-highlight {
+    background-color: #ffebee !important;
+    border-color: #f44336 !important;
+    box-shadow: 0 0 0 2px rgba(244, 67, 54, 0.2);
+}
+
+.matching-select-wrapper {
+    position: relative;
+}
+
+/* Подсветка правильных ответов для choice */
+.checkbox-student.correct-highlight {
+    border-color: #4CAF50 !important;
+    background: #4CAF50 !important;
+    animation: successPulse 0.3s ease;
+}
+
+.checkbox-student.correct-highlight::after {
+    content: '✓';
+    color: white;
+    font-size: 14px;
+    font-weight: bold;
+}
+
+/* Подсветка карточки теста красным при ошибке */
+.preview-test-exercise-card.test-card-error {
+    border: 2px solid #ff4444 !important;
+    position: relative;
+}
+
+/* Подсветка правильных ответов зеленым */
+.correct-highlight {
+    background-color: #4CAF50 !important;
+    border-color: #4CAF50 !important;
+    color: white !important;
+}
+
+.matching-select-option.correct-highlight {
+    background-color: #4CAF50 !important;
+    color: white !important;
+}
+
+/* Подсветка правильных ответов зеленым */
+.correct-highlight {
+    background-color: #4CAF50 !important;
+    border-color: #4CAF50 !important;
+    color: white !important;
+}
+
+/* Для matching - правильный вариант в выпадающем списке */
+.matching-select-option.correct-highlight {
+    background-color: #4CAF50 !important;
+    color: white !important;
+}
+
+/* Для choice - правильный чекбокс */
+.checkbox-student.correct-highlight {
+    border-color: #4CAF50 !important;
+    background: #4CAF50 !important;
+}
+
+.checkbox-student.correct-highlight::after {
+    content: '✓';
+    color: white;
+    font-size: 14px;
+    font-weight: bold;
+}
+
+/* Для fill_blanks - правильный вариант в выпадающем списке */
+.fillblanks-select-option.correct-highlight {
+    background-color: #4CAF50 !important;
+    color: white !important;
+}
+
+/* Карточка ошибки - только красная рамка, без крестика */
+.preview-test-exercise-card.test-card-error {
+    border: 2px solid #ff4444 !important;
+}
+
+
+
 @keyframes successPulse {
     0% { transform: scale(1); }
     50% { transform: scale(1.02); }
@@ -2271,10 +2388,4 @@ margin-bottom: 8px !important;
     0%, 100% { transform: translateX(0); }
     25% { transform: translateX(-3px); }
     75% { transform: translateX(3px); }
-}
-
-/* ========== ANIMATIONS ========== */
-@keyframes fadeIn {
-    from { opacity: 0; }
-    to { opacity: 1; }
 }
