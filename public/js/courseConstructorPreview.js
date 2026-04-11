@@ -652,7 +652,7 @@ async function loadTheorySection(sectionId) {
                 const isCompleted = await checkTheoryStatus(sectionId);
                 updateTheoryButtonState(sectionId, isCompleted);
             } else {
-                updateTheoryButtonState(sectionId, false);
+                updateNextStepButton(sectionId);
             }
         } else {
             showNotification('Ошибка загрузки раздела', 'error');
@@ -849,7 +849,6 @@ async function loadExerciseSection(sectionId) {
                     document.getElementById('fillBlanksExercisePreview').style.display = 'block';
                     renderPreviewFillBlanks(exerciseData);
                 }
-                updateExerciseButtonState(sectionId, false);
             }
             
             const previewContainer = document.getElementById('exercisePreviewContainer');
@@ -1068,13 +1067,10 @@ async function loadTestSection(sectionId) {
             // Сохраняем ID текущего теста
             currentTestId = sectionId;
             
-            // Получаем количество попыток ИЗ БД (не из localStorage)
-            // Получаем количество попыток ИЗ БД (не из localStorage)
+            // Получаем количество попыток
             if (currentUserRole === 'student') {
                 testAttemptsCount = await getTestAttempts(sectionId);
                 updateTestAttemptsDisplay();
-            } else {
-                testAttemptsCount = 0; // Для преподавателя попытки не считаем
             }
             
             const testTitleEl = document.getElementById('currentTestTitle');
@@ -1131,20 +1127,12 @@ async function loadTestSection(sectionId) {
             if (exercisePreviewContainer) exercisePreviewContainer.style.display = 'none';
             if (previewContainer) previewContainer.style.display = 'block';
             
-            // НЕ загружаем из localStorage, а загружаем из БД
-            // Удаляем или комментируем эту строку:
-            // const loaded = loadTestState(sectionId);
+            // Загружаем сохранённое состояние теста
+            const loaded = loadTestState(sectionId);
             
-            // В loadTestSection, после загрузки с сервера:
-            if (currentUserRole === 'student') {
-                await loadTestAttemptsFromServer(sectionId);
-                // Обновляем отображение баллов на основе загруженных данных
-                refreshAllScores();
-                updateTestButtons();
-            } else {
-                updateTestButtons();
-            }
-
+            // Обновляем кнопки в зависимости от статуса
+            updateTestButtons();
+            
             updateNextStepButton(sectionId);
             
         } else {
@@ -1154,109 +1142,6 @@ async function loadTestSection(sectionId) {
         console.error('Ошибка:', error);
         showNotification('Ошибка загрузки раздела', 'error');
     }
-}
-
-// Новая функция для загрузки попыток теста с сервера и восстановления состояния
-// Новая функция для загрузки попыток теста с сервера и восстановления состояния
-async function loadTestAttemptsFromServer(testId) {
-    // Только для студентов
-    if (currentUserRole !== 'student') return null;
-    
-    try {
-        const token = getToken();
-        const response = await fetch(`${apiBaseUrl}/student/test/${testId}/attempts`, {
-            headers: { 'Authorization': `Bearer ${token}` }
-        });
-        
-        if (response.ok) {
-            const data = await response.json();
-            console.log('Загружены попытки с сервера:', data);
-            
-            // Если есть успешные попытки, восстанавливаем состояние
-            if (data.attempts && data.attempts.length > 0) {
-                // Находим последнюю успешную попытку
-                const lastSuccessfulAttempt = data.attempts.find(a => a.isSuccessful) || data.attempts[data.attempts.length - 1];
-                
-                if (lastSuccessfulAttempt && lastSuccessfulAttempt.exercise_results) {
-                    // Восстанавливаем состояние упражнений из последней попытки
-                    restoreExercisesFromAttempt(lastSuccessfulAttempt.exercise_results);
-                }
-            }
-            
-            testAttemptsCount = data.attemptsCount || 0;
-            updateTestAttemptsDisplay();
-            
-            return data;
-        }
-    } catch (error) {
-        console.error('Ошибка загрузки попыток с сервера:', error);
-    }
-    return null;
-}
-
-// Восстановление состояния упражнений из результатов попытки
-function restoreExercisesFromAttempt(exerciseResults) {
-    if (!exerciseResults) return;
-    
-    const exerciseCards = document.querySelectorAll('#previewTestExercisesList .preview-test-exercise-card');
-    
-    exerciseCards.forEach(card => {
-        const exerciseId = card.dataset.exerciseId;
-        const result = exerciseResults.find(r => r.exerciseId == exerciseId);
-        
-        // Для всех упражнений обновляем баллы из результата
-        if (result) {
-            const scoreSpan = card.querySelector('.exercise-score-value');
-            if (scoreSpan) {
-                scoreSpan.textContent = result.score || 0;
-            }
-            
-            const specificScoreSpan = document.getElementById(`score-value-${exerciseId}`);
-            if (specificScoreSpan) {
-                specificScoreSpan.textContent = result.score || 0;
-            }
-        }
-        
-        // Только если полностью правильно - блокируем
-        if (result && result.isFullyCorrect) {
-            const typeText = card.querySelector('.exercise-type-preview')?.textContent || '';
-            let exerciseType = '';
-            if (typeText === 'Сопоставление') exerciseType = 'matching';
-            else if (typeText === 'Выбор правильного') exerciseType = 'choice';
-            else if (typeText === 'Дополнение') exerciseType = 'fill_blanks';
-            
-            if (result.userAnswers) {
-                restoreExerciseAnswers(card, result.userAnswers, typeText);
-            }
-            
-            lockExercise(card, exerciseType);
-            
-            const testId = card.dataset.sectionId;
-            localStorage.setItem(`exercise_fully_correct_${testId}_${exerciseId}`, 'true');
-            
-            console.log(`Упражнение ${exerciseId} восстановлено из БД и заблокировано`);
-        }
-    });
-    
-    // Пересчитываем итоговые баллы
-    updateTotalTestScore();
-}
-
-// Добавьте функцию очистки локального состояния при несоответствии с БД
-function clearLocalTestState(testId) {
-    // Удаляем все локальные данные теста
-    localStorage.removeItem(`test_state_${testId}`);
-    
-    // Удаляем флаги выполненных упражнений
-    Object.keys(localStorage).forEach(key => {
-        if (key.startsWith(`exercise_fully_correct_${testId}`) ||
-            key.startsWith(`exercise_attempts_${testId}`) ||
-            key.startsWith(`exercise_result_${testId}`)) {
-            localStorage.removeItem(key);
-        }
-    });
-    
-    console.log(`Локальное состояние теста ${testId} очищено`);
 }
 
 function renderPreviewTestExercises(exercises) {
@@ -1392,7 +1277,6 @@ function renderPreviewTestExercises(exercises) {
 }
 
 // Функция для обновления итоговых баллов теста
-// Функция для обновления итоговых баллов теста
 function updateTotalTestScore() {
     let totalScore = 0;
     let totalMaxScore = 0;
@@ -1425,8 +1309,6 @@ function updateTotalTestScore() {
     
     if (totalScoreElement) totalScoreElement.textContent = totalScore;
     if (totalMaxScoreElement) totalMaxScoreElement.textContent = totalMaxScore;
-    
-    console.log(`Обновлены итоговые баллы: ${totalScore} / ${totalMaxScore}`);
 }
 
 function renderPreviewTestMatchingContent(data) {
@@ -1775,69 +1657,6 @@ function updateNextStepButton(sectionId) {
     }
 }
 
-// Привязка обработчика для кнопки "Отметить пройденным" (теория)
-function bindTheorySubmitHandler() {
-    const theorySubmitBtn = document.getElementById('theorySubmitBtn');
-    if (theorySubmitBtn && !theorySubmitBtn.hasAttribute('data-listener-bound')) {
-        theorySubmitBtn.setAttribute('data-listener-bound', 'true');
-        const newBtn = theorySubmitBtn.cloneNode(true);
-        theorySubmitBtn.parentNode.replaceChild(newBtn, theorySubmitBtn);
-        newBtn.addEventListener('click', async () => {
-            if (currentEditingTheorySection) {
-                const success = await markTheoryAsCompleted(currentEditingTheorySection.id);
-                if (success) {
-                    updateTheoryButtonState(currentEditingTheorySection.id, true);
-                    // После отметки теории пройденной, показываем кнопку "Следующий шаг"
-                    // и привязываем к ней обработчик перехода
-                    const theoryNextBtn = document.getElementById('theoryNextBtn');
-                    if (theoryNextBtn && !theoryNextBtn.hasAttribute('data-listener-bound')) {
-                        theoryNextBtn.setAttribute('data-listener-bound', 'true');
-                        const newNextBtn = theoryNextBtn.cloneNode(true);
-                        theoryNextBtn.parentNode.replaceChild(newNextBtn, theoryNextBtn);
-                        newNextBtn.addEventListener('click', navigateToNextSection);
-                    }
-                }
-            }
-        });
-    }
-}
-
-function bindExerciseSubmitHandler() {
-    const exerciseSubmitBtn = document.getElementById('exerciseSubmitBtn');
-    if (exerciseSubmitBtn && !exerciseSubmitBtn.hasAttribute('data-listener-bound')) {
-        exerciseSubmitBtn.setAttribute('data-listener-bound', 'true');
-        const newBtn = exerciseSubmitBtn.cloneNode(true);
-        exerciseSubmitBtn.parentNode.replaceChild(newBtn, exerciseSubmitBtn);
-        newBtn.addEventListener('click', async () => {
-            if (currentEditingExerciseSection) {
-                const exerciseType = currentEditingExerciseSection.exercise?.exercise_type || 'matching';
-                if (exerciseType === 'matching') {
-                    await submitMatchingSolution(currentEditingExerciseSection.id);
-                } else if (exerciseType === 'choice') {
-                    await submitChoiceSolution(currentEditingExerciseSection.id);
-                } else if (exerciseType === 'fill_blanks') {
-                    await submitFillBlanksSolution(currentEditingExerciseSection.id);
-                }
-            }
-        });
-    }
-}
-
-function bindTestSubmitHandler() {
-    const testSubmitBtn = document.getElementById('testSubmitBtn');
-    if (testSubmitBtn && !testSubmitBtn.hasAttribute('data-listener-bound')) {
-        testSubmitBtn.setAttribute('data-listener-bound', 'true');
-        const newBtn = testSubmitBtn.cloneNode(true);
-        testSubmitBtn.parentNode.replaceChild(newBtn, testSubmitBtn);
-        newBtn.addEventListener('click', async () => {
-            const isValid = await validateAndSubmitTest();
-            if (isValid) {
-                showNotification('Тест успешно проверен!', 'success');
-            }
-        });
-    }
-}
-
 function initButtonsByRole() {
     if (currentUserRole === 'teacher') {
         document.querySelectorAll('.next-step-btn').forEach(btn => {
@@ -1847,37 +1666,11 @@ function initButtonsByRole() {
             btn.style.display = 'none';
         });
         
-        // Убираем обработчики отправки решений, если они были
-        document.querySelectorAll('.submit-solution-btn').forEach(btn => {
-            const newBtn = btn.cloneNode(true);
-            btn.parentNode.replaceChild(newBtn, btn);
-        });
-        
-        // Добавляем обработчики для кнопок "Следующий шаг"
-        const theoryNextBtn = document.getElementById('theoryNextBtn');
-        const exerciseNextBtn = document.getElementById('exerciseNextBtn');
-        const testNextBtn = document.getElementById('testNextBtn');
-        
-        if (theoryNextBtn) {
-            const newBtn = theoryNextBtn.cloneNode(true);
-            theoryNextBtn.parentNode.replaceChild(newBtn, theoryNextBtn);
-            newBtn.addEventListener('click', navigateToNextSection);
-        }
-        
-        if (exerciseNextBtn) {
-            const newBtn = exerciseNextBtn.cloneNode(true);
-            exerciseNextBtn.parentNode.replaceChild(newBtn, exerciseNextBtn);
-            newBtn.addEventListener('click', navigateToNextSection);
-        }
-        
-        if (testNextBtn) {
-            const newBtn = testNextBtn.cloneNode(true);
-            testNextBtn.parentNode.replaceChild(newBtn, testNextBtn);
-            newBtn.addEventListener('click', navigateToNextSection);
-        }
+        document.getElementById('theoryNextBtn')?.addEventListener('click', navigateToNextSection);
+        document.getElementById('exerciseNextBtn')?.addEventListener('click', navigateToNextSection);
+        document.getElementById('testNextBtn')?.addEventListener('click', navigateToNextSection);
     } 
     else if (currentUserRole === 'student') {
-        // Для студента изначально скрываем все кнопки "Следующий шаг"
         document.querySelectorAll('.next-step-btn').forEach(btn => {
             btn.style.display = 'none';
         });
@@ -1885,16 +1678,72 @@ function initButtonsByRole() {
             btn.style.display = 'flex';
         });
         
-        // Привязываем обработчики для студента
-        bindTheorySubmitHandler();
+        // Убираем старые обработчики и добавляем новые через делегирование
+        // или через setInterval для проверки существования кнопки
+        
+        // Функция для привязки обработчика к кнопке упражнения
+        function bindExerciseSubmitHandler() {
+            const exerciseSubmitBtn = document.getElementById('exerciseSubmitBtn');
+            if (exerciseSubmitBtn) {
+                // Удаляем старый обработчик, клонируя кнопку
+                const newBtn = exerciseSubmitBtn.cloneNode(true);
+                exerciseSubmitBtn.parentNode.replaceChild(newBtn, exerciseSubmitBtn);
+                
+                newBtn.addEventListener('click', async () => {
+                    console.log('Кнопка упражнения нажата');
+                    console.log('currentEditingExerciseSection:', currentEditingExerciseSection);
+                    const exerciseType = currentEditingExerciseSection?.exercise?.exercise_type || 'matching';
+                    console.log('Тип упражнения:', exerciseType);
+                    
+                    if (exerciseType === 'matching') {
+                        await submitMatchingSolution(currentEditingExerciseSection.id);
+                    } else if (exerciseType === 'choice') {
+                        await submitChoiceSolution(currentEditingExerciseSection.id);
+                    } else if (exerciseType === 'fill_blanks') {
+                        await submitFillBlanksSolution(currentEditingExerciseSection.id);
+                    }
+                });
+            }
+        }
+        
+        // Функция для привязки обработчика к кнопке теста
+        function bindTestSubmitHandler() {
+            const testSubmitBtn = document.getElementById('testSubmitBtn');
+            if (testSubmitBtn && !testSubmitBtn.hasAttribute('data-listener-bound')) {
+                testSubmitBtn.setAttribute('data-listener-bound', 'true');
+                const newBtn = testSubmitBtn.cloneNode(true);
+                testSubmitBtn.parentNode.replaceChild(newBtn, testSubmitBtn);
+                newBtn.addEventListener('click', async () => {
+                    console.log('====== НАЧАЛО ПРОВЕРКИ ТЕСТА ======');
+                    const isValid = await validateAndSubmitTest();
+                    if (isValid) {
+                        showNotification('Тест успешно проверен!', 'success');
+                    }
+                });
+            }
+        }
+        
+        // Функция для привязки обработчика к кнопке теории
+        function bindTheoryNextHandler() {
+            const theoryNextBtn = document.getElementById('theoryNextBtn');
+            if (theoryNextBtn && !theoryNextBtn.hasAttribute('data-listener-bound')) {
+                theoryNextBtn.setAttribute('data-listener-bound', 'true');
+                const newBtn = theoryNextBtn.cloneNode(true);
+                theoryNextBtn.parentNode.replaceChild(newBtn, theoryNextBtn);
+                newBtn.addEventListener('click', navigateToNextSection);
+            }
+        }
+        
+        // Вызываем привязку сразу и через интервал (на случай, если кнопки появятся позже)
         bindExerciseSubmitHandler();
         bindTestSubmitHandler();
+        bindTheoryNextHandler();
         
-        // Повторяем привязку через интервал
+        // Повторяем привязку через интервал, так как кнопки могут пересоздаваться
         setInterval(() => {
-            bindTheorySubmitHandler();
             bindExerciseSubmitHandler();
             bindTestSubmitHandler();
+            bindTheoryNextHandler();
         }, 500);
     }
 }
@@ -2503,10 +2352,9 @@ async function markTheoryAsCompleted(sectionId) {
         const data = await response.json();
         
         if (data.success) {
+            // Получаем название раздела
             const sectionTitle = currentEditingTheorySection?.title || 'Раздел теории';
             showNotification(`${sectionTitle} пройдено`, 'success');
-            // Обновляем состояние кнопок
-            updateTheoryButtonState(sectionId, true);
         }
         
         return data.success;
@@ -2539,54 +2387,36 @@ function updateTheoryButtonState(sectionId, isCompleted) {
     const theorySubmitBtn = document.getElementById('theorySubmitBtn');
     const theoryNextBtn = document.getElementById('theoryNextBtn');
     
-    if (currentUserRole === 'teacher') {
-        // Для преподавателя всегда показываем "Следующий шаг"
+    if (isCompleted) {
+        // Теория пройдена - показываем кнопку "Следующий шаг"
         if (theorySubmitBtn) theorySubmitBtn.style.display = 'none';
         if (theoryNextBtn) {
             theoryNextBtn.style.display = 'flex';
+            // Меняем стиль кнопки на фиолетовый
             theoryNextBtn.style.background = '#7651BE';
             const arrowIcon = theoryNextBtn.querySelector('.next-arrow-icon');
             if (arrowIcon) arrowIcon.style.filter = 'brightness(0) invert(1)';
         }
         theoryNextStep.style.display = 'flex';
     } else {
-        // Для студента
-        if (isCompleted) {
-            // Теория пройдена - показываем кнопку "Следующий шаг", скрываем "Отметить пройденным"
-            if (theorySubmitBtn) theorySubmitBtn.style.display = 'none';
-            if (theoryNextBtn) {
-                theoryNextBtn.style.display = 'flex';
-                theoryNextBtn.style.background = '#7651BE';
-                const arrowIcon = theoryNextBtn.querySelector('.next-arrow-icon');
-                if (arrowIcon) arrowIcon.style.filter = 'brightness(0) invert(1)';
-                
-                // Привязываем обработчик к кнопке "Следующий шаг"
-                if (!theoryNextBtn.hasAttribute('data-listener-bound')) {
-                    theoryNextBtn.setAttribute('data-listener-bound', 'true');
-                    const newNextBtn = theoryNextBtn.cloneNode(true);
-                    theoryNextBtn.parentNode.replaceChild(newNextBtn, theoryNextBtn);
-                    newNextBtn.addEventListener('click', navigateToNextSection);
+        // Теория не пройдена - показываем кнопку "Отметить пройденным"
+        if (theorySubmitBtn) {
+            theorySubmitBtn.style.display = 'flex';
+            // Убираем старый обработчик и добавляем новый
+            const newSubmitBtn = theorySubmitBtn.cloneNode(true);
+            theorySubmitBtn.parentNode.replaceChild(newSubmitBtn, theorySubmitBtn);
+            newSubmitBtn.addEventListener('click', async () => {
+                const success = await markTheoryAsCompleted(sectionId);
+                if (success) {
+                    updateTheoryButtonState(sectionId, true);
+                    // Уведомление уже показывается в markTheoryAsCompleted
+                } else {
+                    showNotification('Ошибка при сохранении прогресса', 'error');
                 }
-            }
-            theoryNextStep.style.display = 'flex';
-        } else {
-            // Теория не пройдена - показываем кнопку "Отметить пройденным", скрываем "Следующий шаг"
-            if (theorySubmitBtn) {
-                theorySubmitBtn.style.display = 'flex';
-                const newSubmitBtn = theorySubmitBtn.cloneNode(true);
-                theorySubmitBtn.parentNode.replaceChild(newSubmitBtn, theorySubmitBtn);
-                newSubmitBtn.addEventListener('click', async () => {
-                    const success = await markTheoryAsCompleted(sectionId);
-                    if (success) {
-                        updateTheoryButtonState(sectionId, true);
-                    } else {
-                        showNotification('Ошибка при сохранении прогресса', 'error');
-                    }
-                });
-            }
-            if (theoryNextBtn) theoryNextBtn.style.display = 'none';
-            theoryNextStep.style.display = 'flex';
+            });
         }
+        if (theoryNextBtn) theoryNextBtn.style.display = 'none';
+        theoryNextStep.style.display = 'flex';
     }
 }
 
@@ -2816,7 +2646,7 @@ function clearAllTestHighlights() {
 async function checkMatchingExercise(sectionId, userPairs) {
     try {
         const token = getToken();
-        const response = await fetch(`${apiBaseUrl}/student/exercise/matching/check`, {
+        const response = await fetch(`${apiBaseUrl}/student/exercise/matching/check`, {  // ← добавил /student/
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -2840,7 +2670,7 @@ async function checkMatchingExercise(sectionId, userPairs) {
 async function markExerciseAsCompleted(sectionId, score, maxScore) {
     try {
         const token = getToken();
-        const response = await fetch(`${apiBaseUrl}/student/progress/exercise`, {
+        const response = await fetch(`${apiBaseUrl}/student/progress/exercise`, {  // ← добавил /student/
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -2861,7 +2691,7 @@ async function markExerciseAsCompleted(sectionId, score, maxScore) {
 async function checkExerciseStatus(sectionId) {
     try {
         const token = getToken();
-        const response = await fetch(`${apiBaseUrl}/student/progress/exercise/${sectionId}`, {
+        const response = await fetch(`${apiBaseUrl}/student/progress/exercise/${sectionId}`, {  // ← добавил /student/
             headers: { 'Authorization': `Bearer ${token}` }
         });
         
@@ -2963,51 +2793,36 @@ function updateExerciseButtonState(sectionId, isCompleted) {
     const exerciseSubmitBtn = document.getElementById('exerciseSubmitBtn');
     const exerciseNextBtn = document.getElementById('exerciseNextBtn');
     
-    if (currentUserRole === 'teacher') {
-        // Для преподавателя всегда показываем "Следующий шаг"
+    if (isCompleted) {
+        // Упражнение пройдено - показываем кнопку "Следующий шаг"
         if (exerciseSubmitBtn) exerciseSubmitBtn.style.display = 'none';
         if (exerciseNextBtn) {
             exerciseNextBtn.style.display = 'flex';
             exerciseNextBtn.style.background = '#7651BE';
             const arrowIcon = exerciseNextBtn.querySelector('.next-arrow-icon');
             if (arrowIcon) arrowIcon.style.filter = 'brightness(0) invert(1)';
+            
+            // Убеждаемся, что обработчик события привязан
+            const newNextBtn = exerciseNextBtn.cloneNode(true);
+            exerciseNextBtn.parentNode.replaceChild(newNextBtn, exerciseNextBtn);
+            newNextBtn.addEventListener('click', navigateToNextSection);
         }
         exerciseNextStep.style.display = 'flex';
     } else {
-        // Для студента
-        if (isCompleted) {
-            // Упражнение пройдено - показываем "Следующий шаг", скрываем "Отправить решение"
-            if (exerciseSubmitBtn) exerciseSubmitBtn.style.display = 'none';
-            if (exerciseNextBtn) {
-                exerciseNextBtn.style.display = 'flex';
-                exerciseNextBtn.style.background = '#7651BE';
-                const arrowIcon = exerciseNextBtn.querySelector('.next-arrow-icon');
-                if (arrowIcon) arrowIcon.style.filter = 'brightness(0) invert(1)';
-                
-                // Убеждаемся, что обработчик события привязан
-                const newNextBtn = exerciseNextBtn.cloneNode(true);
-                exerciseNextBtn.parentNode.replaceChild(newNextBtn, exerciseNextBtn);
-                newNextBtn.addEventListener('click', navigateToNextSection);
-            }
-        } else {
-            // Упражнение не пройдено - показываем "Отправить решение", скрываем "Следующий шаг"
-            if (exerciseSubmitBtn) {
-                exerciseSubmitBtn.style.display = 'flex';
-                const newSubmitBtn = exerciseSubmitBtn.cloneNode(true);
-                exerciseSubmitBtn.parentNode.replaceChild(newSubmitBtn, exerciseSubmitBtn);
-                newSubmitBtn.addEventListener('click', async () => {
-                    const exerciseType = currentEditingExerciseSection?.exercise?.exercise_type || 'matching';
-                    if (exerciseType === 'matching') {
-                        await submitMatchingSolution(currentEditingExerciseSection.id);
-                    } else if (exerciseType === 'choice') {
-                        await submitChoiceSolution(currentEditingExerciseSection.id);
-                    } else if (exerciseType === 'fill_blanks') {
-                        await submitFillBlanksSolution(currentEditingExerciseSection.id);
-                    }
-                });
-            }
-            if (exerciseNextBtn) exerciseNextBtn.style.display = 'none';
+        // Упражнение не пройдено - показываем кнопку "Отправить решение"
+        if (exerciseSubmitBtn) {
+            exerciseSubmitBtn.style.display = 'flex';
+            // Убеждаемся, что обработчик события привязан
+            const newSubmitBtn = exerciseSubmitBtn.cloneNode(true);
+            exerciseSubmitBtn.parentNode.replaceChild(newSubmitBtn, exerciseSubmitBtn);
+            newSubmitBtn.addEventListener('click', async () => {
+                const exerciseType = currentEditingExerciseSection?.exercise?.exercise_type || 'matching';
+                if (exerciseType === 'matching') {
+                    await submitMatchingSolution(currentEditingExerciseSection.id);
+                }
+            });
         }
+        if (exerciseNextBtn) exerciseNextBtn.style.display = 'none';
         exerciseNextStep.style.display = 'flex';
     }
 }
@@ -3289,7 +3104,6 @@ async function validateAndSubmitTest() {
     let allValid = true;
     const results = [];
     let hasNewAttempts = false;
-    const exerciseResultsForServer = []; // Для отправки на сервер
     
     // Валидация всех упражнений и сбор ответов только для тех, которые ещё не выполнены
     for (let i = 0; i < exerciseCards.length; i++) {
@@ -3363,8 +3177,6 @@ async function validateAndSubmitTest() {
     console.log(`\n====== ОТПРАВКА НОВЫХ ОТВЕТОВ ======`);
     
     let anySuccess = false;
-    let totalScoreForAttempt = 0;
-    let totalMaxScoreForAttempt = 0;
     
     for (let i = 0; i < results.length; i++) {
         const result = results[i];
@@ -3386,11 +3198,9 @@ async function validateAndSubmitTest() {
             subsequentAttempts: parseInt(card.dataset.subsequentAttempts) || 0
         };
         
-        const maxAttemptScore = getScoreForAttempt(scoringData, attemptNumber);
-        
         console.log(`\n--- Упражнение ${exerciseId} (${exerciseType}) ---`);
         console.log('Номер попытки:', attemptNumber);
-        console.log('Максимальный балл за попытку:', maxAttemptScore);
+        console.log('Баллы за попытку:', getScoreForAttempt(scoringData, attemptNumber));
         console.log('Ответы студента:', JSON.stringify(result.userAnswers, null, 2));
         
         let checkResult = null;
@@ -3407,66 +3217,29 @@ async function validateAndSubmitTest() {
             console.error('Ошибка при проверке:', error);
         }
         
+        // В validateAndSubmitTest, при получении результата:
         if (checkResult && checkResult.success) {
-            // Баллы за упражнение: если правильно - максимальный балл за попытку, иначе 0
-            const exerciseScore = checkResult.correct ? maxAttemptScore : 0;
+            const attemptScore = getScoreForAttempt(scoringData, attemptNumber);
+            const exerciseScore = checkResult.correct ? attemptScore : 0;
             
             // Сохраняем флаг полностью правильного ответа
             const isFullyCorrect = checkResult.isFullyCorrect || checkResult.correct;
             
-            console.log(`Результат: верно=${checkResult.correct}, полностью верно=${isFullyCorrect}, получено баллов=${exerciseScore}/${maxAttemptScore}`);
-            
-            // Обновляем отображение баллов в карточке
+            // Обновляем отображение баллов
             const scoreValueSpan = card.querySelector('.exercise-score-value');
             if (scoreValueSpan) {
                 scoreValueSpan.textContent = exerciseScore;
             }
-
-            // Также обновляем через id, если есть
-            const specificScoreSpan = document.getElementById(`score-value-${exerciseId}`);
-            if (specificScoreSpan) {
-                specificScoreSpan.textContent = exerciseScore;
-            }
-            
-            // Добавляем в общую сумму за попытку
-            totalScoreForAttempt += exerciseScore;
-            totalMaxScoreForAttempt += maxAttemptScore;
-            
-            // Добавляем результат упражнения для отправки на сервер
-            exerciseResultsForServer.push({
-                exerciseId: exerciseId,
-                exerciseType: exerciseType,
-                score: exerciseScore,
-                maxScore: maxAttemptScore,
-                isCorrect: checkResult.correct,
-                isFullyCorrect: isFullyCorrect,
-                userAnswers: result.userAnswers,
-                attemptNumber: attemptNumber
-            });
             
             // Если упражнение выполнено верно (все ответы правильные)
             if (isFullyCorrect) {
                 lockExercise(card, exerciseType);
-                await saveExerciseAttempt(testId, exerciseId, attemptNumber, maxAttemptScore, true);
+                await saveExerciseAttempt(testId, exerciseId, attemptNumber, attemptScore, true);
                 // Сохраняем в специальное хранилище, что упражнение полностью выполнено
                 localStorage.setItem(`exercise_fully_correct_${testId}_${exerciseId}`, 'true');
-                anySuccess = true;
-                console.log(`Упражнение ${exerciseId} выполнено верно, заблокировано!`);
             } else {
                 await saveExerciseAttempt(testId, exerciseId, attemptNumber, exerciseScore, false);
             }
-        } else {
-            console.log(`Ошибка проверки упражнения ${exerciseId}:`, checkResult);
-            // Добавляем результат с ошибкой
-            exerciseResultsForServer.push({
-                exerciseId: exerciseId,
-                exerciseType: exerciseType,
-                score: 0,
-                maxScore: maxAttemptScore,
-                isCorrect: false,
-                isFullyCorrect: false,
-                error: checkResult?.message || 'Ошибка проверки'
-            });
         }
     }
     
@@ -3474,31 +3247,7 @@ async function validateAndSubmitTest() {
     if (results.length > 0) {
         testAttemptsCount++;
         updateTestAttemptsDisplay();
-        
-        // ОТПРАВЛЯЕМ РЕЗУЛЬТАТ НА СЕРВЕР В ТАБЛИЦУ test_attempts
-        console.log('\n====== ОТПРАВКА РЕЗУЛЬТАТА НА СЕРВЕР ======');
-        console.log('Номер попытки:', testAttemptsCount);
-        console.log('Набрано баллов:', totalScoreForAttempt);
-        console.log('Максимум баллов:', totalMaxScoreForAttempt);
-        console.log('Результаты упражнений:', exerciseResultsForServer);
-        
-        const saved = await saveTestAttemptOnServer(
-            testId, 
-            testAttemptsCount, 
-            totalScoreForAttempt, 
-            totalMaxScoreForAttempt, 
-            exerciseResultsForServer
-        );
-        
-        if (saved) {
-            console.log('Результат попытки успешно сохранён на сервере!');
-            // Очищаем локальное состояние, чтобы при следующей загрузке данные брались с сервера
-            clearLocalTestState(testId);
-        } else {
-            console.log('Ошибка при сохранении результата на сервере');
-        }
-        
-        // Сохраняем также в localStorage для резервного копирования
+        // Сохраняем новое состояние в localStorage
         saveTestState(testId);
     }
     
@@ -3513,44 +3262,13 @@ async function validateAndSubmitTest() {
     if (anySuccess) {
         showNotification(`Отлично! Некоторые упражнения решены правильно!`, 'success');
     } else if (results.length > 0) {
-        showNotification(`Попытка ${testAttemptsCount} завершена. Набрано ${totalScoreForAttempt} из ${totalMaxScoreForAttempt} баллов.`, 'info');
+        showNotification(`Попытка ${testAttemptsCount} завершена.`, 'info');
     }
     
     return true;
 }
 
-// Новая функция для отправки результата на сервер
-async function saveTestAttemptOnServer(testId, attemptNumber, totalScore, maxScore, exerciseResults) {
-    try {
-        const token = getToken();
-        const response = await fetch(`${apiBaseUrl}/student/test/${testId}/attempt`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`
-            },
-            body: JSON.stringify({
-                attemptNumber: attemptNumber,
-                totalScore: totalScore,
-                maxScore: maxScore,
-                exerciseResults: exerciseResults
-            })
-        });
-        
-        const data = await response.json();
-        if (data.success) {
-            console.log('Попытка успешно сохранена на сервере:', data);
-            return true;
-        } else {
-            console.error('Ошибка при сохранении попытки:', data.message);
-            return false;
-        }
-    } catch (error) {
-        console.error('Ошибка сети при сохранении попытки:', error);
-        return false;
-    }
-}
-
+// Вспомогательная функция для получения ранее выполненных упражнений
 // Вспомогательная функция для получения ранее выполненных упражнений
 function getPreviouslyCompletedExercises(testId) {
     const completed = [];
@@ -4047,12 +3765,8 @@ async function checkTestFillBlanksExercise(testId, exerciseId, userAnswers) {
     }
 }
 
-// Получение количества попыток теста для студента (только с сервера)
-// Получение количества попыток теста для студента (только с сервера)
+// Получение количества попыток теста для студента
 async function getTestAttempts(testId) {
-    // Только для студентов
-    if (currentUserRole !== 'student') return 0;
-    
     try {
         const token = getToken();
         const response = await fetch(`${apiBaseUrl}/student/test/${testId}/attempts`, {
@@ -4061,17 +3775,7 @@ async function getTestAttempts(testId) {
         
         if (response.ok) {
             const data = await response.json();
-            console.log('Получены попытки с сервера:', data);
-            
-            // Синхронизируем testAttemptsCount с сервером
-            testAttemptsCount = data.attemptsCount || 0;
-            
-            // Если на сервере нет попыток, очищаем локальное состояние
-            if (testAttemptsCount === 0) {
-                clearLocalTestState(testId);
-            }
-            
-            return testAttemptsCount;
+            return data.attemptsCount || 0;
         }
         return 0;
     } catch (error) {
@@ -4080,18 +3784,10 @@ async function getTestAttempts(testId) {
     }
 }
 
+// Сохранение результата попытки теста
 async function saveTestAttempt(testId, attemptNumber, totalScore, maxScore, exerciseResults) {
-    console.log('=== saveTestAttempt вызван ===');
-    console.log('testId:', testId);
-    console.log('attemptNumber:', attemptNumber);
-    console.log('totalScore:', totalScore);
-    console.log('maxScore:', maxScore);
-    console.log('exerciseResults:', exerciseResults);
-    
     try {
         const token = getToken();
-        console.log('token:', token ? 'есть' : 'нет');
-        
         const response = await fetch(`${apiBaseUrl}/student/test/${testId}/attempt`, {
             method: 'POST',
             headers: {
@@ -4102,14 +3798,12 @@ async function saveTestAttempt(testId, attemptNumber, totalScore, maxScore, exer
                 attemptNumber,
                 totalScore,
                 maxScore,
-                exerciseResults
+                exerciseResults,
+                timestamp: new Date().toISOString()
             })
         });
         
-        console.log('Response status:', response.status);
         const data = await response.json();
-        console.log('Response data:', data);
-        
         return data.success;
     } catch (error) {
         console.error('Ошибка сохранения попытки теста:', error);
@@ -4118,12 +3812,8 @@ async function saveTestAttempt(testId, attemptNumber, totalScore, maxScore, exer
 }
 
 // Обновление отображения информации о попытках
-// Обновление отображения информации о попытках
 function updateTestAttemptsDisplay() {
-    // Только для студентов показываем информацию о попытках
-    if (currentUserRole !== 'student') return;
-    
-    let attemptsContainer = document.getElementById('testAttemptsInfo');
+    const attemptsContainer = document.getElementById('testAttemptsInfo');
     if (!attemptsContainer) {
         // Создаем контейнер для информации о попытках, если его нет
         const testSettingsPreview = document.querySelector('.test-settings-preview');
@@ -4135,13 +3825,13 @@ function updateTestAttemptsDisplay() {
             attemptsDiv.style.paddingTop = '12px';
             attemptsDiv.style.borderTop = '1px solid #e5e7eb';
             testSettingsPreview.appendChild(attemptsDiv);
-            attemptsContainer = attemptsDiv;
         }
     }
     
-    if (attemptsContainer) {
+    const attemptsContainerEl = document.getElementById('testAttemptsInfo');
+    if (attemptsContainerEl) {
         const remainingAttempts = MAX_TEST_ATTEMPTS - testAttemptsCount;
-        attemptsContainer.innerHTML = `
+        attemptsContainerEl.innerHTML = `
             <div class="attempts-row">
                 <span class="attempts-label">Попытки:</span>
                 <span class="attempts-value">${testAttemptsCount} / ${MAX_TEST_ATTEMPTS}</span>
@@ -4214,6 +3904,7 @@ function saveTestState(testId) {
 }
 
 // Получение ответов упражнения
+// Получение ответов упражнения
 function getExerciseAnswers(exerciseId, card, typeText) {
     const answers = {};
     
@@ -4262,6 +3953,9 @@ function getExerciseAnswers(exerciseId, card, typeText) {
     return answers;
 }
 
+// Загрузка состояния теста из localStorage
+// Загрузка состояния теста из localStorage
+// Загрузка состояния теста из localStorage
 // Загрузка состояния теста из localStorage
 function loadTestState(testId) {
     const savedState = localStorage.getItem(`test_state_${testId}`);
@@ -4427,7 +4121,6 @@ function isTestCompleted() {
         const maxScoreText = maxScoreSpan?.textContent || '/ 100';
         const maxScore = parseInt(maxScoreText.replace('/', '').trim());
         
-        // Если хотя бы одно упражнение не набрало максимальный балл - тест не пройден
         if (score < maxScore) {
             return false;
         }
@@ -4443,167 +4136,51 @@ function updateTestButtons() {
     const testNextStep = document.getElementById('testNextStep');
     const testSubmitBtn = document.getElementById('testSubmitBtn');
     const testNextBtn = document.getElementById('testNextBtn');
-    const totalScoreContainer = document.querySelector('.total-score-container');
-    const testButtonsContainer = document.querySelector('.test-buttons');
     
     if (!testNextStep) return;
     
-    if (currentUserRole === 'teacher') {
-        // Скрываем блок с итоговыми баллами для преподавателя
-        if (totalScoreContainer) {
-            totalScoreContainer.style.display = 'none';
-        }
-        // Прижимаем контейнер с кнопкой к правому краю
-        if (testButtonsContainer) {
-            testButtonsContainer.style.display = 'flex';
-            testButtonsContainer.style.justifyContent = 'flex-end';
-            testButtonsContainer.style.width = '100%';
-        }
-        
-        // Для преподавателя всегда показываем "Следующий шаг"
+    if (testCompleted || attemptsExhausted) {
+        // Тест пройден или попытки закончились - показываем кнопку "Следующий шаг"
         if (testSubmitBtn) testSubmitBtn.style.display = 'none';
         if (testNextBtn) {
             testNextBtn.style.display = 'flex';
             testNextBtn.style.background = '#7651BE';
             const arrowIcon = testNextBtn.querySelector('.next-arrow-icon');
             if (arrowIcon) arrowIcon.style.filter = 'brightness(0) invert(1)';
+            
+            // Убеждаемся, что обработчик события привязан
+            const newNextBtn = testNextBtn.cloneNode(true);
+            testNextBtn.parentNode.replaceChild(newNextBtn, testNextBtn);
+            newNextBtn.addEventListener('click', navigateToNextSection);
         }
         testNextStep.style.display = 'flex';
+        
+        if (testCompleted) {
+            showNotification('Поздравляем! Вы успешно прошли тест!', 'success');
+        } else if (attemptsExhausted) {
+            showNotification('Лимит попыток исчерпан. Вы можете перейти к следующему разделу.', 'warning');
+        }
     } else {
-        // Для студента - показываем блок с итоговыми баллами
-        if (totalScoreContainer) {
-            totalScoreContainer.style.display = 'flex';
-        }
-        // Возвращаем стандартное поведение для студента
-        if (testButtonsContainer) {
-            testButtonsContainer.style.justifyContent = '';
-            testButtonsContainer.style.width = '';
-        }
-        
-        updateTotalTestScore();
-        
-        if (testCompleted || attemptsExhausted) {
-            if (testSubmitBtn) testSubmitBtn.style.display = 'none';
-            if (testNextBtn) {
-                testNextBtn.style.display = 'flex';
-                testNextBtn.style.background = '#7651BE';
-                const arrowIcon = testNextBtn.querySelector('.next-arrow-icon');
-                if (arrowIcon) arrowIcon.style.filter = 'brightness(0) invert(1)';
-                
-                if (!testNextBtn.hasAttribute('data-listener-bound')) {
-                    testNextBtn.setAttribute('data-listener-bound', 'true');
-                    const newNextBtn = testNextBtn.cloneNode(true);
-                    testNextBtn.parentNode.replaceChild(newNextBtn, testNextBtn);
-                    newNextBtn.addEventListener('click', navigateToNextSection);
+        // Тест не пройден - показываем кнопку "Отправить решение"
+        if (testSubmitBtn) {
+            testSubmitBtn.style.display = 'flex';
+            // Убеждаемся, что обработчик события привязан
+            const newSubmitBtn = testSubmitBtn.cloneNode(true);
+            testSubmitBtn.parentNode.replaceChild(newSubmitBtn, testSubmitBtn);
+            newSubmitBtn.addEventListener('click', async () => {
+                const isValid = await validateAndSubmitTest();
+                if (isValid) {
+                    // После отправки обновляем кнопки
+                    updateTestButtons();
+                    // Сохраняем состояние
+                    const testId = document.querySelector('.preview-test-exercise-card')?.dataset.sectionId;
+                    if (testId) saveTestState(testId);
                 }
-            }
-            testNextStep.style.display = 'flex';
-            
-            if (testCompleted) {
-                showNotification('Поздравляем! Вы успешно прошли тест!', 'success');
-            } else if (attemptsExhausted) {
-                showNotification('Лимит попыток исчерпан. Вы можете перейти к следующему разделу.', 'warning');
-            }
-        } else {
-            if (testSubmitBtn) {
-                testSubmitBtn.style.display = 'flex';
-                if (!testSubmitBtn.hasAttribute('data-listener-bound')) {
-                    testSubmitBtn.setAttribute('data-listener-bound', 'true');
-                    const newSubmitBtn = testSubmitBtn.cloneNode(true);
-                    testSubmitBtn.parentNode.replaceChild(newSubmitBtn, testSubmitBtn);
-                    newSubmitBtn.addEventListener('click', async () => {
-                        const isValid = await validateAndSubmitTest();
-                        if (isValid) {
-                            updateTestButtons();
-                        }
-                    });
-                }
-            }
-            if (testNextBtn) testNextBtn.style.display = 'none';
-            testNextStep.style.display = 'flex';
+            });
         }
+        if (testNextBtn) testNextBtn.style.display = 'none';
+        testNextStep.style.display = 'flex';
     }
-}
-
-// Сброс баллов теста при загрузке (только для новых непройденных упражнений)
-function resetTestScores() {
-    const exerciseCards = document.querySelectorAll('#previewTestExercisesList .preview-test-exercise-card');
-    
-    exerciseCards.forEach(card => {
-        const exerciseId = card.dataset.exerciseId;
-        const testId = card.dataset.sectionId;
-        
-        // Проверяем, было ли упражнение полностью выполнено (из localStorage или из БД)
-        const isFullyCorrectFromLocal = localStorage.getItem(`exercise_fully_correct_${testId}_${exerciseId}`) === 'true';
-        
-        // Проверяем, есть ли уже отображенные баллы (если уже 100, не сбрасываем)
-        const scoreSpan = card.querySelector('.exercise-score-value');
-        const currentScore = parseInt(scoreSpan?.textContent || '0');
-        
-        // Если упражнение НЕ выполнено И текущий балл НЕ максимальный - сбрасываем
-        if (!isFullyCorrectFromLocal && currentScore === 0) {
-            if (scoreSpan) {
-                scoreSpan.textContent = '0';
-            }
-            const scoreValueSpan = document.getElementById(`score-value-${exerciseId}`);
-            if (scoreValueSpan) {
-                scoreValueSpan.textContent = '0';
-            }
-        }
-    });
-    
-    updateTotalTestScore();
-}
-
-// Принудительное обновление всех баллов на основе сохранённых данных
-function refreshAllScores() {
-    const exerciseCards = document.querySelectorAll('#previewTestExercisesList .preview-test-exercise-card');
-    
-    exerciseCards.forEach(card => {
-        const exerciseId = card.dataset.exerciseId;
-        const testId = card.dataset.sectionId;
-        
-        // Проверяем, было ли упражнение полностью выполнено
-        const isFullyCorrect = localStorage.getItem(`exercise_fully_correct_${testId}_${exerciseId}`) === 'true';
-        
-        if (isFullyCorrect) {
-            // Если упражнение выполнено, устанавливаем максимальный балл
-            const maxScoreSpan = card.querySelector('.exercise-score-max');
-            const maxScoreText = maxScoreSpan?.textContent || '/ 100';
-            const maxScore = parseInt(maxScoreText.replace('/', '').trim());
-            
-            const scoreSpan = card.querySelector('.exercise-score-value');
-            if (scoreSpan) {
-                scoreSpan.textContent = maxScore;
-            }
-            const specificScoreSpan = document.getElementById(`score-value-${exerciseId}`);
-            if (specificScoreSpan) {
-                specificScoreSpan.textContent = maxScore;
-            }
-        } else {
-            // Иначе проверяем сохранённый результат
-            const savedResult = localStorage.getItem(`exercise_result_${testId}_${exerciseId}`);
-            let score = 0;
-            
-            if (savedResult) {
-                try {
-                    const result = JSON.parse(savedResult);
-                    score = result.score || 0;
-                } catch(e) {}
-            }
-            
-            const scoreSpan = card.querySelector('.exercise-score-value');
-            if (scoreSpan) {
-                scoreSpan.textContent = score;
-            }
-            const specificScoreSpan = document.getElementById(`score-value-${exerciseId}`);
-            if (specificScoreSpan) {
-                specificScoreSpan.textContent = score;
-            }
-        }
-    });
-    
-    updateTotalTestScore();
 }
 
 // ===== ОБРАБОТЧИКИ СОБЫТИЙ =====

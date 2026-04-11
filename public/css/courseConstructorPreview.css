@@ -256,6 +256,63 @@ body {
     gap: 24px;
 }
 
+/* Course header with collapse button */
+.course-info {
+    margin-bottom: 32px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.course-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.course-title {
+    font-size: 20px;
+    font-weight: 600;
+    color: #1D1D1D;
+    margin-bottom: 0;
+    font-family: 'Ysabeau', 'Inter', sans-serif;
+    flex: 1;
+}
+
+.collapse-sidebar-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 8px;
+    transition: all 0.2s ease;
+    flex-shrink: 0;
+}
+
+.collapse-sidebar-btn:hover {
+    background: rgba(118, 81, 190, 0.1);
+}
+
+.collapse-icon {
+    width: 20px;
+    height: 20px;
+    transition: transform 0.3s ease;
+}
+
+/* Themes list wrapper for animation */
+.themes-list-wrapper {
+    width: 100%;
+}
+
+.themes-list {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+}
+
 /* ========== CONTENT AREA ========== */
 .content-area {
     flex: 1;
@@ -1572,59 +1629,15 @@ body {
     color: #1D1D1D;
 }
 
-/* ========== КНОПКИ ========== */
-/* Основной контейнер для кнопок - для теории и упражнений кнопки справа */
+/* ========== КНОПКА СЛЕДУЮЩИЙ ШАГ ========== */
 .next-step-container {
     display: flex;
     justify-content: flex-end;
-    align-items: center;
     margin-top: 40px;
     padding-top: 24px;
     border-top: 1px solid #e5e7eb;
-    gap: 16px;
 }
 
-/* Специальный стиль для теста - когда есть контейнер с итоговыми баллами */
-.next-step-container:has(.total-score-container) {
-    justify-content: space-between;
-}
-
-/* Контейнер для кнопок теста */
-.test-buttons {
-    display: flex;
-    gap: 12px;
-}
-
-/* Контейнер для итоговых баллов */
-.total-score-container {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 8px 16px;
-    background: #faf9fb;
-    border-radius: 40px;
-    border: 1px solid #e5e7eb;
-}
-
-.total-score-label {
-    font-size: 16px;
-    font-weight: 500;
-    color: #1D1D1D;
-}
-
-.total-score-value {
-    font-size: 20px;
-    font-weight: 700;
-    color: #379B34;
-}
-
-.total-score-max {
-    font-size: 16px;
-    font-weight: 500;
-    color: #4C4C4C;
-}
-
-/* Кнопка "Следующий шаг" */
 .next-step-btn {
     display: inline-flex;
     align-items: center;
@@ -1657,7 +1670,7 @@ body {
     transform: translateX(4px);
 }
 
-/* Кнопка "Отправить решение" */
+/* Зеленая кнопка отправки решения */
 .submit-solution-btn {
     display: inline-flex;
     align-items: center;
@@ -2020,6 +2033,27 @@ margin-bottom: 8px !important;
     border-color: #379B34;
 }
 
+.next-step-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 28px;
+    background: #7651BE;
+    color: white;
+    border: none;
+    border-radius: 40px;
+    font-size: 16px;
+    font-weight: 500;
+    font-family: 'Ysabeau', 'Inter', sans-serif;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.next-step-btn:hover {
+    background: #5e3c9e;
+    transform: translateX(4px);
+}
+
 .preview-toast.success {
     border-left: 6px solid #4CAF50;
 }
@@ -2151,6 +2185,52 @@ margin-bottom: 8px !important;
 .exercise-score-max {
     font-size: 14px;
     color: #4C4C4C;
+}
+
+/* Контейнер для итоговых баллов */
+.total-score-container {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-right: 24px;
+    padding: 8px 16px;
+    background: #faf9fb;
+    border-radius: 40px;
+    border: 1px solid #e5e7eb;
+}
+
+.total-score-label {
+    font-size: 16px;
+    font-weight: 500;
+    color: #1D1D1D;
+}
+
+.total-score-value {
+    font-size: 20px;
+    font-weight: 700;
+    color: #379B34;
+}
+
+.total-score-max {
+    font-size: 16px;
+    font-weight: 500;
+    color: #4C4C4C;
+}
+
+.test-buttons {
+    display: flex;
+    gap: 12px;
+    margin-left: auto;
+}
+
+/* Обновленный контейнер для кнопок */
+.next-step-container {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 40px;
+    padding-top: 24px;
+    border-top: 1px solid #e5e7eb;
 }
 
 /* Стили для информации о попытках */

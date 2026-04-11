@@ -27,8 +27,4 @@ router.post('/test/:testId/exercise/:exerciseId/check', studentProgressControlle
 router.get('/test/:testId/attempts', studentProgressController.getTestAttempts);
 router.post('/test/:testId/attempt', studentProgressController.saveTestAttempt);
 
-// Добавьте маршрут для очистки (только для администратора/преподавателя)
-router.delete('/test/:testId/attempts', authMiddleware.checkRole(['admin', 'teacher']), studentProgressController.clearTestAttempts);
-router.delete('/test/:testId/student/:studentId/attempts', authMiddleware.checkRole(['admin', 'teacher']), studentProgressController.clearTestAttempts);
-
 module.exports = router;
