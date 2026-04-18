@@ -41,6 +41,11 @@ function getToken() {
     return localStorage.getItem('token');
 }
 
+function getStorageKey(testId) {
+    const role = currentUserRole === 'student' ? 'student' : 'teacher';
+    return `test_state_${testId}_${role}`;
+}
+
 // Функция для сортировки блоков по order_index
 function sortBlocksInThemes(themes) {
     if (!themes) return themes;
@@ -190,6 +195,9 @@ async function loadCourseData() {
         const userData = await userResponse.json();
         if (userData.success) {
             currentUserRole = userData.user.role;
+            if (currentUserRole) {
+                document.body.setAttribute('data-user-role', currentUserRole);
+            }
         }
 
         const response = await fetch(`${apiBaseUrl}/courses/${courseId}`, {
@@ -1080,9 +1088,20 @@ async function loadTestSection(sectionId) {
                 localStorage.removeItem(`test_state_${sectionId}_temp`);
             }
             
+            // Для студента получаем количество попыток
             if (currentUserRole === 'student') {
-                testAttemptsCount = await getTestAttempts(sectionId);
-                console.log('Получено количество попыток с сервера:', testAttemptsCount);
+                const serverAttempts = await getTestAttempts(sectionId);
+                let localAttempts = 0;
+                const storageKey = getStorageKey(sectionId);
+                const savedStateRaw = localStorage.getItem(storageKey);
+                if (savedStateRaw) {
+                    try {
+                        const state = JSON.parse(savedStateRaw);
+                        localAttempts = state.attemptsCount || 0;
+                    } catch(e) {}
+                }
+                testAttemptsCount = Math.max(serverAttempts, localAttempts);
+                console.log('Попытки: сервер=', serverAttempts, 'локальные=', localAttempts, 'итого=', testAttemptsCount);
                 updateTestAttemptsDisplay();
             }
             
@@ -1139,35 +1158,49 @@ async function loadTestSection(sectionId) {
             if (exercisePreviewContainer) exercisePreviewContainer.style.display = 'none';
             if (previewContainer) previewContainer.style.display = 'block';
             
-            const savedState = localStorage.getItem(`test_state_${sectionId}`);
-            if (savedState && currentUserRole === 'student') {
-                try {
-                    const state = JSON.parse(savedState);
-                    if (state.exerciseResults && Object.keys(state.exerciseResults).length === exercises.length) {
-                        console.log('Загружаем сохранённое состояние для теста', sectionId);
-                        loadTestState(sectionId);
-                        syncExerciseLockState();
-                    } else {
-                        console.log('Структура теста изменилась, очищаем сохранённое состояние');
-                        localStorage.removeItem(`test_state_${sectionId}`);
+            // ===== ТОЛЬКО ДЛЯ СТУДЕНТА - загружаем сохранённое состояние =====
+            if (currentUserRole === 'student') {
+                const storageKey = getStorageKey(sectionId);
+                const savedState = localStorage.getItem(storageKey);
+                
+                if (savedState) {
+                    try {
+                        const state = JSON.parse(savedState);
+                        if (state.exerciseResults && Object.keys(state.exerciseResults).length === exercises.length) {
+                            console.log('Загружаем сохранённое состояние для теста', sectionId);
+                            // НЕ вызываем resetTestScoresDisplay() – загружаем как есть
+                            loadTestState(sectionId);
+                            syncExerciseLockState();
+                        } else {
+                            console.log('Структура теста изменилась, очищаем сохранённое состояние');
+                            localStorage.removeItem(storageKey);
+                            resetTestScoresDisplay();
+                            testAttemptsCount = 0;
+                            updateTestAttemptsDisplay();
+                        }
+                    } catch(e) {
+                        console.error('Ошибка загрузки сохранённого состояния:', e);
+                        localStorage.removeItem(storageKey);
                         resetTestScoresDisplay();
                         testAttemptsCount = 0;
                         updateTestAttemptsDisplay();
                     }
-                } catch(e) {
-                    console.error('Ошибка загрузки сохранённого состояния:', e);
-                    localStorage.removeItem(`test_state_${sectionId}`);
+                } else {
+                    console.log('Новый тест без сохранённого состояния, сбрасываем всё');
                     resetTestScoresDisplay();
                     testAttemptsCount = 0;
                     updateTestAttemptsDisplay();
                 }
             } else {
-                console.log('Новый тест без сохранённого состояния, сбрасываем всё');
-                resetTestScoresDisplay();
-                testAttemptsCount = 0;
-                updateTestAttemptsDisplay();
+                // Для учителя – просто показываем тест, не трогаем localStorage
+                console.log('Режим преподавателя – не загружаем сохранённые ответы');
+                // Убедимся, что кнопки настроены правильно
+                setTimeout(() => {
+                    updateNextStepButton(sectionId);
+                }, 100);
             }
             
+            // Настройка кнопок в зависимости от роли
             if (currentUserRole === 'student') {
                 setTimeout(() => {
                     const attemptsExhausted = testAttemptsCount >= MAX_TEST_ATTEMPTS;
@@ -1221,6 +1254,7 @@ async function loadTestSection(sectionId) {
 }
 
 function resetTestScoresDisplay() {
+    if (currentUserRole !== 'student') return;
     // Сбрасываем общий балл
     const totalScoreElement = document.getElementById('totalTestScore');
     const totalMaxScoreElement = document.getElementById('totalTestMaxScore');
@@ -1338,39 +1372,35 @@ function renderPreviewTestExercises(exercises) {
         
         // Для студента - скрываем баллы за попытки, показываем только "Количество набранных баллов"
         const scoringHtml = currentUserRole === 'student' ? `
-            <div class="exercise-score-container" id="score-container-${exercise.id}">
-                <span class="exercise-score-label">Количество набранных баллов:</span>
-                <span class="exercise-score-value" id="score-value-${exercise.id}">0</span>
-                <span class="exercise-score-max">/ ${maxScore}</span>
-            </div>
-        ` : `
-            <div class="preview-scoring-section">
-                <div class="scoring-title">Баллы за попытки</div>
-                <div class="scoring-row">
-                    <div class="scoring-field">
-                        <label>1 попытка:</label>
-                        <span class="scoring-value">${exercise.scoring?.firstAttempt ?? 100} баллов</span>
-                    </div>
-                    <div class="scoring-field">
-                        <label>2 попытка:</label>
-                        <span class="scoring-value">${exercise.scoring?.secondAttempt ?? 50} баллов</span>
-                    </div>
-                    <div class="scoring-field">
-                        <label>3 попытка:</label>
-                        <span class="scoring-value">${exercise.scoring?.thirdAttempt ?? 25} баллов</span>
-                    </div>
-                    <div class="scoring-field">
-                        <label>последующие:</label>
-                        <span class="scoring-value">${exercise.scoring?.subsequentAttempts ?? 0} баллов</span>
-                    </div>
+        <div class="exercise-score-container" id="score-container-${exercise.id}">
+            <span class="exercise-score-label">Количество набранных баллов:</span>
+            <span class="exercise-score-value" id="score-value-${exercise.id}">0</span>
+            <span class="exercise-score-max">/ ${maxScore}</span>
+        </div>
+    ` : `
+        <div class="preview-scoring-section">
+            <div class="scoring-title">Баллы за попытки</div>
+            <div class="scoring-row">
+                <div class="scoring-field">
+                    <label>1 попытка:</label>
+                    <span class="scoring-value">${exercise.scoring?.firstAttempt ?? 100} баллов</span>
+                </div>
+                <div class="scoring-field">
+                    <label>2 попытка:</label>
+                    <span class="scoring-value">${exercise.scoring?.secondAttempt ?? 50} баллов</span>
+                </div>
+                <div class="scoring-field">
+                    <label>3 попытка:</label>
+                    <span class="scoring-value">${exercise.scoring?.thirdAttempt ?? 25} баллов</span>
+                </div>
+                <div class="scoring-field">
+                    <label>последующие:</label>
+                    <span class="scoring-value">${exercise.scoring?.subsequentAttempts ?? 0} баллов</span>
                 </div>
             </div>
-            <div class="exercise-score-container" id="score-container-${exercise.id}" style="margin-top: 12px;">
-                <span class="exercise-score-label">Количество набранных баллов:</span>
-                <span class="exercise-score-value" id="score-value-${exercise.id}">0</span>
-                <span class="exercise-score-max">/ ${maxScore}</span>
-            </div>
-        `;
+        </div>
+        <!-- Для учителя НЕ показываем блок "Количество набранных баллов" -->
+    `;
 
         card.innerHTML = `
             <div class="preview-test-exercise-header">
@@ -3303,6 +3333,7 @@ async function submitFillBlanksSolution(sectionId) {
 // Проверка и отправка всего теста
 // Проверка и отправка всего теста
 async function validateAndSubmitTest() {
+    if (currentUserRole !== 'student') return false;
     // Проверяем, не превышен ли лимит попыток для теста в целом
     if (testAttemptsCount >= MAX_TEST_ATTEMPTS) {
         showNotification(`Лимит попыток исчерпан! Вы использовали все ${MAX_TEST_ATTEMPTS} попыток.`, 'error');
@@ -4249,6 +4280,22 @@ function lockExercise(card, exerciseType) {
             const menu = wrapper.querySelector('.fillblanks-select-menu');
             if (menu) menu.style.display = 'none';
         });
+
+        // В lockExercise, в конце функции:
+    if (card.dataset.sectionId && card.dataset.exerciseId) {
+        const testId = card.dataset.sectionId;
+        const exerciseId = card.dataset.exerciseId;
+        const savedScore = localStorage.getItem(`exercise_result_${testId}_${exerciseId}`);
+        if (savedScore) {
+            try {
+                const result = JSON.parse(savedScore);
+                const scoreSpan = card.querySelector('.exercise-score-value');
+                if (scoreSpan && result.score > 0) {
+                    scoreSpan.textContent = result.score;
+                }
+            } catch(e) {}
+        }
+    }
         
         // Удаляем обработчики событий
         const btns = card.querySelectorAll('.fillblanks-select-btn');
@@ -4379,6 +4426,7 @@ async function saveTestAttempt(testId, attemptNumber, totalScore, maxScore, exer
 
 // Обновление отображения информации о попытках
 function updateTestAttemptsDisplay() {
+    if (currentUserRole !== 'student') return;
     const attemptsContainer = document.getElementById('testAttemptsInfo');
     if (!attemptsContainer) {
         // Создаем контейнер для информации о попытках, если его нет
@@ -4456,6 +4504,9 @@ function forceResetTestState(testId) {
 }
 
 function saveTestState(testId) {
+    if (currentUserRole !== 'student') return;
+    
+    const storageKey = getStorageKey(testId);
     const testState = {
         testId: testId,
         attemptsCount: testAttemptsCount,
@@ -4478,64 +4529,104 @@ function saveTestState(testId) {
         testState.totalScore += score;
         testState.totalMaxScore += maxScore;
         
-        // Проверяем, было ли упражнение полностью выполнено
-        const isFullyCorrect = localStorage.getItem(`exercise_fully_correct_${testId}_${exerciseId}`) === 'true';
         const typeText = card.querySelector('.exercise-type-preview')?.textContent || '';
         
-        // Сохраняем реальные баллы, а не максимальные
-        if (isFullyCorrect || score >= maxScore) {
-            const answers = getExerciseAnswers(exerciseId, card, typeText);
-            testState.exerciseResults[exerciseId] = {
-                score: score,  // Сохраняем реальный балл
-                maxScore: maxScore,
-                isCompleted: true,
-                isFullyCorrect: true,
-                answers: answers
-            };
-        } else {
-            testState.exerciseResults[exerciseId] = {
-                score: score,  // Сохраняем реальный балл
-                maxScore: maxScore,
-                isCompleted: false,
-                isFullyCorrect: false,
-                answers: {}
-            };
-        }
+        // ✅ Всегда сохраняем ответы, даже если упражнение не полностью правильное
+        const answers = getExerciseAnswers(exerciseId, card, typeText);
+        
+        // Проверяем, было ли упражнение полностью выполнено
+        const isFullyCorrect = localStorage.getItem(`exercise_fully_correct_${testId}_${exerciseId}`) === 'true';
+        
+        testState.exerciseResults[exerciseId] = {
+            score: score,
+            maxScore: maxScore,
+            isCompleted: isFullyCorrect || (score >= maxScore && maxScore > 0),
+            isFullyCorrect: isFullyCorrect,
+            answers: answers   // всегда сохраняем
+        };
     });
     
-    localStorage.setItem(`test_state_${testId}`, JSON.stringify(testState));
-    console.log('Сохранено состояние теста:', testState);
+    localStorage.setItem(storageKey, JSON.stringify(testState));
+    console.log('Сохранено состояние теста для студента:', testState);
 }
 
-// Получение ответов упражнения
-// Получение ответов упражнения
 function getExerciseAnswers(exerciseId, card, typeText) {
     const answers = {};
     
+    // Проверяем, является ли упражнение полностью правильным
+    const testId = card.dataset.sectionId;
+    const isFullyCorrect = localStorage.getItem(`exercise_fully_correct_${testId}_${exerciseId}`) === 'true';
+    
     if (typeText === 'Сопоставление') {
         const selectWrappers = card.querySelectorAll('.matching-select-wrapper');
+        let hasSelected = false;
+        
         selectWrappers.forEach(wrapper => {
             const targetId = wrapper.dataset.targetId;
             const selectedOption = wrapper.querySelector('.matching-select-option.selected');
             if (selectedOption && selectedOption.dataset.value) {
                 answers[targetId] = selectedOption.dataset.value;
+                hasSelected = true;
             }
         });
-    } else if (typeText === 'Выбор правильного') {
+        
+        // Если нет выбранных ответов, но упражнение полностью правильное – берём из data-атрибутов правильные ответы
+        if (!hasSelected && isFullyCorrect) {
+            const rows = card.querySelectorAll('.matching-row-preview');
+            rows.forEach(row => {
+                const targetId = row.dataset.targetId;
+                const correctItemNumber = row.dataset.correctItemNumber;
+                if (correctItemNumber && correctItemNumber !== '0') {
+                    const wrapper = row.querySelector(`.matching-select-wrapper[data-target-id="${targetId}"]`);
+                    if (wrapper) {
+                        const correctOption = wrapper.querySelector(`.matching-select-option[data-item-number="${correctItemNumber}"]`);
+                        if (correctOption && correctOption.dataset.value) {
+                            answers[targetId] = correctOption.dataset.value;
+                        }
+                    }
+                }
+            });
+        }
+    } 
+    else if (typeText === 'Выбор правильного') {
         const statementCards = card.querySelectorAll('.preview-statement-card');
+        let hasSelected = false;
+        
         statementCards.forEach(statementCard => {
             const statementId = statementCard.dataset.statementId;
             const selectedCheckboxes = statementCard.querySelectorAll('.checkbox-student.selected');
             const answerIds = [];
             selectedCheckboxes.forEach(checkbox => {
                 answerIds.push(checkbox.dataset.answerId);
+                hasSelected = true;
             });
             if (answerIds.length > 0) {
                 answers[statementId] = answerIds;
             }
         });
-    } else if (typeText === 'Дополнение') {
+        
+        // Если нет выбранных ответов, но упражнение полностью правильное – берём из data-атрибутов
+        if (!hasSelected && isFullyCorrect) {
+            statementCards.forEach(statementCard => {
+                const statementId = statementCard.dataset.statementId;
+                let correctAnswers = [];
+                try {
+                    const correctAnswersAttr = statementCard.getAttribute('data-correct-answers');
+                    if (correctAnswersAttr) {
+                        correctAnswers = JSON.parse(correctAnswersAttr);
+                        correctAnswers = correctAnswers.map(id => String(id));
+                    }
+                } catch(e) {}
+                if (correctAnswers.length > 0) {
+                    answers[statementId] = correctAnswers;
+                }
+            });
+        }
+    } 
+    else if (typeText === 'Дополнение') {
         const sentenceCards = card.querySelectorAll('.preview-sentence-card');
+        let hasSelected = false;
+        
         sentenceCards.forEach(sentenceCard => {
             const sentenceId = sentenceCard.dataset.sentenceId;
             const selectWrappers = sentenceCard.querySelectorAll('.fillblanks-select-wrapper');
@@ -4544,6 +4635,7 @@ function getExerciseAnswers(exerciseId, card, typeText) {
                 const selectedOption = wrapper.querySelector('.fillblanks-select-option.selected');
                 if (selectedOption && selectedOption.dataset.value) {
                     selectedWords.push(selectedOption.dataset.value);
+                    hasSelected = true;
                 } else {
                     selectedWords.push('');
                 }
@@ -4552,20 +4644,36 @@ function getExerciseAnswers(exerciseId, card, typeText) {
                 answers[sentenceId] = selectedWords;
             }
         });
+        
+        // Если нет выбранных слов, но упражнение полностью правильное – берём из data-атрибутов правильные ответы
+        if (!hasSelected && isFullyCorrect) {
+            sentenceCards.forEach(sentenceCard => {
+                const sentenceId = sentenceCard.dataset.sentenceId;
+                let correctAnswers = [];
+                try {
+                    correctAnswers = JSON.parse(sentenceCard.dataset.correctAnswers || '[]');
+                } catch(e) {}
+                if (correctAnswers.length > 0) {
+                    answers[sentenceId] = correctAnswers;
+                }
+            });
+        }
     }
     
     return answers;
 }
 
 function loadTestState(testId) {
-    const savedState = localStorage.getItem(`test_state_${testId}`);
+    if (currentUserRole !== 'student') return false;
+    
+    const storageKey = getStorageKey(testId);
+    const savedState = localStorage.getItem(storageKey);
     if (!savedState) return false;
     
     try {
         const state = JSON.parse(savedState);
         console.log('Загружено состояние теста:', state);
         
-        // Проверяем, не устарели ли данные (если упражнения изменились)
         const exerciseCards = document.querySelectorAll('#previewTestExercisesList .preview-test-exercise-card');
         if (exerciseCards.length !== Object.keys(state.exerciseResults).length) {
             console.log('Структура теста изменилась, очищаем сохранённое состояние');
@@ -4573,7 +4681,7 @@ function loadTestState(testId) {
             return false;
         }
         
-        // Восстанавливаем флаги полностью правильных ответов
+        // Восстанавливаем флаги полностью правильных ответов и сами ответы
         Object.entries(state.exerciseResults).forEach(([exerciseId, result]) => {
             if (result.isFullyCorrect) {
                 localStorage.setItem(`exercise_fully_correct_${testId}_${exerciseId}`, 'true');
@@ -4582,39 +4690,38 @@ function loadTestState(testId) {
             }
         });
         
-        // Восстанавливаем состояние упражнений и баллы
+        // Восстанавливаем состояние упражнений, баллы и ответы
         exerciseCards.forEach(card => {
             const exerciseId = card.dataset.exerciseId;
             const exerciseResult = state.exerciseResults[exerciseId];
+            if (!exerciseResult) return;
             
-            if (exerciseResult) {
-                const scoreSpan = card.querySelector('.exercise-score-value');
-                if (scoreSpan) {
-                    // Восстанавливаем сохранённый балл (не максимальный!)
-                    scoreSpan.textContent = exerciseResult.score;
-                    console.log(`Восстановлен балл для упражнения ${exerciseId}: ${exerciseResult.score}`);
-                }
-                
-                // Проверяем, было ли упражнение полностью выполнено
-                const isFullyCorrect = exerciseResult.isFullyCorrect === true;
-                
-                if (isFullyCorrect) {
-                    const typeText = card.querySelector('.exercise-type-preview')?.textContent || '';
-                    let exerciseType = '';
-                    if (typeText === 'Сопоставление') exerciseType = 'matching';
-                    else if (typeText === 'Выбор правильного') exerciseType = 'choice';
-                    else if (typeText === 'Дополнение') exerciseType = 'fill_blanks';
-                    
-                    console.log(`Восстановление упражнения ${exerciseId}, тип: ${exerciseType}, полностью выполнено`);
-                    
-                    // Восстанавливаем ответы (если есть)
-                    if (exerciseResult.answers && Object.keys(exerciseResult.answers).length > 0) {
-                        restoreExerciseAnswers(card, exerciseResult.answers, typeText);
-                    }
-                    
-                    // Блокируем упражнение
+            // Восстанавливаем баллы
+            const scoreSpan = card.querySelector('.exercise-score-value');
+            if (scoreSpan) {
+                scoreSpan.textContent = exerciseResult.score;
+                console.log(`Восстановлен балл для упражнения ${exerciseId}: ${exerciseResult.score}`);
+            }
+            
+            const typeText = card.querySelector('.exercise-type-preview')?.textContent || '';
+            let exerciseType = '';
+            if (typeText === 'Сопоставление') exerciseType = 'matching';
+            else if (typeText === 'Выбор правильного') exerciseType = 'choice';
+            else if (typeText === 'Дополнение') exerciseType = 'fill_blanks';
+            
+            // ✅ Восстанавливаем ответы для ВСЕХ упражнений (не только полностью правильных)
+            if (exerciseResult.answers && Object.keys(exerciseResult.answers).length > 0) {
+                restoreExerciseAnswers(card, exerciseResult.answers, typeText);
+                console.log(`Восстановлены ответы для упражнения ${exerciseId}`);
+            }
+            
+            // Блокируем упражнение, если оно полностью правильное
+            if (exerciseResult.isFullyCorrect) {
+                if (!isExerciseLocked(card)) {
                     lockExercise(card, exerciseType);
-                    console.log(`Упражнение ${exerciseId} восстановлено и заблокировано`);
+                } else {
+                    // Если уже заблокировано, но классы могли пропасть – добавим их снова
+                    lockExercise(card, exerciseType);
                 }
             }
         });
@@ -4622,25 +4729,30 @@ function loadTestState(testId) {
         // Обновляем отображение общего балла из сохранённого состояния
         const totalScoreElement = document.getElementById('totalTestScore');
         const totalMaxScoreElement = document.getElementById('totalTestMaxScore');
-        
         if (totalScoreElement) totalScoreElement.textContent = state.totalScore;
         if (totalMaxScoreElement) totalMaxScoreElement.textContent = state.totalMaxScore;
         
-        // Синхронизируем состояние (без перезаписи баллов)
-        syncExerciseLockState();
-        
+        // Восстанавливаем количество попыток
         testAttemptsCount = state.attemptsCount || 0;
         updateTestAttemptsDisplay();
         
-        // ВАЖНО: Обновляем кнопки после загрузки состояния
+        // ✅ Если попытки исчерпаны – блокируем все упражнения и показываем правильные ответы
+        if (testAttemptsCount >= MAX_TEST_ATTEMPTS) {
+            console.log('Попытки исчерпаны – блокируем все упражнения и показываем правильные ответы');
+            highlightAllErrorsOnAttemptsExhausted(); // эта функция уже есть
+        }
+        
+        // Синхронизируем состояние (дополнительная блокировка)
+        syncExerciseLockState();
+        
+        // Обновляем кнопки после загрузки состояния
         setTimeout(() => {
             updateTestButtons();
-            // Перепривязываем обработчики для студента
             if (currentUserRole === 'student') {
                 rebindTestSubmitHandler();
             }
         }, 100);
-        
+        updateTotalTestScore();
         return true;
     } catch (error) {
         console.error('Ошибка загрузки состояния теста:', error);
@@ -4683,19 +4795,18 @@ function restoreExerciseAnswers(card, answers, typeText) {
             if (wrapper) {
                 console.log(`Найден wrapper для target ${targetId}`);
                 
-                const option = wrapper.querySelector(`.matching-select-option[data-value="${itemId}"]`);
-                if (option) {
-                    const btn = wrapper.querySelector('.matching-select-btn');
-                    if (btn) {
-                        const selectedTextSpan = btn.querySelector('.selected-text');
-                        if (selectedTextSpan) {
-                            selectedTextSpan.textContent = option.textContent;
-                            console.log(`Установлен текст: ${option.textContent}`);
-                        }
-                    }
-                    option.classList.add('selected');
-                    console.log(`Восстановлен ответ для target ${targetId}: ${itemId}`);
-                } else {
+            const option = wrapper.querySelector(`.matching-select-option[data-value="${itemId}"]`);
+            if (option) {
+                const btn = wrapper.querySelector('.matching-select-btn');
+                const selectedTextSpan = btn.querySelector('.selected-text');
+                if (selectedTextSpan) {
+                    selectedTextSpan.textContent = option.textContent;
+                }
+                option.classList.add('selected');
+                // дополнительно: удалить класс selected у других опций
+                wrapper.querySelectorAll('.matching-select-option').forEach(opt => opt.classList.remove('selected'));
+                option.classList.add('selected');
+            } else {
                     console.log(`Опция с value="${itemId}" не найдена для target ${targetId}`);
                     // Выводим все доступные опции для отладки
                     const allOptions = wrapper.querySelectorAll('.matching-select-option');
@@ -5050,6 +5161,12 @@ function syncExerciseLockState() {
 
 backButton.addEventListener('click', () => {
     window.location.href = `/teacher/course-preview?id=${courseId}`;
+});
+
+window.addEventListener('pagehide', () => {
+    if (currentTestId && document.getElementById('testPreviewContainer').style.display === 'block') {
+        saveTestState(currentTestId);
+    }
 });
 
 document.getElementById('backToStructureBtn')?.addEventListener('click', backToSections);

@@ -1632,7 +1632,7 @@ body {
 /* ========== КНОПКА СЛЕДУЮЩИЙ ШАГ ========== */
 .next-step-container {
     display: flex;
-    justify-content: flex-end;
+    justify-content: flex-end !important;
     margin-top: 40px;
     padding-top: 24px;
     border-top: 1px solid #e5e7eb;
@@ -1685,18 +1685,14 @@ body {
     font-weight: 500;
     font-family: 'Ysabeau', 'Inter', sans-serif;
     cursor: pointer;
-    transition: all 0.3s ease;
 }
 
 .submit-solution-btn:hover {
     background: #30842d;
-    transform: translateY(-2px);
     box-shadow: 0 4px 12px rgba(55, 155, 52, 0.3);
 }
 
-.submit-solution-btn:active {
-    transform: translateY(0);
-}
+
 
 /* Стили для fillblanks dropdown */
 .fillblanks-select-wrapper {
@@ -2376,7 +2372,11 @@ margin-bottom: 8px !important;
     border: 2px solid #ff4444 !important;
 }
 
-
+body[data-user-role="teacher"] .total-score-container,
+body[data-user-role="teacher"] .total-score-wrapper,
+body[data-user-role="teacher"] .test-score-info {
+    display: none !important;
+}
 
 @keyframes successPulse {
     0% { transform: scale(1); }
