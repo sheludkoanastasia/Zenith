@@ -70,102 +70,104 @@ module.exports = {
     },
     
     getSectionById: async (req, res) => {
-        try {
-            const { sectionId } = req.params;
-            
-            const section = await db.Section.findByPk(sectionId, {
+    try {
+        const { sectionId } = req.params;
+        
+        const section = await db.Section.findByPk(sectionId, {
+        include: [
+            { model: db.TheoryContent, as: 'theoryContent' },
+            { model: db.Exercise, as: 'exercise' },
+            { model: db.Test, as: 'test' },
+            {
+            model: db.Block,
+            as: 'block',
             include: [
-                { model: db.TheoryContent, as: 'theoryContent' },
-                { model: db.Exercise, as: 'exercise' },
-                { model: db.Test, as: 'test' },
                 {
-                model: db.Block,
-                as: 'block',
-                include: [
-                    {
-                    model: db.Theme,
-                    as: 'theme',
-                    include: [{ model: db.Course, as: 'course' }]
-                    }
-                ]
+                model: db.Theme,
+                as: 'theme',
+                include: [{ model: db.Course, as: 'course' }]
                 }
             ]
-            });
-            
-            if (!section) {
-            return res.status(404).json({
-                success: false,
-                message: 'Раздел не найден'
-            });
             }
-            
-            // Проверяем права доступа
-            let needsReset = false;
-            let currentSectionVersion = section.version || 1;
-            
-            if (req.user.role === 'student') {
-            const isEnrolled = await db.CourseStudent.findOne({
-                where: {
-                course_id: section.block.theme.course.id,
-                student_id: req.user.id
-                }
-            });
-            
-            if (!isEnrolled) {
-                return res.status(403).json({
-                success: false,
-                message: 'Вы не подключены к этому курсу'
-                });
-            }
-            
-            // Получаем сохранённую версию из прогресса
-            const progress = await db.StudentProgress.findOne({
-                where: {
-                student_id: req.user.id,
-                section_id: sectionId
-                }
-            });
-            
-            const savedVersion = progress?.section_version || 0;
-            
-            if (currentSectionVersion > savedVersion) {
-                needsReset = true;
-                console.log(`[Version Check] Section ${sectionId}: current=${currentSectionVersion}, saved=${savedVersion}, needsReset=true`);
-                
-                // Выполняем сброс прогресса
-                await resetStudentProgressForSection(sectionId, req.user.id, currentSectionVersion, null);
-            }
-            }
-            else if (section.block.theme.course.teacher_id !== req.user.id) {
-            return res.status(403).json({
-                success: false,
-                message: 'Нет доступа к этому разделу'
-            });
-            }
-            
-            const responseData = {
-            id: section.id,
-            title: section.title,
-            type: section.type,
-            order_index: section.order_index,
-            block_id: section.block_id,
-            version: section.version,
-            theoryContent: section.theoryContent,
-            exercise: section.exercise,
-            test: section.test,
-            needsReset: needsReset  // Важно! Флаг для фронтенда
-            };
-            
-            res.json({
-            success: true,
-            section: responseData
-            });
-            
-        } catch (error) {
-            console.error('Ошибка при получении раздела:', error);
-            handleError(res, error, 'Ошибка при получении раздела');
+        ]
+        });
+        
+        if (!section) {
+        return res.status(404).json({
+            success: false,
+            message: 'Раздел не найден'
+        });
         }
-        },
+        
+        // Проверяем права доступа
+        let needsReset = false;
+        let currentSectionVersion = section.version || 1;
+        
+        if (req.user.role === 'student') {
+        const isEnrolled = await db.CourseStudent.findOne({
+            where: {
+            course_id: section.block.theme.course.id,
+            student_id: req.user.id
+            }
+        });
+        
+        if (!isEnrolled) {
+            return res.status(403).json({
+            success: false,
+            message: 'Вы не подключены к этому курсу'
+            });
+        }
+        
+        // Получаем сохранённую версию из прогресса
+        const progress = await db.StudentProgress.findOne({
+            where: {
+            student_id: req.user.id,
+            section_id: sectionId
+            }
+        });
+        
+        const savedVersion = progress?.section_version || 0;
+        
+        // ПРОВЕРКА: если прогресса нет в БД - это новый раздел, не сбрасываем
+        // Если прогресс есть и версия изменилась - сбрасываем
+        if (progress && currentSectionVersion > savedVersion) {
+            needsReset = true;
+            console.log(`[Version Check] Section ${sectionId}: current=${currentSectionVersion}, saved=${savedVersion}, needsReset=true`);
+            
+            // Выполняем сброс прогресса
+            await resetStudentProgressForSection(sectionId, req.user.id, currentSectionVersion, null);
+        }
+        }
+        else if (section.block.theme.course.teacher_id !== req.user.id) {
+        return res.status(403).json({
+            success: false,
+            message: 'Нет доступа к этому разделу'
+        });
+        }
+        
+        const responseData = {
+        id: section.id,
+        title: section.title,
+        type: section.type,
+        order_index: section.order_index,
+        block_id: section.block_id,
+        version: section.version,
+        theoryContent: section.theoryContent,
+        exercise: section.exercise,
+        test: section.test,
+        needsReset: needsReset  // Важно! Флаг для фронтенда
+        };
+        
+        res.json({
+        success: true,
+        section: responseData
+        });
+        
+    } catch (error) {
+        console.error('Ошибка при получении раздела:', error);
+        handleError(res, error, 'Ошибка при получении раздела');
+    }
+},
     
     createSection: async (req, res) => {
         const transaction = await db.sequelize.transaction();
