@@ -205,29 +205,30 @@ function getExerciseAnswers(exerciseId, card, typeText) {
 }
 
 async function restoreTestFromServer(testId) {
+  // ВАЖНО: проверяем, что восстанавливаем именно текущий тест
+  if (currentTestId !== testId) {
+    console.log(`[restoreTestFromServer] Skipping - testId mismatch: ${testId} vs current ${currentTestId}`);
+    return false;
+  }
+  
   const serverState = await loadTestStateFromServer(testId);
   if (!serverState || serverState.attemptsCount === 0) {
     console.log('Нет сохранённых попыток на сервере');
-    testAttemptsCount = 0;
-    updateTestAttemptsDisplay();
     return false;
   }
   
   console.log('Восстанавливаем состояние теста с сервера, попыток:', serverState.attemptsCount);
   
   const lastAttempt = serverState.attempts[serverState.attempts.length - 1];
+  if (!lastAttempt) return false;
   
-  if (!lastAttempt) {
-    console.log('Нет данных о попытках');
-    return false;
-  }
-  
-  console.log('Последняя попытка:', lastAttempt);
+  // Проверяем, что восстанавливаемые данные относятся к текущему тесту
+  // (можно добавить проверку по timestamp или ID)
   
   testAttemptsCount = serverState.attemptsCount;
   updateTestAttemptsDisplay();
   
-  // Ждём появления карточек в DOM
+  // Ждём появления карточек
   let retries = 0;
   let exerciseCards = document.querySelectorAll('#previewTestExercisesList .preview-test-exercise-card');
   while (exerciseCards.length === 0 && retries < 10) {
@@ -236,75 +237,42 @@ async function restoreTestFromServer(testId) {
     retries++;
   }
   
-  console.log('Найдено карточек для восстановления:', exerciseCards.length);
-  
   if (lastAttempt.exerciseResults) {
     let totalRestoredScore = 0;
-    let totalRestoredMaxScore = 0;
     
     for (const card of exerciseCards) {
       const exerciseId = card.dataset.exerciseId;
       const exerciseResult = lastAttempt.exerciseResults[exerciseId];
       
       if (exerciseResult) {
-        console.log(`Восстанавливаем упражнение ${exerciseId}:`, exerciseResult);
-        
-        // ВАЖНО: восстанавливаем баллы ДО того, как что-то сбросится
+        // Восстанавливаем баллы
         const scoreSpan = card.querySelector('.exercise-score-value');
-        const maxScoreSpan = card.querySelector('.exercise-score-max');
-        
         if (scoreSpan) {
           scoreSpan.textContent = exerciseResult.score || 0;
           totalRestoredScore += exerciseResult.score || 0;
         }
         
-        if (maxScoreSpan) {
-          const maxScoreText = maxScoreSpan.textContent;
-          const maxScore = parseInt(maxScoreText.replace('/', '').trim());
-          totalRestoredMaxScore += maxScore;
-        }
-        
+        // Восстанавливаем ответы
         const typeText = card.querySelector('.exercise-type-preview')?.textContent || '';
-        let exerciseType = '';
-        if (typeText === 'Сопоставление') exerciseType = 'matching';
-        else if (typeText === 'Выбор правильного') exerciseType = 'choice';
-        else if (typeText === 'Дополнение') exerciseType = 'fill_blanks';
-        
-        // Восстанавливаем ответы пользователя
         if (exerciseResult.answers && Object.keys(exerciseResult.answers).length > 0) {
           restoreExerciseAnswers(card, exerciseResult.answers, typeText);
-          console.log(`Восстановлены ответы для упражнения ${exerciseId}`);
         }
         
-        // Если упражнение полностью правильное - блокируем его
+        // Блокируем полностью правильные упражнения
         if (exerciseResult.isFullyCorrect) {
           localStorage.setItem(`exercise_fully_correct_${testId}_${exerciseId}`, 'true');
-          
-          if (exerciseType) {
-            lockExercise(card, exerciseType);
-            console.log(`Заблокировано полностью правильное упражнение ${exerciseId}`);
-          }
-        } else {
-          localStorage.removeItem(`exercise_fully_correct_${testId}_${exerciseId}`);
-          card.removeAttribute('data-locked');
+          let exerciseType = '';
+          if (typeText === 'Сопоставление') exerciseType = 'matching';
+          else if (typeText === 'Выбор правильного') exerciseType = 'choice';
+          else if (typeText === 'Дополнение') exerciseType = 'fill_blanks';
+          if (exerciseType) lockExercise(card, exerciseType);
         }
       }
     }
     
     // Обновляем общие баллы
     const totalScoreElement = document.getElementById('totalTestScore');
-    const totalMaxScoreElement = document.getElementById('totalTestMaxScore');
-    
     if (totalScoreElement) totalScoreElement.textContent = totalRestoredScore;
-    if (totalMaxScoreElement) totalMaxScoreElement.textContent = totalRestoredMaxScore;
-    
-    if (testAttemptsCount >= MAX_TEST_ATTEMPTS) {
-      setTimeout(() => {
-        highlightAllErrorsOnAttemptsExhausted();
-      }, 100);
-    }
-    
-    syncExerciseLockState();
     
     console.log('Состояние теста успешно восстановлено с сервера');
     return true;
@@ -1464,51 +1432,40 @@ async function loadTestSection(sectionId) {
       currentEditingExerciseSection = section;
       currentEditingTheorySection = null;
       
-      // === НОВАЯ ЛОГИКА СБРОСА (с проверкой, нужен ли сброс) ===
+      // === ПРОВЕРКА: загружаем новый тест, а не тот же самый ===
+      const isNewTest = currentTestId !== sectionId;
+      
+      if (isNewTest) {
+        console.log(`[loadTestSection] Switching from test ${currentTestId} to ${sectionId}`);
+        // ПЕРЕД загрузкой нового теста - ПОЛНАЯ ОЧИСТКА
+        fullResetTestState(sectionId);
+      }
+      
+      // === НОВАЯ ЛОГИКА СБРОСА (если версия изменилась) ===
       const needsReset = section.needsReset === true;
       
       if (needsReset) {
         console.log('[Version Reset] Test section needs reset');
         
-        // Очищаем localStorage и сбрасываем переменные
-        clearSectionLocalStorage(sectionId, sectionId);
+        // Очищаем localStorage для этого теста
+        const keysToRemove = [];
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i);
+          if (key && (key.includes(sectionId) || 
+                      key.includes(`test_state_${sectionId}`) || 
+                      key.includes(`exercise_fully_correct_${sectionId}`))) {
+            keysToRemove.push(key);
+          }
+        }
+        keysToRemove.forEach(key => localStorage.removeItem(key));
+        
         showVersionResetNotification();
         
         if (currentUserRole === 'student') {
           testAttemptsCount = 0;
           testAttemptsScores = [];
-          
-          // Очищаем все ключи localStorage для этого теста
-          const keysToRemove = [];
-          for (let i = 0; i < localStorage.length; i++) {
-            const key = localStorage.key(i);
-            if (key && (key.includes(sectionId) || key.includes(`test_state_${sectionId}`) || key.includes(`exercise_fully_correct_${sectionId}`))) {
-              keysToRemove.push(key);
-            }
-          }
-          keysToRemove.forEach(key => localStorage.removeItem(key));
+          updateTestAttemptsDisplay();
         }
-        
-        // Обновляем currentTestId
-        if (currentTestId !== sectionId) {
-          currentTestId = sectionId;
-        }
-      }
-      
-      if (currentTestId !== sectionId && !needsReset) {
-        console.log('Загрузка нового теста, сбрасываем состояние. Старый ID:', currentTestId, 'Новый ID:', sectionId);
-        
-        currentTestId = sectionId;
-        testAttemptsCount = 0;
-        testAttemptsScores = [];
-        
-        localStorage.removeItem(`test_state_${sectionId}_temp`);
-        
-        // ПРИНУДИТЕЛЬНО СБРАСЫВАЕМ ОТОБРАЖЕНИЕ БАЛЛОВ ДЛЯ НОВОГО ТЕСТА
-        const totalScoreElement = document.getElementById('totalTestScore');
-        const totalMaxScoreElement = document.getElementById('totalTestMaxScore');
-        if (totalScoreElement) totalScoreElement.textContent = '0';
-        if (totalMaxScoreElement) totalMaxScoreElement.textContent = '0';
       }
       
       const testTitleEl = document.getElementById('currentTestTitle');
@@ -1564,19 +1521,12 @@ async function loadTestSection(sectionId) {
       if (currentUserRole === 'student') {
         console.log('Загрузка теста для студента, section.id:', sectionId);
         
-        // Получаем количество попыток с сервера
+        // Получаем количество попыток с сервера ТОЛЬКО для текущего теста
         const serverAttempts = await getTestAttempts(sectionId);
-        let localAttempts = 0;
-        const storageKey = getStorageKey(sectionId);
-        const savedStateRaw = localStorage.getItem(storageKey);
-        if (savedStateRaw) {
-          try {
-            const state = JSON.parse(savedStateRaw);
-            localAttempts = state.attemptsCount || 0;
-          } catch(e) {}
-        }
-        testAttemptsCount = Math.max(serverAttempts, localAttempts);
-        console.log('Попытки: сервер=', serverAttempts, 'локальные=', localAttempts, 'итого=', testAttemptsCount);
+        
+        // НЕ используем локальные данные, только серверные
+        testAttemptsCount = serverAttempts;
+        console.log('Попытки с сервера:', testAttemptsCount);
         updateTestAttemptsDisplay();
         
         // Восстанавливаем состояние с сервера ТОЛЬКО если не было сброса И есть попытки
@@ -1584,8 +1534,10 @@ async function loadTestSection(sectionId) {
           console.log('Восстанавливаем состояние теста с сервера');
           await restoreTestFromServer(sectionId);
         } else if (needsReset) {
-          console.log('Был сброс версии, не восстанавливаем состояние с сервера');
-          // Принудительно сбрасываем UI
+          console.log('Был сброс версии, не восстанавливаем состояние');
+          resetTestUI();
+        } else if (testAttemptsCount === 0) {
+          console.log('Нет сохранённых попыток, сбрасываем UI');
           resetTestUI();
         }
       }
@@ -1688,131 +1640,127 @@ function resetTestScoresDisplay() {
 }
 
 function renderPreviewTestExercises(exercises) {
-    const container = document.getElementById('previewTestExercisesList');
-    if (!container) return;
-    
-    if (exercises.length === 0) {
-        container.innerHTML = '<div class="empty-message">Нет тестирований</div>';
-        return;
+  const container = document.getElementById('previewTestExercisesList');
+  if (!container) return;
+  
+  // ПЕРЕД рендером - сбрасываем отображение итоговых баллов
+  const totalScoreElement = document.getElementById('totalTestScore');
+  const totalMaxScoreElement = document.getElementById('totalTestMaxScore');
+  if (totalScoreElement) totalScoreElement.textContent = '0';
+  
+  if (exercises.length === 0) {
+    container.innerHTML = '<div class="empty-message">Нет тестирований</div>';
+    return;
+  }
+  
+  container.innerHTML = '';
+  
+  // Суммируем максимальные баллы за все упражнения
+  let totalMaxScore = 0;
+  exercises.forEach(exercise => {
+    const maxScore = exercise.scoring?.firstAttempt ?? 100;
+    totalMaxScore += maxScore;
+  });
+  
+  // Обновляем отображение итогового максимального балла
+  if (totalMaxScoreElement) {
+    totalMaxScoreElement.textContent = totalMaxScore;
+  }
+  
+  exercises.forEach((exercise, idx) => {
+    let typeText = '';
+    switch (exercise.type) {
+      case 'matching': typeText = 'Сопоставление'; break;
+      case 'choice': typeText = 'Выбор правильного'; break;
+      case 'fill_blanks': typeText = 'Дополнение'; break;
+      default: typeText = 'Сопоставление';
     }
     
-    container.innerHTML = '';
+    const exerciseContainerId = `test-exercise-${exercise.id}-${Date.now()}-${idx}`;
+    const maxScore = exercise.scoring?.firstAttempt ?? 100;
     
-    // Суммируем максимальные баллы за все упражнения (для первой попытки)
-    let totalMaxScore = 0;
-    exercises.forEach(exercise => {
-        const maxScore = exercise.scoring?.firstAttempt ?? 100;
-        totalMaxScore += maxScore;
-    });
+    const card = document.createElement('div');
+    card.className = 'preview-test-exercise-card';
+    card.dataset.exerciseId = exercise.id;
+    card.dataset.sectionId = exercise.sectionId || currentTestId;
+    card.dataset.maxScore = maxScore;
+    card.dataset.firstAttempt = exercise.scoring?.firstAttempt ?? 100;
+    card.dataset.secondAttempt = exercise.scoring?.secondAttempt ?? 50;
+    card.dataset.thirdAttempt = exercise.scoring?.thirdAttempt ?? 25;
+    card.dataset.subsequentAttempts = exercise.scoring?.subsequentAttempts ?? 0;
     
-    // Обновляем отображение итогового максимального балла
-    const totalMaxScoreElement = document.getElementById('totalTestMaxScore');
-    if (totalMaxScoreElement) {
-        totalMaxScoreElement.textContent = totalMaxScore;
-    }
-    
-    exercises.forEach((exercise, idx) => {
-        let typeText = '';
-        switch (exercise.type) {
-            case 'matching': typeText = 'Сопоставление'; break;
-            case 'choice': typeText = 'Выбор правильного'; break;
-            case 'fill_blanks': typeText = 'Дополнение'; break;
-            default: typeText = 'Сопоставление';
-        }
-        
-        const exerciseContainerId = `test-exercise-${exercise.id}-${Date.now()}-${idx}`;
-        
-        // Максимальный балл за упражнение (для первой попытки)
-        const maxScore = exercise.scoring?.firstAttempt ?? 100;
-        
-        const card = document.createElement('div');
-        card.className = 'preview-test-exercise-card';
-        card.dataset.exerciseId = exercise.id;
-        // ВАЖНО: устанавливаем dataset.sectionId
-        card.dataset.sectionId = exercise.sectionId || currentTestId; // используем currentTestId если sectionId не задан
-        card.dataset.maxScore = maxScore;
-        // Сохраняем данные о баллах за попытки
-        card.dataset.firstAttempt = exercise.scoring?.firstAttempt ?? 100;
-        card.dataset.secondAttempt = exercise.scoring?.secondAttempt ?? 50;
-        card.dataset.thirdAttempt = exercise.scoring?.thirdAttempt ?? 25;
-        card.dataset.subsequentAttempts = exercise.scoring?.subsequentAttempts ?? 0;
-        
-        // Для студента - скрываем баллы за попытки, показываем только "Количество набранных баллов"
-        const scoringHtml = currentUserRole === 'student' ? `
-        <div class="exercise-score-container" id="score-container-${exercise.id}">
-            <span class="exercise-score-label">Количество набранных баллов:</span>
-            <span class="exercise-score-value" id="score-value-${exercise.id}">0</span>
-            <span class="exercise-score-max">/ ${maxScore}</span>
+    // ВАЖНО: при создании карточки БАЛЛЫ ВСЕГДА 0
+    const scoringHtml = currentUserRole === 'student' ? `
+      <div class="exercise-score-container" id="score-container-${exercise.id}">
+        <span class="exercise-score-label">Количество набранных баллов:</span>
+        <span class="exercise-score-value" id="score-value-${exercise.id}">0</span>
+        <span class="exercise-score-max">/ ${maxScore}</span>
+      </div>
+    ` : `
+      <div class="preview-scoring-section">
+        <div class="scoring-title">Баллы за попытки</div>
+        <div class="scoring-row">
+          <div class="scoring-field">
+            <label>1 попытка:</label>
+            <span class="scoring-value">${exercise.scoring?.firstAttempt ?? 100} баллов</span>
+          </div>
+          <div class="scoring-field">
+            <label>2 попытка:</label>
+            <span class="scoring-value">${exercise.scoring?.secondAttempt ?? 50} баллов</span>
+          </div>
+          <div class="scoring-field">
+            <label>3 попытка:</label>
+            <span class="scoring-value">${exercise.scoring?.thirdAttempt ?? 25} баллов</span>
+          </div>
+          <div class="scoring-field">
+            <label>последующие:</label>
+            <span class="scoring-value">${exercise.scoring?.subsequentAttempts ?? 0} баллов</span>
+          </div>
         </div>
-        ` : `
-        <div class="preview-scoring-section">
-            <div class="scoring-title">Баллы за попытки</div>
-            <div class="scoring-row">
-                <div class="scoring-field">
-                    <label>1 попытка:</label>
-                    <span class="scoring-value">${exercise.scoring?.firstAttempt ?? 100} баллов</span>
-                </div>
-                <div class="scoring-field">
-                    <label>2 попытка:</label>
-                    <span class="scoring-value">${exercise.scoring?.secondAttempt ?? 50} баллов</span>
-                </div>
-                <div class="scoring-field">
-                    <label>3 попытка:</label>
-                    <span class="scoring-value">${exercise.scoring?.thirdAttempt ?? 25} баллов</span>
-                </div>
-                <div class="scoring-field">
-                    <label>последующие:</label>
-                    <span class="scoring-value">${exercise.scoring?.subsequentAttempts ?? 0} баллов</span>
-                </div>
-            </div>
-        </div>
-        `;
+      </div>
+    `;
 
-        card.innerHTML = `
-            <div class="preview-test-exercise-header">
-                <div class="exercise-number-preview">${idx + 1}.</div>
-                <div class="exercise-title-preview">${escapeHtml(exercise.title)}</div>
-                <div class="exercise-type-preview">${typeText}</div>
-            </div>
-            <div class="preview-test-exercise-content" id="${exerciseContainerId}">
-            </div>
-            ${scoringHtml}
-        `;
-        
-        container.appendChild(card);
-
-        if (currentUserRole === 'student') {
-            setTimeout(() => {
-                updateTestButtons();
-            }, 100);
+    card.innerHTML = `
+      <div class="preview-test-exercise-header">
+        <div class="exercise-number-preview">${idx + 1}.</div>
+        <div class="exercise-title-preview">${escapeHtml(exercise.title)}</div>
+        <div class="exercise-type-preview">${typeText}</div>
+      </div>
+      <div class="preview-test-exercise-content" id="${exerciseContainerId}">
+      </div>
+      ${scoringHtml}
+    `;
+    
+    container.appendChild(card);
+    
+    const contentContainer = document.getElementById(exerciseContainerId);
+    if (contentContainer) {
+      if (currentUserRole === 'student') {
+        if (exercise.type === 'matching') {
+          renderStudentMatchingForTest(exercise.data, exerciseContainerId);
+        } else if (exercise.type === 'choice') {
+          renderStudentChoiceForTest(exercise.data, exerciseContainerId);
+        } else if (exercise.type === 'fill_blanks') {
+          renderStudentFillBlanksForTest(exercise.data, exerciseContainerId);
         }
-        
-        const contentContainer = document.getElementById(exerciseContainerId);
-        if (contentContainer) {
-            if (currentUserRole === 'student') {
-                if (exercise.type === 'matching') {
-                    renderStudentMatchingForTest(exercise.data, exerciseContainerId);
-                } else if (exercise.type === 'choice') {
-                    renderStudentChoiceForTest(exercise.data, exerciseContainerId);
-                } else if (exercise.type === 'fill_blanks') {
-                    renderStudentFillBlanksForTest(exercise.data, exerciseContainerId);
-                }
-            } else {
-                if (exercise.type === 'matching') {
-                    contentContainer.innerHTML = renderPreviewTestMatchingContent(exercise.data);
-                } else if (exercise.type === 'choice') {
-                    contentContainer.innerHTML = renderPreviewTestChoiceContent(exercise.data);
-                } else if (exercise.type === 'fill_blanks') {
-                    contentContainer.innerHTML = renderPreviewTestFillBlanksContent(exercise.data);
-                }
-            }
+      } else {
+        if (exercise.type === 'matching') {
+          contentContainer.innerHTML = renderPreviewTestMatchingContent(exercise.data);
+        } else if (exercise.type === 'choice') {
+          contentContainer.innerHTML = renderPreviewTestChoiceContent(exercise.data);
+        } else if (exercise.type === 'fill_blanks') {
+          contentContainer.innerHTML = renderPreviewTestFillBlanksContent(exercise.data);
         }
-    });
-    if (currentUserRole === 'student') {
-        setTimeout(() => {
-        updateTestButtons();
-        }, 100);
+      }
     }
+  });
+  
+  // После рендера обновляем кнопки
+  if (currentUserRole === 'student') {
+    setTimeout(() => {
+      updateTestButtons();
+    }, 100);
+  }
 }
 
 function updateTotalTestScore() {
@@ -6172,6 +6120,57 @@ function resetTestUI() {
   });
   
   console.log('[resetTestUI] UI reset complete (scores preserved)');
+}
+
+// Полная очистка состояния теста перед загрузкой нового
+function fullResetTestState(newTestId) {
+  console.log(`[Full Reset] Clearing state for new test: ${newTestId}, old test: ${currentTestId}`);
+  
+  // 1. Сбрасываем глобальные переменные
+  const oldTestId = currentTestId;
+  testAttemptsCount = 0;
+  testAttemptsScores = [];
+  
+  // 2. Очищаем все временные данные из localStorage для старого теста
+  if (oldTestId && oldTestId !== newTestId) {
+    const keysToRemove = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && (key.includes(`test_state_${oldTestId}`) || 
+                  key.includes(`exercise_fully_correct_${oldTestId}`) ||
+                  key.includes(`exercise_attempts_${oldTestId}`) ||
+                  key.includes(`exercise_result_${oldTestId}`))) {
+        keysToRemove.push(key);
+      }
+    }
+    keysToRemove.forEach(key => {
+      console.log(`[Full Reset] Removing localStorage key: ${key}`);
+      localStorage.removeItem(key);
+    });
+  }
+  
+  // 3. Обновляем currentTestId
+  currentTestId = newTestId;
+  
+  // 4. Сбрасываем отображение баллов в DOM
+  const totalScoreElement = document.getElementById('totalTestScore');
+  const totalMaxScoreElement = document.getElementById('totalTestMaxScore');
+  if (totalScoreElement) totalScoreElement.textContent = '0';
+  if (totalMaxScoreElement) totalMaxScoreElement.textContent = '0';
+  
+  // 5. Очищаем все карточки упражнений, если они есть
+  const exerciseCards = document.querySelectorAll('#previewTestExercisesList .preview-test-exercise-card');
+  exerciseCards.forEach(card => {
+    // Сбрасываем отображение баллов в карточках
+    const scoreSpan = card.querySelector('.exercise-score-value');
+    if (scoreSpan) scoreSpan.textContent = '0';
+    
+    // Удаляем атрибуты блокировки
+    card.removeAttribute('data-locked');
+    card.classList.remove('test-card-error');
+  });
+  
+  console.log(`[Full Reset] Complete. New test ID: ${newTestId}`);
 }
 
 // ===== ИНИЦИАЛИЗАЦИЯ =====
