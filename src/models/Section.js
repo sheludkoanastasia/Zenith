@@ -32,6 +32,11 @@ module.exports = (sequelize) => {
       allowNull: false,
       defaultValue: 0,
       field: 'order_index'
+    },
+    version: {
+      type: DataTypes.INTEGER,
+      defaultValue: 1,
+      allowNull: false
     }
   }, {
     tableName: 'sections',

@@ -38,6 +38,11 @@ module.exports = (sequelize) => {
     completed_at: {
       type: DataTypes.DATE,
       allowNull: true
+    },
+     section_version: {
+      type: DataTypes.INTEGER,
+      defaultValue: 1,
+      allowNull: false
     }
   }, {
     tableName: 'student_progress',

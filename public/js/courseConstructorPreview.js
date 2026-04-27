@@ -205,113 +205,112 @@ function getExerciseAnswers(exerciseId, card, typeText) {
 }
 
 async function restoreTestFromServer(testId) {
-    const serverState = await loadTestStateFromServer(testId);
-    if (!serverState || serverState.attemptsCount === 0) {
-        console.log('Нет сохранённых попыток на сервере');
-        testAttemptsCount = 0;
-        updateTestAttemptsDisplay();
-        return false;
-    }
-    
-    console.log('Восстанавливаем состояние теста с сервера, попыток:', serverState.attemptsCount);
-    
-    const lastAttempt = serverState.attempts[serverState.attempts.length - 1];
-    
-    if (!lastAttempt) {
-        console.log('Нет данных о попытках');
-        return false;
-    }
-    
-    console.log('Последняя попытка:', lastAttempt);
-    
-    testAttemptsCount = serverState.attemptsCount;
+  const serverState = await loadTestStateFromServer(testId);
+  if (!serverState || serverState.attemptsCount === 0) {
+    console.log('Нет сохранённых попыток на сервере');
+    testAttemptsCount = 0;
     updateTestAttemptsDisplay();
-    
-    // Ждём появления карточек в DOM
-    let retries = 0;
-    let exerciseCards = document.querySelectorAll('#previewTestExercisesList .preview-test-exercise-card');
-    while (exerciseCards.length === 0 && retries < 10) {
-        await new Promise(resolve => setTimeout(resolve, 100));
-        exerciseCards = document.querySelectorAll('#previewTestExercisesList .preview-test-exercise-card');
-        retries++;
-    }
-    
-    console.log('Найдено карточек для восстановления:', exerciseCards.length);
-    
-    if (lastAttempt.exerciseResults) {
-        let totalRestoredScore = 0;
-        let totalRestoredMaxScore = 0;
-        
-        for (const card of exerciseCards) {
-            const exerciseId = card.dataset.exerciseId;
-            const exerciseResult = lastAttempt.exerciseResults[exerciseId];
-            
-            if (exerciseResult) {
-                console.log(`Восстанавливаем упражнение ${exerciseId}:`, exerciseResult);
-                
-                const scoreSpan = card.querySelector('.exercise-score-value');
-                const maxScoreSpan = card.querySelector('.exercise-score-max');
-                
-                if (scoreSpan) {
-                    scoreSpan.textContent = exerciseResult.score || 0;
-                    totalRestoredScore += exerciseResult.score || 0;
-                }
-                
-                if (maxScoreSpan) {
-                    const maxScoreText = maxScoreSpan.textContent;
-                    const maxScore = parseInt(maxScoreText.replace('/', '').trim());
-                    totalRestoredMaxScore += maxScore;
-                }
-                
-                const typeText = card.querySelector('.exercise-type-preview')?.textContent || '';
-                let exerciseType = '';
-                if (typeText === 'Сопоставление') exerciseType = 'matching';
-                else if (typeText === 'Выбор правильного') exerciseType = 'choice';
-                else if (typeText === 'Дополнение') exerciseType = 'fill_blanks';
-                
-                // Восстанавливаем ответы пользователя (ВСЕГДА, даже если не полностью правильно)
-                if (exerciseResult.answers && Object.keys(exerciseResult.answers).length > 0) {
-                    restoreExerciseAnswers(card, exerciseResult.answers, typeText);
-                    console.log(`Восстановлены ответы для упражнения ${exerciseId}`);
-                }
-                
-                // Если упражнение полностью правильное - блокируем его
-                if (exerciseResult.isFullyCorrect) {
-                    localStorage.setItem(`exercise_fully_correct_${testId}_${exerciseId}`, 'true');
-                    
-                    if (exerciseType) {
-                        // Принудительно блокируем упражнение
-                        lockExercise(card, exerciseType);
-                        console.log(`Заблокировано полностью правильное упражнение ${exerciseId}`);
-                    }
-                } else {
-                    // Если не полностью правильное - удаляем флаг блокировки
-                    localStorage.removeItem(`exercise_fully_correct_${testId}_${exerciseId}`);
-                    // И убеждаемся, что упражнение не заблокировано
-                    card.removeAttribute('data-locked');
-                }
-            }
-        }
-        
-        const totalScoreElement = document.getElementById('totalTestScore');
-        const totalMaxScoreElement = document.getElementById('totalTestMaxScore');
-        
-        if (totalScoreElement) totalScoreElement.textContent = totalRestoredScore;
-        if (totalMaxScoreElement) totalMaxScoreElement.textContent = totalRestoredMaxScore;
-        
-        if (testAttemptsCount >= MAX_TEST_ATTEMPTS) {
-            setTimeout(() => {
-                highlightAllErrorsOnAttemptsExhausted();
-            }, 100);
-        }
-        
-        syncExerciseLockState();
-        
-        console.log('Состояние теста успешно восстановлено с сервера');
-        return true;
-    }
-    
     return false;
+  }
+  
+  console.log('Восстанавливаем состояние теста с сервера, попыток:', serverState.attemptsCount);
+  
+  const lastAttempt = serverState.attempts[serverState.attempts.length - 1];
+  
+  if (!lastAttempt) {
+    console.log('Нет данных о попытках');
+    return false;
+  }
+  
+  console.log('Последняя попытка:', lastAttempt);
+  
+  testAttemptsCount = serverState.attemptsCount;
+  updateTestAttemptsDisplay();
+  
+  // Ждём появления карточек в DOM
+  let retries = 0;
+  let exerciseCards = document.querySelectorAll('#previewTestExercisesList .preview-test-exercise-card');
+  while (exerciseCards.length === 0 && retries < 10) {
+    await new Promise(resolve => setTimeout(resolve, 100));
+    exerciseCards = document.querySelectorAll('#previewTestExercisesList .preview-test-exercise-card');
+    retries++;
+  }
+  
+  console.log('Найдено карточек для восстановления:', exerciseCards.length);
+  
+  if (lastAttempt.exerciseResults) {
+    let totalRestoredScore = 0;
+    let totalRestoredMaxScore = 0;
+    
+    for (const card of exerciseCards) {
+      const exerciseId = card.dataset.exerciseId;
+      const exerciseResult = lastAttempt.exerciseResults[exerciseId];
+      
+      if (exerciseResult) {
+        console.log(`Восстанавливаем упражнение ${exerciseId}:`, exerciseResult);
+        
+        // ВАЖНО: восстанавливаем баллы ДО того, как что-то сбросится
+        const scoreSpan = card.querySelector('.exercise-score-value');
+        const maxScoreSpan = card.querySelector('.exercise-score-max');
+        
+        if (scoreSpan) {
+          scoreSpan.textContent = exerciseResult.score || 0;
+          totalRestoredScore += exerciseResult.score || 0;
+        }
+        
+        if (maxScoreSpan) {
+          const maxScoreText = maxScoreSpan.textContent;
+          const maxScore = parseInt(maxScoreText.replace('/', '').trim());
+          totalRestoredMaxScore += maxScore;
+        }
+        
+        const typeText = card.querySelector('.exercise-type-preview')?.textContent || '';
+        let exerciseType = '';
+        if (typeText === 'Сопоставление') exerciseType = 'matching';
+        else if (typeText === 'Выбор правильного') exerciseType = 'choice';
+        else if (typeText === 'Дополнение') exerciseType = 'fill_blanks';
+        
+        // Восстанавливаем ответы пользователя
+        if (exerciseResult.answers && Object.keys(exerciseResult.answers).length > 0) {
+          restoreExerciseAnswers(card, exerciseResult.answers, typeText);
+          console.log(`Восстановлены ответы для упражнения ${exerciseId}`);
+        }
+        
+        // Если упражнение полностью правильное - блокируем его
+        if (exerciseResult.isFullyCorrect) {
+          localStorage.setItem(`exercise_fully_correct_${testId}_${exerciseId}`, 'true');
+          
+          if (exerciseType) {
+            lockExercise(card, exerciseType);
+            console.log(`Заблокировано полностью правильное упражнение ${exerciseId}`);
+          }
+        } else {
+          localStorage.removeItem(`exercise_fully_correct_${testId}_${exerciseId}`);
+          card.removeAttribute('data-locked');
+        }
+      }
+    }
+    
+    // Обновляем общие баллы
+    const totalScoreElement = document.getElementById('totalTestScore');
+    const totalMaxScoreElement = document.getElementById('totalTestMaxScore');
+    
+    if (totalScoreElement) totalScoreElement.textContent = totalRestoredScore;
+    if (totalMaxScoreElement) totalMaxScoreElement.textContent = totalRestoredMaxScore;
+    
+    if (testAttemptsCount >= MAX_TEST_ATTEMPTS) {
+      setTimeout(() => {
+        highlightAllErrorsOnAttemptsExhausted();
+      }, 100);
+    }
+    
+    syncExerciseLockState();
+    
+    console.log('Состояние теста успешно восстановлено с сервера');
+    return true;
+  }
+  
+  return false;
 }
 
 async function saveTestStateToServer(testId, attemptNumber, totalScore, maxScore, exerciseResults) {
@@ -982,269 +981,293 @@ function initQuillPreview() {
 }
 
 async function loadTheorySection(sectionId) {
-    try {
-        const sectionsAreaEl = document.getElementById('sectionsArea');
-        const welcomeScreenEl = document.getElementById('welcomeScreen');
-        if (sectionsAreaEl) sectionsAreaEl.style.display = 'none';
-        if (welcomeScreenEl) welcomeScreenEl.style.display = 'none';
+  try {
+    const sectionsAreaEl = document.getElementById('sectionsArea');
+    const welcomeScreenEl = document.getElementById('welcomeScreen');
+    if (sectionsAreaEl) sectionsAreaEl.style.display = 'none';
+    if (welcomeScreenEl) welcomeScreenEl.style.display = 'none';
+    
+    const token = getToken();
+    const response = await fetch(`${apiBaseUrl}/sections/${sectionId}`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    
+    const data = await response.json();
+    
+    if (data.success) {
+      const section = data.section;
+      currentEditingTheorySection = section;
+      currentEditingExerciseSection = null;
+      
+      // === НОВАЯ ЛОГИКА СБРОСА ===
+      if (section.needsReset === true) {
+        console.log('[Version Reset] Theory section needs reset');
+        clearSectionLocalStorage(sectionId);
+        showVersionResetNotification();
         
-        const token = getToken();
-        const response = await fetch(`${apiBaseUrl}/sections/${sectionId}`, {
-            headers: { 'Authorization': `Bearer ${token}` }
-        });
-        
-        const data = await response.json();
-        
-        if (data.success) {
-            const section = data.section;
-            
-            currentEditingTheorySection = section;
-            currentEditingExerciseSection = null;
-            
-            const theoryTitleEl = document.getElementById('currentTheoryTitle');
-            if (theoryTitleEl) {
-                theoryTitleEl.textContent = section.title;
-            }
-            
-            const theoryText = section.theoryContent?.text || '';
-            
-            if (quillPreview) {
-                quillPreview.root.innerHTML = theoryText;
-            } else {
-                const previewDiv = document.getElementById('quillPreview');
-                if (previewDiv) previewDiv.innerHTML = theoryText;
-            }
-            
-            const previewContainer = document.getElementById('theoryPreviewContainer');
-            const exercisePreviewContainer = document.getElementById('exercisePreviewContainer');
-            const testPreviewContainer = document.getElementById('testPreviewContainer');
-            
-            if (exercisePreviewContainer) exercisePreviewContainer.style.display = 'none';
-            if (testPreviewContainer) testPreviewContainer.style.display = 'none';
-            if (previewContainer) previewContainer.style.display = 'block';
-            
-            // Для студента проверяем статус теории
-            if (currentUserRole === 'student') {
-                const isCompleted = await checkTheoryStatus(sectionId);
-                updateTheoryButtonState(sectionId, isCompleted);
-            } else {
-                updateNextStepButton(sectionId);
-            }
-        } else {
-            showNotification('Ошибка загрузки раздела', 'error');
+        if (currentUserRole === 'student') {
+          // Обновляем состояние кнопки теории (сбрасываем на "не пройдено")
+          updateTheoryButtonState(sectionId, false);
         }
-    } catch (error) {
-        console.error('Ошибка:', error);
-        showNotification('Ошибка загрузки раздела', 'error');
+      }
+      // ===========================
+      
+      const theoryTitleEl = document.getElementById('currentTheoryTitle');
+      if (theoryTitleEl) {
+        theoryTitleEl.textContent = section.title;
+      }
+      
+      const theoryText = section.theoryContent?.text || '';
+      
+      if (quillPreview) {
+        quillPreview.root.innerHTML = theoryText;
+      } else {
+        const previewDiv = document.getElementById('quillPreview');
+        if (previewDiv) previewDiv.innerHTML = theoryText;
+      }
+      
+      const previewContainer = document.getElementById('theoryPreviewContainer');
+      const exercisePreviewContainer = document.getElementById('exercisePreviewContainer');
+      const testPreviewContainer = document.getElementById('testPreviewContainer');
+      
+      if (exercisePreviewContainer) exercisePreviewContainer.style.display = 'none';
+      if (testPreviewContainer) testPreviewContainer.style.display = 'none';
+      if (previewContainer) previewContainer.style.display = 'block';
+      
+      // Для студента проверяем статус теории
+      if (currentUserRole === 'student') {
+        const isCompleted = await checkTheoryStatus(sectionId);
+        updateTheoryButtonState(sectionId, isCompleted);
+      } else {
+        updateNextStepButton(sectionId);
+      }
+    } else {
+      showNotification('Ошибка загрузки раздела', 'error');
     }
+  } catch (error) {
+    console.error('Ошибка:', error);
+    showNotification('Ошибка загрузки раздела', 'error');
+  }
 }
 
 // ===== ПРОСМОТР УПРАЖНЕНИЙ =====
 
 async function loadExerciseSection(sectionId) {
-    try {
-        const sectionsAreaEl = document.getElementById('sectionsArea');
-        const welcomeScreenEl = document.getElementById('welcomeScreen');
-        if (sectionsAreaEl) sectionsAreaEl.style.display = 'none';
-        if (welcomeScreenEl) welcomeScreenEl.style.display = 'none';
+  try {
+    const sectionsAreaEl = document.getElementById('sectionsArea');
+    const welcomeScreenEl = document.getElementById('welcomeScreen');
+    if (sectionsAreaEl) sectionsAreaEl.style.display = 'none';
+    if (welcomeScreenEl) welcomeScreenEl.style.display = 'none';
+    
+    const token = getToken();
+    const response = await fetch(`${apiBaseUrl}/sections/${sectionId}`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    
+    const data = await response.json();
+    
+    if (data.success) {
+      const section = data.section;
+      currentEditingExerciseSection = section;
+      currentEditingTheorySection = null;
+      
+      // === НОВАЯ ЛОГИКА СБРОСА ===
+      if (section.needsReset === true) {
+        console.log('[Version Reset] Exercise section needs reset');
+        clearSectionLocalStorage(sectionId);
+        showVersionResetNotification();
         
-        const token = getToken();
-        const response = await fetch(`${apiBaseUrl}/sections/${sectionId}`, {
-            headers: { 'Authorization': `Bearer ${token}` }
-        });
-        
-        const data = await response.json();
-        
-        if (data.success) {
-            const section = data.section;
-            
-            currentEditingExerciseSection = section;
-            currentEditingTheorySection = null;
-            
-            const exerciseTitleEl = document.getElementById('currentExerciseTitle');
-            if (exerciseTitleEl) {
-                exerciseTitleEl.textContent = section.title;
-            }
-            
-            const exerciseData = section.exercise || {};
-            const exerciseType = exerciseData.exercise_type || 'matching';
-            
-            let typeText = '';
-            switch (exerciseType) {
-                case 'matching': typeText = 'Сопоставление'; break;
-                case 'choice': typeText = 'Выбор правильного'; break;
-                case 'fill_blanks': typeText = 'Дополнение'; break;
-                default: typeText = 'Сопоставление';
-            }
-            
-            const typeBadge = document.querySelector('.exercise-type-badge-preview .type-badge');
-            if (typeBadge) typeBadge.textContent = typeText;
-            
-            document.getElementById('matchingExercisePreview').style.display = 'none';
-            document.getElementById('choiceExercisePreview').style.display = 'none';
-            document.getElementById('fillBlanksExercisePreview').style.display = 'none';
-            
-            if (currentUserRole === 'student') {
-                if (exerciseType === 'matching') {
-                    document.getElementById('matchingExercisePreview').style.display = 'block';
-                    renderStudentMatching(exerciseData, 'matchingExercisePreview');
-                    
-                    const isCompleted = await checkExerciseStatus(sectionId);
-                    
-                    const savedAnswers = localStorage.getItem(`matching_answers_${sectionId}`);
-                    if (savedAnswers) {
-                        const userPairs = JSON.parse(savedAnswers);
-                        setTimeout(() => {
-                            const selectWrappers = document.querySelectorAll('#matchingExercisePreview .matching-select-wrapper');
-                            selectWrappers.forEach(wrapper => {
-                                const targetId = wrapper.dataset.targetId;
-                                const savedItemId = userPairs[targetId];
-                                if (savedItemId) {
-                                    const option = wrapper.querySelector(`.matching-select-option[data-value="${savedItemId}"]`);
-                                    if (option) {
-                                        const text = option.textContent;
-                                        const btn = wrapper.querySelector('.matching-select-btn');
-                                        btn.querySelector('.selected-text').textContent = text;
-                                        option.classList.add('selected');
-                                    }
-                                }
-                            });
-                        }, 100);
-                    }
-                    
-                    if (isCompleted) {
-                        setTimeout(() => {
-                            const selectWrappers = document.querySelectorAll('#matchingExercisePreview .matching-select-wrapper');
-                            selectWrappers.forEach(wrapper => {
-                                const btn = wrapper.querySelector('.matching-select-btn');
-                                btn.classList.add('success-highlight-permanent');
-                                btn.disabled = true;
-                                btn.style.cursor = 'default';
-                                btn.style.opacity = '0.8';
-                                const chevron = btn.querySelector('.select-chevron');
-                                if (chevron) chevron.style.display = 'none';
-                            });
-                        }, 100);
-                    }
-                    updateExerciseButtonState(sectionId, isCompleted);
-                    
-                } else if (exerciseType === 'choice') {
-                    console.log('Загружаем choice упражнение, section.id:', section.id);
-                    document.getElementById('choiceExercisePreview').style.display = 'block';
-                    renderStudentChoice(exerciseData, 'choiceExercisePreview');
-                    
-                    const isCompleted = await checkExerciseStatus(sectionId);
-                    
-                    const savedAnswers = localStorage.getItem(`choice_answers_${sectionId}`);
-                    if (savedAnswers) {
-                        const userAnswers = JSON.parse(savedAnswers);
-                        setTimeout(() => {
-                            for (const [statementId, answerIds] of Object.entries(userAnswers)) {
-                                for (const answerId of answerIds) {
-                                    const checkbox = document.querySelector(`#choiceExercisePreview .checkbox-student[data-statement-id="${statementId}"][data-answer-id="${answerId}"]`);
-                                    if (checkbox) {
-                                        checkbox.classList.add('selected');
-                                    }
-                                }
-                            }
-                        }, 100);
-                    }
-                    
-                    if (isCompleted) {
-                        setTimeout(() => {
-                            const statementCards = document.querySelectorAll('#choiceExercisePreview .preview-statement-card');
-                            statementCards.forEach(card => {
-                                const checkboxes = card.querySelectorAll('.checkbox-student');
-                                checkboxes.forEach(checkbox => {
-                                    checkbox.style.pointerEvents = 'none';
-                                    checkbox.style.opacity = '0.8';
-                                    if (checkbox.classList.contains('selected')) {
-                                        checkbox.classList.add('success-highlight-permanent');
-                                    }
-                                });
-                            });
-                        }, 100);
-                    }
-                    updateExerciseButtonState(sectionId, isCompleted);
-                } else if (exerciseType === 'fill_blanks') {
-                    document.getElementById('fillBlanksExercisePreview').style.display = 'block';
-                    renderStudentFillBlanks(exerciseData, 'fillBlanksExercisePreview');
-                    
-                    const isCompleted = await checkExerciseStatus(sectionId);
-                    
-                    const savedAnswers = localStorage.getItem(`fillblanks_answers_${sectionId}`);
-                    if (savedAnswers) {
-                        const userAnswers = JSON.parse(savedAnswers);
-                        setTimeout(() => {
-                            for (const [sentenceId, words] of Object.entries(userAnswers)) {
-                                const sentenceCard = document.querySelector(`#fillBlanksExercisePreview .preview-sentence-card[data-sentence-id="${sentenceId}"]`);
-                                if (sentenceCard) {
-                                    const blankWrappers = sentenceCard.querySelectorAll('.fillblanks-select-wrapper');
-                                    blankWrappers.forEach((wrapper, idx) => {
-                                        const selectedWord = words[idx];
-                                        if (selectedWord) {
-                                            const option = wrapper.querySelector(`.fillblanks-select-option[data-value="${selectedWord}"]`);
-                                            if (option) {
-                                                const btn = wrapper.querySelector('.fillblanks-select-btn');
-                                                btn.querySelector('.selected-text').textContent = selectedWord;
-                                                option.classList.add('selected');
-                                            }
-                                        }
-                                    });
-                                }
-                            }
-                        }, 100);
-                    }
-                    
-                    if (isCompleted) {
-                        setTimeout(() => {
-                            const allSelectWrappers = document.querySelectorAll('#fillBlanksExercisePreview .fillblanks-select-wrapper');
-                            allSelectWrappers.forEach(wrapper => {
-                                const btn = wrapper.querySelector('.fillblanks-select-btn');
-                                btn.classList.add('success-highlight-permanent');
-                                btn.disabled = true;
-                                btn.style.cursor = 'default';
-                                btn.style.opacity = '0.8';
-                                const chevron = btn.querySelector('.select-chevron');
-                                if (chevron) chevron.style.display = 'none';
-                            });
-                        }, 100);
-                    }
-                    updateExerciseButtonState(sectionId, isCompleted);
-                }
-            } else {
-                if (exerciseType === 'matching') {
-                    document.getElementById('matchingExercisePreview').style.display = 'block';
-                    renderPreviewMatching(exerciseData);
-                } else if (exerciseType === 'choice') {
-                    document.getElementById('choiceExercisePreview').style.display = 'block';
-                    renderPreviewChoice(exerciseData);
-                } else if (exerciseType === 'fill_blanks') {
-                    document.getElementById('fillBlanksExercisePreview').style.display = 'block';
-                    renderPreviewFillBlanks(exerciseData);
-                }
-            }
-            
-            const previewContainer = document.getElementById('exercisePreviewContainer');
-            const theoryPreviewContainer = document.getElementById('theoryPreviewContainer');
-            const testPreviewContainer = document.getElementById('testPreviewContainer');
-            
-            if (theoryPreviewContainer) theoryPreviewContainer.style.display = 'none';
-            if (testPreviewContainer) testPreviewContainer.style.display = 'none';
-            if (previewContainer) previewContainer.style.display = 'block';
-            
-            // Обновляем кнопку "Следующий шаг" для учителя
-            if (currentUserRole === 'teacher') {
-                updateNextStepButton(sectionId);
-            }
-            
-        } else {
-            showNotification('Ошибка загрузки раздела', 'error');
+        if (currentUserRole === 'student') {
+          // Обновляем состояние кнопки упражнения (сбрасываем на "не пройдено")
+          updateExerciseButtonState(sectionId, false);
         }
-    } catch (error) {
-        console.error('Ошибка:', error);
-        showNotification('Ошибка загрузки раздела', 'error');
+      }
+      // ===========================
+      
+      const exerciseTitleEl = document.getElementById('currentExerciseTitle');
+      if (exerciseTitleEl) {
+        exerciseTitleEl.textContent = section.title;
+      }
+      
+      const exerciseData = section.exercise || {};
+      const exerciseType = exerciseData.exercise_type || 'matching';
+      
+      let typeText = '';
+      switch (exerciseType) {
+        case 'matching': typeText = 'Сопоставление'; break;
+        case 'choice': typeText = 'Выбор правильного'; break;
+        case 'fill_blanks': typeText = 'Дополнение'; break;
+        default: typeText = 'Сопоставление';
+      }
+      
+      const typeBadge = document.querySelector('.exercise-type-badge-preview .type-badge');
+      if (typeBadge) typeBadge.textContent = typeText;
+      
+      document.getElementById('matchingExercisePreview').style.display = 'none';
+      document.getElementById('choiceExercisePreview').style.display = 'none';
+      document.getElementById('fillBlanksExercisePreview').style.display = 'none';
+      
+      if (currentUserRole === 'student') {
+        if (exerciseType === 'matching') {
+          document.getElementById('matchingExercisePreview').style.display = 'block';
+          renderStudentMatching(exerciseData, 'matchingExercisePreview');
+          
+          const isCompleted = await checkExerciseStatus(sectionId);
+          
+          const savedAnswers = localStorage.getItem(`matching_answers_${sectionId}`);
+          if (savedAnswers && !section.needsReset) {
+            const userPairs = JSON.parse(savedAnswers);
+            setTimeout(() => {
+              const selectWrappers = document.querySelectorAll('#matchingExercisePreview .matching-select-wrapper');
+              selectWrappers.forEach(wrapper => {
+                const targetId = wrapper.dataset.targetId;
+                const savedItemId = userPairs[targetId];
+                if (savedItemId) {
+                  const option = wrapper.querySelector(`.matching-select-option[data-value="${savedItemId}"]`);
+                  if (option) {
+                    const text = option.textContent;
+                    const btn = wrapper.querySelector('.matching-select-btn');
+                    btn.querySelector('.selected-text').textContent = text;
+                    option.classList.add('selected');
+                  }
+                }
+              });
+            }, 100);
+          }
+          
+          if (isCompleted) {
+            setTimeout(() => {
+              const selectWrappers = document.querySelectorAll('#matchingExercisePreview .matching-select-wrapper');
+              selectWrappers.forEach(wrapper => {
+                const btn = wrapper.querySelector('.matching-select-btn');
+                btn.classList.add('success-highlight-permanent');
+                btn.disabled = true;
+                btn.style.cursor = 'default';
+                btn.style.opacity = '0.8';
+                const chevron = btn.querySelector('.select-chevron');
+                if (chevron) chevron.style.display = 'none';
+              });
+            }, 100);
+          }
+          updateExerciseButtonState(sectionId, isCompleted);
+          
+        } else if (exerciseType === 'choice') {
+          console.log('Загружаем choice упражнение, section.id:', section.id);
+          document.getElementById('choiceExercisePreview').style.display = 'block';
+          renderStudentChoice(exerciseData, 'choiceExercisePreview');
+          
+          const isCompleted = await checkExerciseStatus(sectionId);
+          
+          const savedAnswers = localStorage.getItem(`choice_answers_${sectionId}`);
+          if (savedAnswers && !section.needsReset) {
+            const userAnswers = JSON.parse(savedAnswers);
+            setTimeout(() => {
+              for (const [statementId, answerIds] of Object.entries(userAnswers)) {
+                for (const answerId of answerIds) {
+                  const checkbox = document.querySelector(`#choiceExercisePreview .checkbox-student[data-statement-id="${statementId}"][data-answer-id="${answerId}"]`);
+                  if (checkbox) {
+                    checkbox.classList.add('selected');
+                  }
+                }
+              }
+            }, 100);
+          }
+          
+          if (isCompleted) {
+            setTimeout(() => {
+              const statementCards = document.querySelectorAll('#choiceExercisePreview .preview-statement-card');
+              statementCards.forEach(card => {
+                const checkboxes = card.querySelectorAll('.checkbox-student');
+                checkboxes.forEach(checkbox => {
+                  checkbox.style.pointerEvents = 'none';
+                  checkbox.style.opacity = '0.8';
+                  if (checkbox.classList.contains('selected')) {
+                    checkbox.classList.add('success-highlight-permanent');
+                  }
+                });
+              });
+            }, 100);
+          }
+          updateExerciseButtonState(sectionId, isCompleted);
+        } else if (exerciseType === 'fill_blanks') {
+          document.getElementById('fillBlanksExercisePreview').style.display = 'block';
+          renderStudentFillBlanks(exerciseData, 'fillBlanksExercisePreview');
+          
+          const isCompleted = await checkExerciseStatus(sectionId);
+          
+          const savedAnswers = localStorage.getItem(`fillblanks_answers_${sectionId}`);
+          if (savedAnswers && !section.needsReset) {
+            const userAnswers = JSON.parse(savedAnswers);
+            setTimeout(() => {
+              for (const [sentenceId, words] of Object.entries(userAnswers)) {
+                const sentenceCard = document.querySelector(`#fillBlanksExercisePreview .preview-sentence-card[data-sentence-id="${sentenceId}"]`);
+                if (sentenceCard) {
+                  const blankWrappers = sentenceCard.querySelectorAll('.fillblanks-select-wrapper');
+                  blankWrappers.forEach((wrapper, idx) => {
+                    const selectedWord = words[idx];
+                    if (selectedWord) {
+                      const option = wrapper.querySelector(`.fillblanks-select-option[data-value="${selectedWord}"]`);
+                      if (option) {
+                        const btn = wrapper.querySelector('.fillblanks-select-btn');
+                        btn.querySelector('.selected-text').textContent = selectedWord;
+                        option.classList.add('selected');
+                      }
+                    }
+                  });
+                }
+              }
+            }, 100);
+          }
+          
+          if (isCompleted) {
+            setTimeout(() => {
+              const allSelectWrappers = document.querySelectorAll('#fillBlanksExercisePreview .fillblanks-select-wrapper');
+              allSelectWrappers.forEach(wrapper => {
+                const btn = wrapper.querySelector('.fillblanks-select-btn');
+                btn.classList.add('success-highlight-permanent');
+                btn.disabled = true;
+                btn.style.cursor = 'default';
+                btn.style.opacity = '0.8';
+                const chevron = btn.querySelector('.select-chevron');
+                if (chevron) chevron.style.display = 'none';
+              });
+            }, 100);
+          }
+          updateExerciseButtonState(sectionId, isCompleted);
+        }
+      } else {
+        if (exerciseType === 'matching') {
+          document.getElementById('matchingExercisePreview').style.display = 'block';
+          renderPreviewMatching(exerciseData);
+        } else if (exerciseType === 'choice') {
+          document.getElementById('choiceExercisePreview').style.display = 'block';
+          renderPreviewChoice(exerciseData);
+        } else if (exerciseType === 'fill_blanks') {
+          document.getElementById('fillBlanksExercisePreview').style.display = 'block';
+          renderPreviewFillBlanks(exerciseData);
+        }
+      }
+      
+      const previewContainer = document.getElementById('exercisePreviewContainer');
+      const theoryPreviewContainer = document.getElementById('theoryPreviewContainer');
+      const testPreviewContainer = document.getElementById('testPreviewContainer');
+      
+      if (theoryPreviewContainer) theoryPreviewContainer.style.display = 'none';
+      if (testPreviewContainer) testPreviewContainer.style.display = 'none';
+      if (previewContainer) previewContainer.style.display = 'block';
+      
+      // Обновляем кнопку "Следующий шаг" для учителя
+      if (currentUserRole === 'teacher') {
+        updateNextStepButton(sectionId);
+      }
+      
+    } else {
+      showNotification('Ошибка загрузки раздела', 'error');
     }
+  } catch (error) {
+    console.error('Ошибка:', error);
+    showNotification('Ошибка загрузки раздела', 'error');
+  }
 }
 
 function renderPreviewMatching(exerciseData) {
@@ -1422,203 +1445,181 @@ function resetTestState(testId) {
 }
 
 async function loadTestSection(sectionId) {
-    try {
-        const sectionsAreaEl = document.getElementById('sectionsArea');
-        const welcomeScreenEl = document.getElementById('welcomeScreen');
-        if (sectionsAreaEl) sectionsAreaEl.style.display = 'none';
-        if (welcomeScreenEl) welcomeScreenEl.style.display = 'none';
+  try {
+    const sectionsAreaEl = document.getElementById('sectionsArea');
+    const welcomeScreenEl = document.getElementById('welcomeScreen');
+    if (sectionsAreaEl) sectionsAreaEl.style.display = 'none';
+    if (welcomeScreenEl) welcomeScreenEl.style.display = 'none';
+    
+    const token = getToken();
+    const response = await fetch(`${apiBaseUrl}/sections/${sectionId}`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    
+    const data = await response.json();
+    
+    if (data.success) {
+      const section = data.section;
+      
+      currentEditingExerciseSection = section;
+      currentEditingTheorySection = null;
+      
+      // === НОВАЯ ЛОГИКА СБРОСА (с проверкой, нужен ли сброс) ===
+      const needsReset = section.needsReset === true;
+      
+      if (needsReset) {
+        console.log('[Version Reset] Test section needs reset');
         
-        const token = getToken();
-        const response = await fetch(`${apiBaseUrl}/sections/${sectionId}`, {
-            headers: { 'Authorization': `Bearer ${token}` }
-        });
+        // Очищаем localStorage и сбрасываем переменные
+        clearSectionLocalStorage(sectionId, sectionId);
+        showVersionResetNotification();
         
-        const data = await response.json();
-        
-        if (data.success) {
-            const section = data.section;
-            
-            currentEditingExerciseSection = section;
-            currentEditingTheorySection = null;
-            
-            if (currentTestId !== sectionId) {
-                console.log('Загрузка нового теста, сбрасываем состояние. Старый ID:', currentTestId, 'Новый ID:', sectionId);
-                
-                currentTestId = sectionId;
-                testAttemptsCount = 0;
-                testAttemptsScores = [];
-                
-                localStorage.removeItem(`test_state_${sectionId}_temp`);
-                
-                // ПРИНУДИТЕЛЬНО СБРАСЫВАЕМ ОТОБРАЖЕНИЕ БАЛЛОВ ДЛЯ НОВОГО ТЕСТА
-                const totalScoreElement = document.getElementById('totalTestScore');
-                const totalMaxScoreElement = document.getElementById('totalTestMaxScore');
-                if (totalScoreElement) totalScoreElement.textContent = '0';
-                if (totalMaxScoreElement) totalMaxScoreElement.textContent = '0';
+        if (currentUserRole === 'student') {
+          testAttemptsCount = 0;
+          testAttemptsScores = [];
+          
+          // Очищаем все ключи localStorage для этого теста
+          const keysToRemove = [];
+          for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            if (key && (key.includes(sectionId) || key.includes(`test_state_${sectionId}`) || key.includes(`exercise_fully_correct_${sectionId}`))) {
+              keysToRemove.push(key);
             }
-            
-            // Для студента получаем количество попыток
-            if (currentUserRole === 'student') {
-                const serverAttempts = await getTestAttempts(sectionId);
-                let localAttempts = 0;
-                const storageKey = getStorageKey(sectionId);
-                const savedStateRaw = localStorage.getItem(storageKey);
-                if (savedStateRaw) {
-                    try {
-                        const state = JSON.parse(savedStateRaw);
-                        localAttempts = state.attemptsCount || 0;
-                    } catch(e) {}
-                }
-                testAttemptsCount = Math.max(serverAttempts, localAttempts);
-                console.log('Попытки: сервер=', serverAttempts, 'локальные=', localAttempts, 'итого=', testAttemptsCount);
-                updateTestAttemptsDisplay();
-            }
-            
-            const testTitleEl = document.getElementById('currentTestTitle');
-            if (testTitleEl) {
-                testTitleEl.textContent = section.title;
-            }
-            
-            const testData = section.test || {};
-            
-            const deadlineSpan = document.getElementById('previewDeadline');
-            if (deadlineSpan) {
-                if (testData.deadline) {
-                    const date = new Date(testData.deadline);
-                    deadlineSpan.textContent = date.toLocaleString('ru-RU');
-                } else {
-                    deadlineSpan.textContent = 'Не установлен';
-                }
-            }
-            
-            const timeLimitSpan = document.getElementById('previewTimeLimit');
-            if (timeLimitSpan) {
-                const timeLimitMinutes = testData.time_limit;
-                if (timeLimitMinutes && timeLimitMinutes > 0) {
-                    const days = Math.floor(timeLimitMinutes / (24 * 60));
-                    const hours = Math.floor((timeLimitMinutes % (24 * 60)) / 60);
-                    const minutes = timeLimitMinutes % 60;
-                    
-                    let timeStr = '';
-                    if (days > 0) timeStr += `${days} дн. `;
-                    if (hours > 0) timeStr += `${hours} ч. `;
-                    if (minutes > 0) timeStr += `${minutes} мин.`;
-                    timeLimitSpan.textContent = timeStr.trim() || 'Без ограничения';
-                } else {
-                    timeLimitSpan.textContent = 'Без ограничения';
-                }
-            }
-            
-            const exercises = testData.exercises || [];
-            
-            exercises.forEach(exercise => {
-                if (!exercise.sectionId) {
-                    exercise.sectionId = sectionId;
-                }
-            });
-            
-            renderPreviewTestExercises(exercises);
-
-            // Сбрасываем баллы в карточках нового теста
-            if (currentUserRole === 'student') {
-                const exerciseCards = document.querySelectorAll('#previewTestExercisesList .preview-test-exercise-card');
-                exerciseCards.forEach(card => {
-                    const scoreSpan = card.querySelector('.exercise-score-value');
-                    if (scoreSpan) {
-                        scoreSpan.textContent = '0';
-                    }
-                });
-            }
-            
-            const previewContainer = document.getElementById('testPreviewContainer');
-            const theoryPreviewContainer = document.getElementById('theoryPreviewContainer');
-            const exercisePreviewContainer = document.getElementById('exercisePreviewContainer');
-            
-            if (theoryPreviewContainer) theoryPreviewContainer.style.display = 'none';
-            if (exercisePreviewContainer) exercisePreviewContainer.style.display = 'none';
-            if (previewContainer) previewContainer.style.display = 'block';
-            
-            // Даём время для рендера карточек
-            await new Promise(resolve => setTimeout(resolve, 100));
-            
-            if (currentUserRole === 'student') {
-                console.log('Загрузка теста для студента, section.id:', sectionId);
-                
-                // Пытаемся восстановить состояние с сервера
-                const restored = await restoreTestFromServer(sectionId);
-                
-                if (!restored) {
-                    console.log('Нет сохранённых попыток на сервере, устанавливаем начальное состояние');
-                    testAttemptsCount = 0;
-                    updateTestAttemptsDisplay();
-                    localStorage.removeItem(`test_state_${sectionId}`);
-                    localStorage.removeItem(`test_state_${sectionId}_temp`);
-                }
-                
-                setTimeout(() => {
-                    updateTestButtons();
-                }, 200);
-            }
-            
-            // Настройка кнопок в зависимости от роли
-            if (currentUserRole === 'student') {
-                setTimeout(() => {
-                    const attemptsExhausted = testAttemptsCount >= MAX_TEST_ATTEMPTS;
-                    const testCompleted = isTestCompleted();
-                    const testSubmitBtn = document.getElementById('testSubmitBtn');
-                    const testNextBtn = document.getElementById('testNextBtn');
-                    const testNextStep = document.getElementById('testNextStep');
-                    
-                    // Проверяем, есть ли следующий раздел
-                    const hasNext = findNextSection(sectionId) !== null;
-                    
-                    if (testCompleted || attemptsExhausted) {
-                        if (testSubmitBtn) testSubmitBtn.style.display = 'none';
-                        if (testNextBtn) {
-                            if (hasNext) {
-                                testNextBtn.style.display = 'flex';
-                                testNextBtn.style.background = '#7651BE';
-                                const arrowIcon = testNextBtn.querySelector('.next-arrow-icon');
-                                if (arrowIcon) arrowIcon.style.filter = 'brightness(0) invert(1)';
-                            } else {
-                                testNextBtn.style.display = 'none';
-                            }
-                        }
-                        if (testNextStep) testNextStep.style.display = 'flex';
-                    } else {
-                        if (testSubmitBtn) {
-                            testSubmitBtn.style.display = 'flex';
-                            const newBtn = testSubmitBtn.cloneNode(true);
-                            testSubmitBtn.parentNode.replaceChild(newBtn, testSubmitBtn);
-                            newBtn.addEventListener('click', async () => {
-                                console.log('====== НАЧАЛО ПРОВЕРКИ ТЕСТА ======');
-                                const isValid = await validateAndSubmitTest();
-                                if (isValid) {
-                                    showNotification('Тест успешно проверен!', 'success');
-                                    updateTestButtons();
-                                }
-                            });
-                        }
-                        if (testNextBtn) testNextBtn.style.display = 'none';
-                        if (testNextStep) testNextStep.style.display = 'flex';
-                    }
-                }, 200);
-            } else {
-                setTimeout(() => {
-                    updateNextStepButton(sectionId);
-                }, 100);
-            }
-            
-            updateNextStepButton(sectionId);
-            
-        } else {
-            showNotification('Ошибка загрузки раздела', 'error');
+          }
+          keysToRemove.forEach(key => localStorage.removeItem(key));
         }
-    } catch (error) {
-        console.error('Ошибка:', error);
-        showNotification('Ошибка загрузки раздела', 'error');
+        
+        // Обновляем currentTestId
+        if (currentTestId !== sectionId) {
+          currentTestId = sectionId;
+        }
+      }
+      
+      if (currentTestId !== sectionId && !needsReset) {
+        console.log('Загрузка нового теста, сбрасываем состояние. Старый ID:', currentTestId, 'Новый ID:', sectionId);
+        
+        currentTestId = sectionId;
+        testAttemptsCount = 0;
+        testAttemptsScores = [];
+        
+        localStorage.removeItem(`test_state_${sectionId}_temp`);
+        
+        // ПРИНУДИТЕЛЬНО СБРАСЫВАЕМ ОТОБРАЖЕНИЕ БАЛЛОВ ДЛЯ НОВОГО ТЕСТА
+        const totalScoreElement = document.getElementById('totalTestScore');
+        const totalMaxScoreElement = document.getElementById('totalTestMaxScore');
+        if (totalScoreElement) totalScoreElement.textContent = '0';
+        if (totalMaxScoreElement) totalMaxScoreElement.textContent = '0';
+      }
+      
+      const testTitleEl = document.getElementById('currentTestTitle');
+      if (testTitleEl) {
+        testTitleEl.textContent = section.title;
+      }
+      
+      const testData = section.test || {};
+      
+      const deadlineSpan = document.getElementById('previewDeadline');
+      if (deadlineSpan) {
+        if (testData.deadline) {
+          const date = new Date(testData.deadline);
+          deadlineSpan.textContent = date.toLocaleString('ru-RU');
+        } else {
+          deadlineSpan.textContent = 'Не установлен';
+        }
+      }
+      
+      const timeLimitSpan = document.getElementById('previewTimeLimit');
+      if (timeLimitSpan) {
+        const timeLimitMinutes = testData.time_limit;
+        if (timeLimitMinutes && timeLimitMinutes > 0) {
+          const days = Math.floor(timeLimitMinutes / (24 * 60));
+          const hours = Math.floor((timeLimitMinutes % (24 * 60)) / 60);
+          const minutes = timeLimitMinutes % 60;
+          
+          let timeStr = '';
+          if (days > 0) timeStr += `${days} дн. `;
+          if (hours > 0) timeStr += `${hours} ч. `;
+          if (minutes > 0) timeStr += `${minutes} мин.`;
+          timeLimitSpan.textContent = timeStr.trim() || 'Без ограничения';
+        } else {
+          timeLimitSpan.textContent = 'Без ограничения';
+        }
+      }
+      
+      const exercises = testData.exercises || [];
+      
+      exercises.forEach(exercise => {
+        if (!exercise.sectionId) {
+          exercise.sectionId = sectionId;
+        }
+      });
+      
+      // Рендерим упражнения
+      renderPreviewTestExercises(exercises);
+      
+      // Даём время для рендера карточек
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      // === ВОССТАНОВЛЕНИЕ С СОХРАНЕНИЕМ ПОРЯДКА ===
+      if (currentUserRole === 'student') {
+        console.log('Загрузка теста для студента, section.id:', sectionId);
+        
+        // Получаем количество попыток с сервера
+        const serverAttempts = await getTestAttempts(sectionId);
+        let localAttempts = 0;
+        const storageKey = getStorageKey(sectionId);
+        const savedStateRaw = localStorage.getItem(storageKey);
+        if (savedStateRaw) {
+          try {
+            const state = JSON.parse(savedStateRaw);
+            localAttempts = state.attemptsCount || 0;
+          } catch(e) {}
+        }
+        testAttemptsCount = Math.max(serverAttempts, localAttempts);
+        console.log('Попытки: сервер=', serverAttempts, 'локальные=', localAttempts, 'итого=', testAttemptsCount);
+        updateTestAttemptsDisplay();
+        
+        // Восстанавливаем состояние с сервера ТОЛЬКО если не было сброса И есть попытки
+        if (!needsReset && testAttemptsCount > 0) {
+          console.log('Восстанавливаем состояние теста с сервера');
+          await restoreTestFromServer(sectionId);
+        } else if (needsReset) {
+          console.log('Был сброс версии, не восстанавливаем состояние с сервера');
+          // Принудительно сбрасываем UI
+          resetTestUI();
+        }
+      }
+      
+      const previewContainer = document.getElementById('testPreviewContainer');
+      const theoryPreviewContainer = document.getElementById('theoryPreviewContainer');
+      const exercisePreviewContainer = document.getElementById('exercisePreviewContainer');
+      
+      if (theoryPreviewContainer) theoryPreviewContainer.style.display = 'none';
+      if (exercisePreviewContainer) exercisePreviewContainer.style.display = 'none';
+      if (previewContainer) previewContainer.style.display = 'block';
+      
+      // Настройка кнопок в зависимости от роли
+      if (currentUserRole === 'student') {
+        setTimeout(() => {
+          updateTestButtons();
+        }, 200);
+      } else {
+        setTimeout(() => {
+          updateNextStepButton(sectionId);
+        }, 100);
+      }
+      
+      updateNextStepButton(sectionId);
+      
+    } else {
+      showNotification('Ошибка загрузки раздела', 'error');
     }
+  } catch (error) {
+    console.error('Ошибка:', error);
+    showNotification('Ошибка загрузки раздела', 'error');
+  }
 }
+
 function resetTestScoresDisplay() {
     if (currentUserRole !== 'student') return;
     
@@ -1807,6 +1808,11 @@ function renderPreviewTestExercises(exercises) {
             }
         }
     });
+    if (currentUserRole === 'student') {
+        setTimeout(() => {
+        updateTestButtons();
+        }, 100);
+    }
 }
 
 function updateTotalTestScore() {
@@ -5354,100 +5360,163 @@ function restoreExerciseAnswers(card, answers, typeText) {
 
 // Проверка, завершён ли тест (все упражнения выполнены)
 function isTestCompleted() {
-    const exerciseCards = document.querySelectorAll('#previewTestExercisesList .preview-test-exercise-card');
-    if (exerciseCards.length === 0) return false;
+  const exerciseCards = document.querySelectorAll('#previewTestExercisesList .preview-test-exercise-card');
+  if (exerciseCards.length === 0) return false;
+  
+  let allCompleted = true;
+  
+  for (const card of exerciseCards) {
+    const testId = card.dataset.sectionId;
+    const exerciseId = card.dataset.exerciseId;
     
-    let allCompleted = true;
+    // Проверяем по флагу полного выполнения
+    const isFullyCorrect = localStorage.getItem(`exercise_fully_correct_${testId}_${exerciseId}`) === 'true';
     
-    for (const card of exerciseCards) {
-        const testId = card.dataset.sectionId;
-        const exerciseId = card.dataset.exerciseId;
-        
-        // Проверяем по флагу полного выполнения
-        const isFullyCorrect = localStorage.getItem(`exercise_fully_correct_${testId}_${exerciseId}`) === 'true';
-        
-        // Проверяем по баллам
-        const scoreSpan = card.querySelector('.exercise-score-value');
-        const maxScoreSpan = card.querySelector('.exercise-score-max');
-        
-        let score = 0;
-        let maxScore = 0;
-        
-        if (scoreSpan && maxScoreSpan) {
-            score = parseInt(scoreSpan.textContent);
-            const maxScoreText = maxScoreSpan.textContent;
-            maxScore = parseInt(maxScoreText.replace('/', '').trim());
-        }
-        
-        // Проверяем по атрибуту блокировки
-        const isLocked = card.getAttribute('data-locked') === 'true';
-        
-        // Если не выполнено ни по одному критерию
-        if (!isFullyCorrect && !isLocked && score < maxScore) {
-            allCompleted = false;
-        }
+    // Проверяем по баллам
+    const scoreSpan = card.querySelector('.exercise-score-value');
+    const maxScoreSpan = card.querySelector('.exercise-score-max');
+    
+    let score = 0;
+    let maxScore = 0;
+    
+    if (scoreSpan && maxScoreSpan) {
+      score = parseInt(scoreSpan.textContent) || 0;
+      const maxScoreText = maxScoreSpan.textContent;
+      maxScore = parseInt(maxScoreText.replace('/', '').trim()) || 0;
     }
     
-    return allCompleted;
+    // Проверяем по атрибуту блокировки
+    const isLocked = card.getAttribute('data-locked') === 'true';
+    
+    // Если не выполнено ни по одному критерию
+    if (!isFullyCorrect && !isLocked && score < maxScore) {
+      allCompleted = false;
+    }
+  }
+  
+  return allCompleted;
 }
 
 // Найти функцию updateTestButtons и заменить её на эту:
 
 function updateTestButtons() {
+  console.log('[updateTestButtons] Called');
+  
+  const testNextStep = document.getElementById('testNextStep');
+  const testSubmitBtn = document.getElementById('testSubmitBtn');
+  const testNextBtn = document.getElementById('testNextBtn');
+  const totalScoreWrapper = document.querySelector('.total-score-container');
+  
+  if (!testNextStep) {
+    console.log('[updateTestButtons] testNextStep not found');
+    return;
+  }
+  
+  // Получаем текущий sectionId для проверки следующего раздела
+  const currentSectionId = currentEditingExerciseSection?.id;
+  const hasNext = currentSectionId ? findNextSection(currentSectionId) !== null : false;
+  
+  console.log('[updateTestButtons] hasNext:', hasNext);
+  console.log('[updateTestButtons] testAttemptsCount:', testAttemptsCount);
+  console.log('[updateTestButtons] currentUserRole:', currentUserRole);
+  
+  // Для студента
+  if (currentUserRole === 'student') {
     const testCompleted = isTestCompleted();
     const attemptsExhausted = testAttemptsCount >= MAX_TEST_ATTEMPTS;
-    const testNextStep = document.getElementById('testNextStep');
-    const testSubmitBtn = document.getElementById('testSubmitBtn');
-    const testNextBtn = document.getElementById('testNextBtn');
-    const totalScoreWrapper = document.getElementById('totalScoreWrapper');
     
-    if (!testNextStep) return;
+    console.log('[updateTestButtons] testCompleted:', testCompleted);
+    console.log('[updateTestButtons] attemptsExhausted:', attemptsExhausted);
     
-    // Показываем блок с итоговыми баллами для студента
-    if (currentUserRole === 'student' && totalScoreWrapper) {
+    // Случай 1: Тест НЕ выполнен И попытки НЕ исчерпаны -> показываем кнопку "Отправить решение"
+    if (!testCompleted && !attemptsExhausted) {
+      console.log('[updateTestButtons] Show submit button');
+      
+      if (testSubmitBtn) {
+        // ПРИНУДИТЕЛЬНО показываем кнопку, переопределяя inline style
+        testSubmitBtn.style.display = 'flex';
+        testSubmitBtn.style.background = '#379B34';
+        
+        // Убираем старый обработчик и добавляем новый
+        const newSubmitBtn = testSubmitBtn.cloneNode(true);
+        testSubmitBtn.parentNode.replaceChild(newSubmitBtn, testSubmitBtn);
+        newSubmitBtn.addEventListener('click', async () => {
+          console.log('[updateTestButtons] Submit button clicked');
+          const isValid = await validateAndSubmitTest();
+          if (isValid) {
+            showNotification('Тест успешно проверен!', 'success');
+            updateTestButtons();
+          }
+        });
+      }
+      
+      if (testNextBtn) {
+        testNextBtn.style.display = 'none';
+      }
+      
+      if (totalScoreWrapper) {
         totalScoreWrapper.style.display = 'flex';
+      }
+      
+      testNextStep.style.display = 'flex';
+    }
+    // Случай 2: Тест выполнен ИЛИ попытки исчерпаны -> показываем "Следующий шаг"
+    else {
+      console.log('[updateTestButtons] Show next button or nothing');
+      
+      if (testSubmitBtn) {
+        testSubmitBtn.style.display = 'none';
+      }
+      
+      if (testNextBtn) {
+        if (hasNext) {
+          console.log('[updateTestButtons] Showing next button');
+          testNextBtn.style.display = 'flex';
+          testNextBtn.style.background = '#7651BE';
+          const arrowIcon = testNextBtn.querySelector('.next-arrow-icon');
+          if (arrowIcon) arrowIcon.style.filter = 'brightness(0) invert(1)';
+          
+          // Убираем старый обработчик и добавляем новый
+          const newNextBtn = testNextBtn.cloneNode(true);
+          testNextBtn.parentNode.replaceChild(newNextBtn, testNextBtn);
+          newNextBtn.addEventListener('click', navigateToNextSection);
+        } else {
+          console.log('[updateTestButtons] No next section, hiding next button');
+          testNextBtn.style.display = 'none';
+        }
+      }
+      
+      testNextStep.style.display = 'flex';
+      
+      if (attemptsExhausted && !testCompleted) {
+        console.log('[updateTestButtons] Attempts exhausted, highlighting errors');
+        setTimeout(() => {
+          highlightAllErrorsOnAttemptsExhausted();
+        }, 100);
+      }
+    }
+  }
+  // Для учителя
+  else if (currentUserRole === 'teacher') {
+    console.log('[updateTestButtons] Teacher mode');
+    
+    if (testSubmitBtn) {
+      testSubmitBtn.style.display = 'none';
     }
     
-    // Получаем текущий sectionId для проверки следующего раздела
-    const currentSectionId = currentEditingExerciseSection?.id;
-    const hasNext = currentSectionId ? findNextSection(currentSectionId) !== null : false;
-    
-    if (testCompleted || attemptsExhausted) {
-        if (testSubmitBtn) {
-            testSubmitBtn.style.display = 'none';
-        }
-        
-        if (testNextBtn) {
-            if (hasNext) {
-                testNextBtn.style.display = 'flex';
-                testNextBtn.style.background = '#7651BE';
-                const arrowIcon = testNextBtn.querySelector('.next-arrow-icon');
-                if (arrowIcon) arrowIcon.style.filter = 'brightness(0) invert(1)';
-                
-                // Убираем старый обработчик и добавляем новый
-                const newNextBtn = testNextBtn.cloneNode(true);
-                testNextBtn.parentNode.replaceChild(newNextBtn, testNextBtn);
-                newNextBtn.addEventListener('click', navigateToNextSection);
-            } else {
-                testNextBtn.style.display = 'none';
-            }
-        }
-        
-        testNextStep.style.display = 'flex';
-        
-        if (attemptsExhausted && !testCompleted) {
-            setTimeout(() => {
-                highlightAllErrorsOnAttemptsExhausted();
-            }, 100);
-        }
-    } else {
-        if (testSubmitBtn) {
-            testSubmitBtn.style.display = 'flex';
-            rebindTestSubmitHandler();
-        }
-        if (testNextBtn) testNextBtn.style.display = 'none';
-        testNextStep.style.display = 'flex';
+    if (testNextBtn) {
+      if (hasNext) {
+        testNextBtn.style.display = 'flex';
+        testNextBtn.style.background = '#7651BE';
+        const arrowIcon = testNextBtn.querySelector('.next-arrow-icon');
+        if (arrowIcon) arrowIcon.style.filter = 'brightness(0) invert(1)';
+      } else {
+        testNextBtn.style.display = 'none';
+      }
     }
+    
+    testNextStep.style.display = 'flex';
+  }
 }
 
 // Функция для подсветки ошибок когда попытки закончились
@@ -5994,6 +6063,115 @@ function getCorrectAnswers(card, exerciseType) {
     }
     
     return correctAnswers;
+}
+
+// ===== ФУНКЦИИ ДЛЯ ВЕРСИОНИРОВАНИЯ И СБРОСА =====
+
+// Очистка localStorage для раздела
+function clearSectionLocalStorage(sectionId, testId = null) {
+  console.log(`[Reset] Clearing localStorage for section ${sectionId}`);
+  
+  // Очищаем ответы упражнений
+  const matchingKey = `matching_answers_${sectionId}`;
+  const choiceKey = `choice_answers_${sectionId}`;
+  const fillblanksKey = `fillblanks_answers_${sectionId}`;
+  
+  localStorage.removeItem(matchingKey);
+  localStorage.removeItem(choiceKey);
+  localStorage.removeItem(fillblanksKey);
+  
+  // Если есть testId, очищаем данные теста
+  if (testId) {
+    const testStateKey = `test_state_${testId}`;
+    const testTempKey = `test_state_${testId}_temp`;
+    localStorage.removeItem(testStateKey);
+    localStorage.removeItem(testTempKey);
+    
+    // Очищаем флаги полностью правильных упражнений
+    const exerciseCards = document.querySelectorAll('.preview-test-exercise-card');
+    exerciseCards.forEach(card => {
+      const exerciseId = card.dataset.exerciseId;
+      localStorage.removeItem(`exercise_fully_correct_${testId}_${exerciseId}`);
+      localStorage.removeItem(`exercise_attempts_${testId}_${exerciseId}`);
+      localStorage.removeItem(`exercise_result_${testId}_${exerciseId}`);
+    });
+  }
+  
+  // Сбрасываем глобальные переменные теста
+  testAttemptsCount = 0;
+  testAttemptsScores = [];
+  
+  console.log(`[Reset] LocalStorage cleared for section ${sectionId}`);
+}
+
+// Функция для отображения уведомления о сбросе
+function showVersionResetNotification() {
+  showNotification('Контент раздела был обновлён преподавателем. Ваш прогресс сброшен.', 'info');
+}
+
+function resetTestUI() {
+  console.log('[resetTestUI] Resetting test UI');
+  
+  // НЕ сбрасываем отображение баллов, если они были восстановлены!
+  // Оставляем как есть - они обновятся из restoreTestFromServer
+  
+  // Сбрасываем только выбранные ответы (интерактивные элементы)
+  const exerciseCards = document.querySelectorAll('#previewTestExercisesList .preview-test-exercise-card');
+  console.log(`[resetTestUI] Found ${exerciseCards.length} exercise cards`);
+  
+  exerciseCards.forEach((card, idx) => {
+    // Сбрасываем matching - только визуально, не трогаем сохранённые баллы
+    const matchingBtns = card.querySelectorAll('.matching-select-btn');
+    matchingBtns.forEach(btn => {
+      const selectedSpan = btn.querySelector('.selected-text');
+      if (selectedSpan && !btn.disabled) {
+        selectedSpan.textContent = '-- выберите элемент --';
+      }
+      btn.classList.remove('error-highlight', 'success-highlight-temporary', 'active');
+      // НЕ сбрасываем disabled и success-highlight-permanent, если упражнение было выполнено
+    });
+    
+    // Убираем выделение с опций matching (только у невыполненных)
+    const matchingOptions = card.querySelectorAll('.matching-select-option');
+    matchingOptions.forEach(opt => opt.classList.remove('selected'));
+    
+    // Сбрасываем choice (только у невыполненных)
+    const checkboxes = card.querySelectorAll('.checkbox-student');
+    checkboxes.forEach(checkbox => {
+      if (!checkbox.classList.contains('success-highlight-permanent')) {
+        checkbox.classList.remove('selected');
+      }
+    });
+    
+    // Сбрасываем fill_blanks (только у невыполненных)
+    const fillBlanksBtns = card.querySelectorAll('.fillblanks-select-btn');
+    fillBlanksBtns.forEach(btn => {
+      const selectedSpan = btn.querySelector('.selected-text');
+      if (selectedSpan && !btn.disabled) {
+        selectedSpan.textContent = '-- выберите слово --';
+      }
+      btn.classList.remove('error-highlight', 'success-highlight-temporary', 'active');
+    });
+    
+    // Убираем выделение с опций fill_blanks
+    const fillBlanksOptions = card.querySelectorAll('.fillblanks-select-option');
+    fillBlanksOptions.forEach(opt => opt.classList.remove('selected'));
+    
+    // НЕ СБРАСЫВАЕМ БАЛЛЫ! Они должны сохраниться после восстановления
+    // const scoreSpan = card.querySelector('.exercise-score-value');
+    // if (scoreSpan) scoreSpan.textContent = '0'; // ← УБРАТЬ ЭТУ СТРОКУ!
+    
+    // Удаляем атрибут блокировки ТОЛЬКО если упражнение не было выполнено
+    const testId = card.dataset.sectionId;
+    const exerciseId = card.dataset.exerciseId;
+    const isFullyCorrect = localStorage.getItem(`exercise_fully_correct_${testId}_${exerciseId}`) === 'true';
+    if (!isFullyCorrect) {
+      card.removeAttribute('data-locked');
+    }
+    card.classList.remove('test-card-error');
+  });
+  
+  console.log('[resetTestUI] UI reset complete (scores preserved)');
 }
 
 // ===== ИНИЦИАЛИЗАЦИЯ =====

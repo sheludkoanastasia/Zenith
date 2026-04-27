@@ -74,75 +74,98 @@ module.exports = {
             const { sectionId } = req.params;
             
             const section = await db.Section.findByPk(sectionId, {
+            include: [
+                { model: db.TheoryContent, as: 'theoryContent' },
+                { model: db.Exercise, as: 'exercise' },
+                { model: db.Test, as: 'test' },
+                {
+                model: db.Block,
+                as: 'block',
                 include: [
-                    { model: db.TheoryContent, as: 'theoryContent' },
-                    { model: db.Exercise, as: 'exercise' },
-                    { model: db.Test, as: 'test' },
                     {
-                        model: db.Block,
-                        as: 'block',
-                        include: [
-                            {
-                                model: db.Theme,
-                                as: 'theme',
-                                include: [{ model: db.Course, as: 'course' }]
-                            }
-                        ]
+                    model: db.Theme,
+                    as: 'theme',
+                    include: [{ model: db.Course, as: 'course' }]
                     }
                 ]
+                }
+            ]
             });
             
             if (!section) {
-                return res.status(404).json({
-                    success: false,
-                    message: 'Раздел не найден'
-                });
+            return res.status(404).json({
+                success: false,
+                message: 'Раздел не найден'
+            });
             }
             
             // Проверяем права доступа
+            let needsReset = false;
+            let currentSectionVersion = section.version || 1;
+            
             if (req.user.role === 'student') {
-                const isEnrolled = await db.CourseStudent.findOne({
-                    where: {
-                        course_id: section.block.theme.course.id,
-                        student_id: req.user.id
-                    }
-                });
-                
-                if (!isEnrolled) {
-                    return res.status(403).json({
-                        success: false,
-                        message: 'Вы не подключены к этому курсу'
-                    });
+            const isEnrolled = await db.CourseStudent.findOne({
+                where: {
+                course_id: section.block.theme.course.id,
+                student_id: req.user.id
                 }
-            } 
-            else if (section.block.theme.course.teacher_id !== req.user.id) {
+            });
+            
+            if (!isEnrolled) {
                 return res.status(403).json({
-                    success: false,
-                    message: 'Нет доступа к этому разделу'
+                success: false,
+                message: 'Вы не подключены к этому курсу'
                 });
             }
             
+            // Получаем сохранённую версию из прогресса
+            const progress = await db.StudentProgress.findOne({
+                where: {
+                student_id: req.user.id,
+                section_id: sectionId
+                }
+            });
+            
+            const savedVersion = progress?.section_version || 0;
+            
+            if (currentSectionVersion > savedVersion) {
+                needsReset = true;
+                console.log(`[Version Check] Section ${sectionId}: current=${currentSectionVersion}, saved=${savedVersion}, needsReset=true`);
+                
+                // Выполняем сброс прогресса
+                await resetStudentProgressForSection(sectionId, req.user.id, currentSectionVersion, null);
+            }
+            }
+            else if (section.block.theme.course.teacher_id !== req.user.id) {
+            return res.status(403).json({
+                success: false,
+                message: 'Нет доступа к этому разделу'
+            });
+            }
+            
             const responseData = {
-                id: section.id,
-                title: section.title,
-                type: section.type,
-                order_index: section.order_index,
-                block_id: section.block_id,
-                theoryContent: section.theoryContent,
-                exercise: section.exercise,
-                test: section.test
+            id: section.id,
+            title: section.title,
+            type: section.type,
+            order_index: section.order_index,
+            block_id: section.block_id,
+            version: section.version,
+            theoryContent: section.theoryContent,
+            exercise: section.exercise,
+            test: section.test,
+            needsReset: needsReset  // Важно! Флаг для фронтенда
             };
             
             res.json({
-                success: true,
-                section: responseData
+            success: true,
+            section: responseData
             });
             
         } catch (error) {
             console.error('Ошибка при получении раздела:', error);
             handleError(res, error, 'Ошибка при получении раздела');
         }
-    },
+        },
     
     createSection: async (req, res) => {
         const transaction = await db.sequelize.transaction();
@@ -251,65 +274,67 @@ module.exports = {
             const { title, text, file_url } = req.body;
             
             const section = await db.Section.findByPk(sectionId, {
+            include: [
+                {
+                model: db.Block,
+                as: 'block',
                 include: [
                     {
-                        model: db.Block,
-                        as: 'block',
-                        include: [
-                            {
-                                model: db.Theme,
-                                as: 'theme',
-                                include: [{ model: db.Course, as: 'course' }]
-                            }
-                        ]
-                    },
-                    { model: db.TheoryContent, as: 'theoryContent' }
+                    model: db.Theme,
+                    as: 'theme',
+                    include: [{ model: db.Course, as: 'course' }]
+                    }
                 ]
+                },
+                { model: db.TheoryContent, as: 'theoryContent' }
+            ],
+            transaction
             });
             
             if (!section) {
-                await transaction.rollback();
-                return res.status(404).json({
-                    success: false,
-                    message: 'Раздел не найден'
-                });
+            await transaction.rollback();
+            return res.status(404).json({ success: false, message: 'Раздел не найден' });
             }
             
             if (section.block.theme.course.teacher_id !== req.user.id) {
-                await transaction.rollback();
-                return res.status(403).json({
-                    success: false,
-                    message: 'Нет прав на редактирование этого раздела'
-                });
+            await transaction.rollback();
+            return res.status(403).json({ success: false, message: 'Нет прав на редактирование' });
             }
             
-            // Обновляем название, если оно передано
-            if (title !== undefined) {
-                await section.update({ title }, { transaction });
+            // Проверяем, есть ли реальные изменения
+            let hasChanges = false;
+            
+            if (title !== undefined && title !== section.title) {
+            await section.update({ title }, { transaction });
+            hasChanges = true;
             }
             
-            // Обновляем содержимое теории ТОЛЬКО если оно передано
             if (section.theoryContent) {
-                const updateData = {};
-                if (text !== undefined) updateData.text = text;
-                if (file_url !== undefined) updateData.file_url = file_url;
-                
-                // Обновляем только если есть что обновлять
-                if (Object.keys(updateData).length > 0) {
-                    await section.theoryContent.update(updateData, { transaction });
-                }
+            const updateData = {};
+            if (text !== undefined && text !== section.theoryContent.text) {
+                updateData.text = text;
+                hasChanges = true;
+            }
+            if (file_url !== undefined && file_url !== section.theoryContent.file_url) {
+                updateData.file_url = file_url;
+                hasChanges = true;
+            }
+            
+            if (Object.keys(updateData).length > 0) {
+                await section.theoryContent.update(updateData, { transaction });
+            }
+            }
+            
+            // Если были изменения - увеличиваем версию
+            if (hasChanges) {
+            await incrementSectionVersion(sectionId, transaction);
             }
             
             await transaction.commit();
             
-            const updatedSection = await db.Section.findByPk(sectionId, {
-                include: [{ model: db.TheoryContent, as: 'theoryContent' }]
-            });
-            
             res.json({
-                success: true,
-                message: 'Раздел теории успешно обновлен',
-                section: updatedSection
+            success: true,
+            message: 'Раздел теории успешно обновлен'
             });
             
         } catch (error) {
@@ -317,7 +342,7 @@ module.exports = {
             console.error('Ошибка при обновлении раздела теории:', error);
             handleError(res, error, 'Ошибка при обновлении раздела теории');
         }
-    },
+        },
     
     updateExerciseSection: async (req, res) => {
         const transaction = await db.sequelize.transaction();
@@ -327,73 +352,93 @@ module.exports = {
             const { title, exercise_type, question_text, options, left_column, right_column, matches, correct_answer } = req.body;
             
             const section = await db.Section.findByPk(sectionId, {
+            include: [
+                {
+                model: db.Block,
+                as: 'block',
                 include: [
                     {
-                        model: db.Block,
-                        as: 'block',
-                        include: [
-                            {
-                                model: db.Theme,
-                                as: 'theme',
-                                include: [{ model: db.Course, as: 'course' }]
-                            }
-                        ]
-                    },
-                    { model: db.Exercise, as: 'exercise' }
+                    model: db.Theme,
+                    as: 'theme',
+                    include: [{ model: db.Course, as: 'course' }]
+                    }
                 ]
+                },
+                { model: db.Exercise, as: 'exercise' }
+            ],
+            transaction
             });
             
             if (!section) {
-                await transaction.rollback();
-                return res.status(404).json({
-                    success: false,
-                    message: 'Раздел не найден'
-                });
+            await transaction.rollback();
+            return res.status(404).json({ success: false, message: 'Раздел не найден' });
             }
             
             if (section.block.theme.course.teacher_id !== req.user.id) {
-                await transaction.rollback();
-                return res.status(403).json({
-                    success: false,
-                    message: 'Нет прав на редактирование этого раздела'
-                });
+            await transaction.rollback();
+            return res.status(403).json({ success: false, message: 'Нет прав на редактирование' });
             }
             
-            if (title) {
-                await section.update({ title }, { transaction });
+            let hasChanges = false;
+            
+            if (title !== undefined && title !== section.title) {
+            await section.update({ title }, { transaction });
+            hasChanges = true;
             }
             
             if (section.exercise) {
-                await section.exercise.update({
-                    exercise_type: exercise_type !== undefined ? exercise_type : section.exercise.exercise_type,
-                    question_text: question_text !== undefined ? question_text : section.exercise.question_text,
-                    options: options !== undefined ? options : section.exercise.options,
-                    left_column: left_column !== undefined ? left_column : section.exercise.left_column,
-                    right_column: right_column !== undefined ? right_column : section.exercise.right_column,
-                    matches: matches !== undefined ? matches : section.exercise.matches,
-                    correct_answer: correct_answer !== undefined ? correct_answer : section.exercise.correct_answer
-                }, { transaction });
+            const oldData = {
+                exercise_type: section.exercise.exercise_type,
+                question_text: section.exercise.question_text,
+                options: JSON.stringify(section.exercise.options),
+                left_column: JSON.stringify(section.exercise.left_column),
+                right_column: JSON.stringify(section.exercise.right_column),
+                matches: JSON.stringify(section.exercise.matches),
+                correct_answer: section.exercise.correct_answer
+            };
+            
+            const newData = {
+                exercise_type: exercise_type !== undefined ? exercise_type : section.exercise.exercise_type,
+                question_text: question_text !== undefined ? question_text : section.exercise.question_text,
+                options: options !== undefined ? options : section.exercise.options,
+                left_column: left_column !== undefined ? left_column : section.exercise.left_column,
+                right_column: right_column !== undefined ? right_column : section.exercise.right_column,
+                matches: matches !== undefined ? matches : section.exercise.matches,
+                correct_answer: correct_answer !== undefined ? correct_answer : section.exercise.correct_answer
+            };
+            
+            // Проверяем изменения
+            if (oldData.exercise_type !== newData.exercise_type ||
+                oldData.question_text !== newData.question_text ||
+                JSON.stringify(oldData.options) !== JSON.stringify(newData.options) ||
+                JSON.stringify(oldData.left_column) !== JSON.stringify(newData.left_column) ||
+                JSON.stringify(oldData.right_column) !== JSON.stringify(newData.right_column) ||
+                JSON.stringify(oldData.matches) !== JSON.stringify(newData.matches) ||
+                oldData.correct_answer !== newData.correct_answer) {
+                hasChanges = true;
+            }
+            
+            await section.exercise.update(newData, { transaction });
+            }
+            
+            if (hasChanges) {
+            await incrementSectionVersion(sectionId, transaction);
             }
             
             await transaction.commit();
             
-            const updatedSection = await db.Section.findByPk(sectionId, {
-                include: [{ model: db.Exercise, as: 'exercise' }]
-            });
-            
             res.json({
-                success: true,
-                message: 'Упражнение успешно обновлено',
-                section: updatedSection
+            success: true,
+            message: 'Упражнение успешно обновлено'
             });
             
         } catch (error) {
             await transaction.rollback();
             handleError(res, error, 'Ошибка при обновлении упражнения');
         }
-    },
+        },
     
-        updateTestSection: async (req, res) => {
+    updateTestSection: async (req, res) => {
         const transaction = await db.sequelize.transaction();
         
         try {
@@ -401,69 +446,81 @@ module.exports = {
             const { title, exercises, passing_score, time_limit, deadline } = req.body;
             
             const section = await db.Section.findByPk(sectionId, {
+            include: [
+                {
+                model: db.Block,
+                as: 'block',
                 include: [
                     {
-                        model: db.Block,
-                        as: 'block',
-                        include: [
-                            {
-                                model: db.Theme,
-                                as: 'theme',
-                                include: [{ model: db.Course, as: 'course' }]
-                            }
-                        ]
-                    },
-                    { model: db.Test, as: 'test' }
+                    model: db.Theme,
+                    as: 'theme',
+                    include: [{ model: db.Course, as: 'course' }]
+                    }
                 ]
+                },
+                { model: db.Test, as: 'test' }
+            ],
+            transaction
             });
             
             if (!section) {
-                await transaction.rollback();
-                return res.status(404).json({
-                    success: false,
-                    message: 'Раздел не найден'
-                });
+            await transaction.rollback();
+            return res.status(404).json({ success: false, message: 'Раздел не найден' });
             }
             
             if (section.block.theme.course.teacher_id !== req.user.id) {
-                await transaction.rollback();
-                return res.status(403).json({
-                    success: false,
-                    message: 'Нет прав на редактирование этого раздела'
-                });
+            await transaction.rollback();
+            return res.status(403).json({ success: false, message: 'Нет прав на редактирование' });
             }
             
-            if (title) {
-                await section.update({ title }, { transaction });
+            let hasChanges = false;
+            
+            if (title !== undefined && title !== section.title) {
+            await section.update({ title }, { transaction });
+            hasChanges = true;
             }
             
             if (section.test) {
-                const updateData = {};
-                
-                if (exercises !== undefined) updateData.exercises = exercises;
-                if (passing_score !== undefined) updateData.passing_score = passing_score;
-                if (time_limit !== undefined) updateData.time_limit = time_limit;
-                
-                // Исправление: преобразуем пустую строку в null
-                if (deadline !== undefined) {
-                    updateData.deadline = deadline && deadline.trim() !== '' ? deadline : null;
-                }
-                
-                console.log('Updating test with data:', updateData);
-                
+            const oldData = {
+                exercises: JSON.stringify(section.test.exercises || []),
+                passing_score: section.test.passing_score,
+                time_limit: section.test.time_limit,
+                deadline: section.test.deadline
+            };
+            
+            const updateData = {};
+            if (exercises !== undefined) {
+                updateData.exercises = exercises;
+                if (JSON.stringify(oldData.exercises) !== JSON.stringify(exercises)) hasChanges = true;
+            }
+            if (passing_score !== undefined) {
+                updateData.passing_score = passing_score;
+                if (oldData.passing_score !== passing_score) hasChanges = true;
+            }
+            if (time_limit !== undefined) {
+                updateData.time_limit = time_limit;
+                if (oldData.time_limit !== time_limit) hasChanges = true;
+            }
+            if (deadline !== undefined) {
+                const newDeadline = deadline && deadline.trim() !== '' ? deadline : null;
+                updateData.deadline = newDeadline;
+                if (oldData.deadline !== newDeadline) hasChanges = true;
+            }
+            
+            if (Object.keys(updateData).length > 0) {
                 await section.test.update(updateData, { transaction });
+            }
+            }
+            
+            if (hasChanges) {
+            await incrementSectionVersion(sectionId, transaction);
             }
             
             await transaction.commit();
             
-            const updatedSection = await db.Section.findByPk(sectionId, {
-                include: [{ model: db.Test, as: 'test' }]
-            });
-            
             res.json({
-                success: true,
-                message: 'Итоговый тест успешно обновлен',
-                section: updatedSection
+            success: true,
+            message: 'Итоговый тест успешно обновлен'
             });
             
         } catch (error) {
@@ -471,7 +528,7 @@ module.exports = {
             console.error('Ошибка при обновлении итогового теста:', error);
             handleError(res, error, 'Ошибка при обновлении итогового теста');
         }
-    },
+        },
 
     // ===== ЗАГРУЗКА ФАЙЛА ДЛЯ ТЕОРИИ =====
     uploadTheoryFile: async (req, res) => {
@@ -692,3 +749,58 @@ module.exports = {
         }
     }
 };
+
+// Вспомогательная функция для увеличения версии раздела
+async function incrementSectionVersion(sectionId, transaction) {
+  const section = await db.Section.findByPk(sectionId, { transaction });
+  if (section) {
+    const newVersion = (section.version || 0) + 1;
+    await section.update({ version: newVersion }, { transaction });
+    return newVersion;
+  }
+  return null;
+}
+
+// Функция для сброса прогресса студента при изменении версии
+async function resetStudentProgressForSection(sectionId, studentId, newVersion, transaction) {
+  // 1. Обновляем или создаём запись прогресса с новой версией
+  const [progress, created] = await db.StudentProgress.findOrCreate({
+    where: { student_id: studentId, section_id: sectionId },
+    defaults: {
+      status: 'not_started',
+      attempts_count: 0,
+      best_score: 0,
+      section_version: newVersion,
+      completed_at: null
+    },
+    transaction
+  });
+
+  if (!created && progress.section_version < newVersion) {
+    // Сбрасываем прогресс
+    await progress.update({
+      status: 'not_started',
+      attempts_count: 0,
+      best_score: 0,
+      section_version: newVersion,
+      completed_at: null
+    }, { transaction });
+  }
+
+  // 2. Если это тестовый раздел - удаляем все попытки
+  const section = await db.Section.findByPk(sectionId, { transaction });
+  if (section && section.type === 'test') {
+    const test = await db.Test.findOne({ 
+      where: { section_id: sectionId },
+      transaction
+    });
+    if (test) {
+      await db.TestAttempt.destroy({
+        where: { test_id: test.id, student_id: studentId },
+        transaction
+      });
+    }
+  }
+
+  return progress;
+}
