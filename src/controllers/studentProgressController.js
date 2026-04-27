@@ -289,87 +289,118 @@ module.exports = {
     },
 
     // Получение количества попыток теста для студента
-    getTestAttempts: async (req, res) => {
-        try {
-            const { testId } = req.params;
-            const studentId = req.user.id;
-            
-            const test = await db.Test.findOne({
-                where: { section_id: testId }
-            });
-            
-            if (!test) {
-                return res.status(404).json({ success: false, message: 'Тест не найден' });
-            }
-            
-            const studentAttempts = test.student_attempts || {};
-            const attempts = studentAttempts[studentId] || [];
-            
-            res.json({
-                success: true,
-                attemptsCount: attempts.length,
-                attempts: attempts,
-                maxAttempts: 4
-            });
-        } catch (error) {
-            console.error('Ошибка получения попыток теста:', error);
-            handleError(res, error, 'Ошибка получения попыток теста');
+// Получение количества попыток теста для студента
+getTestAttempts: async (req, res) => {
+    try {
+        const { testId } = req.params;
+        const studentId = req.user.id;
+        
+        const test = await db.Test.findOne({
+            where: { section_id: testId }
+        });
+        
+        if (!test) {
+            return res.status(404).json({ success: false, message: 'Тест не найден' });
         }
-    },
+        
+        // ВАЖНО: считаем только успешно завершенные попытки
+        const attempts = await db.TestAttempt.findAll({
+            where: {
+                test_id: test.id,
+                student_id: studentId
+                // НЕ добавляем фильтр по статусу - все попытки считаются
+            },
+            order: [['attempt_number', 'ASC']]
+        });
+        
+        res.json({
+            success: true,
+            attemptsCount: attempts.length,
+            attempts: attempts.map(a => ({
+                attemptNumber: a.attempt_number,
+                totalScore: a.total_score,
+                maxScore: a.max_score,
+                exerciseResults: a.exercise_results,
+                completedAt: a.completed_at
+            })),
+            maxAttempts: 4
+        });
+    } catch (error) {
+        console.error('Ошибка получения попыток теста:', error);
+        handleError(res, error, 'Ошибка получения попыток теста');
+    }
+},
 
-    // Сохранение результата попытки теста
-    saveTestAttempt: async (req, res) => {
-        try {
-            const { testId } = req.params;
-            const studentId = req.user.id;
-            const { attemptNumber, totalScore, maxScore, exerciseResults } = req.body;
-            
-            const test = await db.Test.findOne({
-                where: { section_id: testId }
-            });
-            
-            if (!test) {
-                return res.status(404).json({ success: false, message: 'Тест не найден' });
-            }
-            
-            // Получаем существующие попытки студента
-            const studentAttempts = test.student_attempts || {};
-            const attempts = studentAttempts[studentId] || [];
-            
-            // Проверяем лимит попыток
-            if (attempts.length >= 4) {
-                return res.status(400).json({
-                    success: false,
-                    message: 'Лимит попыток исчерпан'
-                });
-            }
-            
-            // Добавляем новую попытку
-            const newAttempt = {
-                attemptNumber,
-                totalScore,
-                maxScore,
-                exerciseResults,
-                completedAt: new Date().toISOString()
-            };
-            
-            attempts.push(newAttempt);
-            studentAttempts[studentId] = attempts;
-            
-            // Сохраняем в базу
-            await test.update({ student_attempts: studentAttempts });
-            
-            res.json({
-                success: true,
-                attempt: newAttempt,
-                attemptsCount: attempts.length
-            });
-        } catch (error) {
-            console.error('Ошибка сохранения попытки теста:', error);
-            handleError(res, error, 'Ошибка сохранения попытки теста');
+saveTestAttempt: async (req, res) => {
+    try {
+        const { testId } = req.params;
+        const studentId = req.user.id;
+        const { attemptNumber, totalScore, maxScore, exerciseResults } = req.body;
+        
+        const test = await db.Test.findOne({
+            where: { section_id: testId }
+        });
+        
+        if (!test) {
+            return res.status(404).json({ success: false, message: 'Тест не найден' });
         }
-    },
-
+        
+        // Проверяем, не существует ли уже такой попытки
+        const existingAttempt = await db.TestAttempt.findOne({
+            where: {
+                test_id: test.id,
+                student_id: studentId,
+                attempt_number: attemptNumber
+            }
+        });
+        
+        if (existingAttempt) {
+            // Если попытка уже существует, просто возвращаем успех
+            return res.json({
+                success: true,
+                attempt: existingAttempt,
+                attemptsCount: await db.TestAttempt.count({
+                    where: { test_id: test.id, student_id: studentId }
+                })
+            });
+        }
+        
+        // Проверяем лимит попыток
+        const attemptsCount = await db.TestAttempt.count({
+            where: {
+                test_id: test.id,
+                student_id: studentId
+            }
+        });
+        
+        if (attemptsCount >= 4) {
+            return res.status(400).json({
+                success: false,
+                message: 'Лимит попыток исчерпан'
+            });
+        }
+        
+        // Сохраняем новую попытку
+        const newAttempt = await db.TestAttempt.create({
+            test_id: test.id,
+            student_id: studentId,
+            attempt_number: attemptNumber,
+            total_score: totalScore,
+            max_score: maxScore,
+            exercise_results: exerciseResults,
+            completed_at: new Date()
+        });
+        
+        res.json({
+            success: true,
+            attempt: newAttempt,
+            attemptsCount: attemptsCount + 1
+        });
+    } catch (error) {
+        console.error('Ошибка сохранения попытки теста:', error);
+        handleError(res, error, 'Ошибка сохранения попытки теста');
+    }
+},
     // Проверка упражнения в тесте (по exerciseId из массива exercises)
     checkTestExercise: async (req, res) => {
         try {

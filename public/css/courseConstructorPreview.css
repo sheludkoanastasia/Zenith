@@ -1656,7 +1656,6 @@ body {
 
 .next-step-btn:hover {
     background: #5e3c9e;
-    transform: translateX(4px);
 }
 
 .next-arrow-icon {
@@ -1666,7 +1665,7 @@ body {
     transition: transform 0.3s ease;
 }
 
-.next-step-btn:hover .next-arrow-icon {
+.next-arrow-icon {
     transform: translateX(4px);
 }
 
@@ -2047,7 +2046,6 @@ margin-bottom: 8px !important;
 
 .next-step-btn:hover {
     background: #5e3c9e;
-    transform: translateX(4px);
 }
 
 .preview-toast.success {
@@ -2376,6 +2374,12 @@ body[data-user-role="teacher"] .total-score-container,
 body[data-user-role="teacher"] .total-score-wrapper,
 body[data-user-role="teacher"] .test-score-info {
     display: none !important;
+}
+
+.error-highlight {
+    border: 2px solid #ff4444 !important;
+    background-color: rgba(255, 68, 68, 0.1) !important;
+    transition: all 0.2s ease;
 }
 
 @keyframes successPulse {
