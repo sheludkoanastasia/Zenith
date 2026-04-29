@@ -28,6 +28,8 @@ let quillPreview = null;
 let currentEditingTheorySection = null;
 let currentEditingExerciseSection = null;
 let currentUserRole = null;
+const sectionCompletionMap = new Map();
+const pendingResetSectionIds = new Set();
 
 // Добавляем переменные для отслеживания попыток теста
 let currentTestId = null;
@@ -599,7 +601,7 @@ async function loadAllBlocksSections(themes) {
                     if (response.ok) {
                         const data = await response.json();
                         if (data.success) {
-                            block.sections = data.sections || [];
+                            block.sections = await applyCompletionStatesToSections(data.sections || []);
                         }
                     }
                 } catch (error) {
@@ -723,9 +725,10 @@ function renderBlockSections(sections) {
             case 'test': typeClass = 'test'; break;
             default: typeClass = 'theory';
         }
+        const isCompleted = section.isCompleted === true;
         
         return `
-            <div class="sidebar-section-item" data-section-id="${section.id}" data-section-type="${section.type}">
+            <div class="sidebar-section-item ${isCompleted ? 'completed' : ''}" data-section-id="${section.id}" data-section-type="${section.type}">
                 <span class="section-title-text" data-type="${typeClass}">${escapeHtml(section.title)}</span>
                 <img src="/images/taskCreationPage/rightArrow.svg" alt="arrow" class="section-arrow-icon">
             </div>
@@ -771,7 +774,7 @@ async function loadBlockSections(blockId, blockTitle, blockDescription) {
         const data = await response.json();
         if (data.success) {
             currentBlock = { id: blockId, title: blockTitle, description: blockDescription };
-            currentSections = data.sections;
+            currentSections = await applyCompletionStatesToSections(data.sections);
             
             if (currentCourse && currentCourse.themes) {
                 for (const theme of currentCourse.themes) {
@@ -880,13 +883,15 @@ function renderSections(sections) {
                 typeValue = 'theory';
         }
         
+        const isCompleted = section.isCompleted === true;
         return `
-            <div class="section-card" data-section-id="${section.id}" data-section-type="${section.type}">
+            <div class="section-card ${isCompleted ? 'completed' : ''}" data-section-id="${section.id}" data-section-type="${section.type}">
                 <div class="section-header">
                     <div class="section-title">
                         <span class="section-type-badge" data-type="${typeValue}">${typeLabel}</span>
                         <h3>${escapeHtml(section.title)}</h3>
                     </div>
+                    <div class="section-completed-check" aria-hidden="true">✓</div>
                 </div>
             </div>
         `;
@@ -909,6 +914,106 @@ function renderSections(sections) {
         };
         card.addEventListener('click', card._listener);
     });
+}
+
+function setSectionCompletionState(sectionId, isCompleted) {
+    const completed = isCompleted === true;
+    if (completed) {
+        pendingResetSectionIds.delete(sectionId);
+    }
+    sectionCompletionMap.set(sectionId, completed);
+
+    currentSections = currentSections.map(section =>
+        section.id === sectionId ? { ...section, isCompleted: completed } : section
+    );
+
+    if (currentCourse?.themes) {
+        currentCourse.themes.forEach(theme => {
+            (theme.blocks || []).forEach(block => {
+                block.sections = (block.sections || []).map(section =>
+                    section.id === sectionId ? { ...section, isCompleted: completed } : section
+                );
+            });
+        });
+    }
+
+    document.querySelectorAll(`.section-card[data-section-id="${sectionId}"]`).forEach(card => {
+        card.classList.toggle('completed', completed);
+    });
+
+    document.querySelectorAll(`.sidebar-section-item[data-section-id="${sectionId}"]`).forEach(item => {
+        item.classList.toggle('completed', completed);
+    });
+}
+
+async function getSectionCompletionStatus(section) {
+    if (currentUserRole !== 'student' || !section?.id) return false;
+    const needsReset = await checkSectionNeedsReset(section.id, section.needsReset === true);
+    if (needsReset) {
+        sectionCompletionMap.set(section.id, false);
+        clearSectionLocalStorage(section.id);
+        return false;
+    }
+
+    if (sectionCompletionMap.has(section.id)) {
+        return sectionCompletionMap.get(section.id) === true;
+    }
+
+    let isCompleted = false;
+    if (section.type === 'theory') {
+        isCompleted = await checkTheoryStatus(section.id);
+    } else if (section.type === 'exercise') {
+        isCompleted = await checkExerciseStatus(section.id);
+    } else if (section.type === 'test') {
+        const attemptsCount = await getTestAttempts(section.id);
+        isCompleted = attemptsCount > 0;
+    }
+
+    sectionCompletionMap.set(section.id, isCompleted === true);
+    return isCompleted === true;
+}
+
+async function checkSectionNeedsReset(sectionId, initialNeedsReset = false) {
+    if (!sectionId) return false;
+
+    if (initialNeedsReset || pendingResetSectionIds.has(sectionId)) {
+        pendingResetSectionIds.add(sectionId);
+        return true;
+    }
+
+    try {
+        const token = getToken();
+        const response = await fetch(`${apiBaseUrl}/sections/${sectionId}`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+
+        if (!response.ok) return false;
+
+        const data = await response.json();
+        const needsReset = data?.success && data?.section?.needsReset === true;
+        if (needsReset) {
+            pendingResetSectionIds.add(sectionId);
+        }
+        return needsReset;
+    } catch (error) {
+        console.error('Ошибка проверки needsReset для раздела:', sectionId, error);
+        return false;
+    }
+}
+
+async function applyCompletionStatesToSections(sections) {
+    if (currentUserRole !== 'student' || !Array.isArray(sections) || sections.length === 0) {
+        return sections;
+    }
+
+    const completionResults = await Promise.all(
+        sections.map(section => getSectionCompletionStatus(section))
+    );
+
+    return sections.map((section, idx) => ({
+        ...section,
+        isCompleted: completionResults[idx] === true
+    }));
 }
 
 function performBlockSwitch(clickedBlockId, blockTitle, blockDescription) {
@@ -968,14 +1073,17 @@ async function loadTheorySection(sectionId) {
       currentEditingExerciseSection = null;
       
       // === НОВАЯ ЛОГИКА СБРОСА ===
-      if (section.needsReset === true) {
+      const isResetSection = section.needsReset === true || pendingResetSectionIds.has(sectionId);
+      if (isResetSection) {
         console.log('[Version Reset] Theory section needs reset');
+        pendingResetSectionIds.add(sectionId);
         clearSectionLocalStorage(sectionId);
         showVersionResetNotification();
         
         if (currentUserRole === 'student') {
           // Обновляем состояние кнопки теории (сбрасываем на "не пройдено")
           updateTheoryButtonState(sectionId, false);
+          setSectionCompletionState(sectionId, false);
         }
       }
       // ===========================
@@ -1004,7 +1112,8 @@ async function loadTheorySection(sectionId) {
       
       // Для студента проверяем статус теории
       if (currentUserRole === 'student') {
-        const isCompleted = await checkTheoryStatus(sectionId);
+        const isCompleted = isResetSection ? false : await checkTheoryStatus(sectionId);
+        setSectionCompletionState(sectionId, isCompleted);
         updateTheoryButtonState(sectionId, isCompleted);
       } else {
         updateNextStepButton(sectionId);
@@ -1040,14 +1149,17 @@ async function loadExerciseSection(sectionId) {
       currentEditingTheorySection = null;
       
       // === НОВАЯ ЛОГИКА СБРОСА ===
-      if (section.needsReset === true) {
+      const isResetSection = section.needsReset === true || pendingResetSectionIds.has(sectionId);
+      if (isResetSection) {
         console.log('[Version Reset] Exercise section needs reset');
+        pendingResetSectionIds.add(sectionId);
         clearSectionLocalStorage(sectionId);
         showVersionResetNotification();
         
         if (currentUserRole === 'student') {
           // Обновляем состояние кнопки упражнения (сбрасываем на "не пройдено")
           updateExerciseButtonState(sectionId, false);
+          setSectionCompletionState(sectionId, false);
         }
       }
       // ===========================
@@ -1080,7 +1192,7 @@ async function loadExerciseSection(sectionId) {
           document.getElementById('matchingExercisePreview').style.display = 'block';
           
           // Проверяем статус упражнения
-          const isCompleted = await checkExerciseStatus(sectionId);
+          const isCompleted = isResetSection ? false : await checkExerciseStatus(sectionId);
           
           // Пытаемся получить сохранённые ответы
           let savedAnswers = localStorage.getItem(`matching_answers_${sectionId}`);
@@ -1149,12 +1261,13 @@ async function loadExerciseSection(sectionId) {
             }, 100);
           }
           updateExerciseButtonState(sectionId, isCompleted);
+          setSectionCompletionState(sectionId, isCompleted);
           
         } else if (exerciseType === 'choice') {
           // Аналогично для choice
           document.getElementById('choiceExercisePreview').style.display = 'block';
           
-          const isCompleted = await checkExerciseStatus(sectionId);
+          const isCompleted = isResetSection ? false : await checkExerciseStatus(sectionId);
           let savedAnswers = localStorage.getItem(`choice_answers_${sectionId}`);
           let showCorrectInstead = false;
           
@@ -1208,12 +1321,13 @@ async function loadExerciseSection(sectionId) {
             }, 100);
           }
           updateExerciseButtonState(sectionId, isCompleted);
+          setSectionCompletionState(sectionId, isCompleted);
           
         } else if (exerciseType === 'fill_blanks') {
           // Аналогично для fill_blanks
           document.getElementById('fillBlanksExercisePreview').style.display = 'block';
           
-          const isCompleted = await checkExerciseStatus(sectionId);
+          const isCompleted = isResetSection ? false : await checkExerciseStatus(sectionId);
           let savedAnswers = localStorage.getItem(`fillblanks_answers_${sectionId}`);
           let showCorrectInstead = false;
           
@@ -1276,6 +1390,7 @@ async function loadExerciseSection(sectionId) {
             }, 100);
           }
           updateExerciseButtonState(sectionId, isCompleted);
+          setSectionCompletionState(sectionId, isCompleted);
         }
       } else {
         if (exerciseType === 'matching') {
@@ -1522,12 +1637,13 @@ async function loadTestSection(sectionId) {
       }
       
       // === НОВАЯ ЛОГИКА СБРОСА (если версия изменилась) ===
-      const needsReset = section.needsReset === true;
+      const needsReset = section.needsReset === true || pendingResetSectionIds.has(sectionId);
       
       console.log('[loadTestSection] needsReset:', needsReset, 'section.version:', section.version, 'currentSectionId:', sectionId);
       
       if (needsReset) {
         console.log('[Version Reset] Test section needs reset - FULL RESET');
+        pendingResetSectionIds.add(sectionId);
         
         // Очищаем localStorage для этого теста
         const keysToRemove = [];
@@ -1551,6 +1667,7 @@ async function loadTestSection(sectionId) {
           testAttemptsCount = 0;
           testAttemptsScores = [];
           updateTestAttemptsDisplay();
+          setSectionCompletionState(sectionId, false);
           
           // ⚠️ ИСПРАВЛЕНИЕ: НЕ вызываем resetTestUIWithScores() здесь,
           // потому что renderPreviewTestExercises создаст чистые карточки
@@ -1620,6 +1737,7 @@ async function loadTestSection(sectionId) {
         testAttemptsCount = serverAttempts;
         console.log('Попытки с сервера:', testAttemptsCount);
         updateTestAttemptsDisplay();
+        setSectionCompletionState(sectionId, !needsReset && testAttemptsCount > 0);
         
         // Восстанавливаем состояние с сервера ТОЛЬКО если не было сброса И есть попытки
         if (!needsReset && testAttemptsCount > 0) {
@@ -3299,6 +3417,7 @@ function updateTheoryButtonState(sectionId, isCompleted) {
             newSubmitBtn.addEventListener('click', async () => {
                 const success = await markTheoryAsCompleted(sectionId);
                 if (success) {
+                    setSectionCompletionState(sectionId, true);
                     updateTheoryButtonState(sectionId, true);
                 } else {
                     showNotification('Ошибка при сохранении прогресса', 'error');
@@ -3645,6 +3764,7 @@ async function submitMatchingSolution(sectionId) {
         
         await markExerciseAsCompleted(sectionId, result.score, result.maxScore);
         updateExerciseButtonState(sectionId, true);
+        setSectionCompletionState(sectionId, true);
         return true;
     } else {
         showNotification('Есть ошибки. Попробуйте еще раз.', 'warning');
@@ -3818,6 +3938,7 @@ async function submitChoiceSolution(sectionId) {
         await markExerciseAsCompleted(sectionId, result.score, result.maxScore);
         console.log('Обновляем состояние кнопки...');
         updateExerciseButtonState(sectionId, true);
+        setSectionCompletionState(sectionId, true);
         return true;
     } else {
         showNotification('Есть ошибки. Попробуйте еще раз.', 'warning');
@@ -3945,6 +4066,7 @@ async function submitFillBlanksSolution(sectionId) {
         
         await markExerciseAsCompleted(sectionId, result.score, result.maxScore);
         updateExerciseButtonState(sectionId, true);
+        setSectionCompletionState(sectionId, true);
         return true;
     } else {
         showNotification('Есть ошибки. Попробуйте еще раз.', 'warning');
@@ -4190,6 +4312,7 @@ async function validateAndSubmitTest() {
     if (results.length > 0) {
         testAttemptsCount++;
         updateTestAttemptsDisplay();
+        setSectionCompletionState(testId, true);
     }
     
     // Пересчитываем итоговые баллы

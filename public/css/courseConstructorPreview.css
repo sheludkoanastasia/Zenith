@@ -411,11 +411,35 @@ body {
     background: #faf7fd;
 }
 
+.section-card.completed {
+    border-color: #379B34;
+    background: #f4fbf4;
+}
+
 .section-header {
     display: flex;
     justify-content: space-between;
     align-items: flex-start;
     gap: 16px;
+}
+
+.section-completed-check {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: #379B34;
+    color: #fff;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    font-weight: 700;
+    flex-shrink: 0;
+    margin-top: 2px;
+}
+
+.section-card.completed .section-completed-check {
+    display: inline-flex;
 }
 
 .section-title {
@@ -679,6 +703,14 @@ body {
     color: #7651BE;
 }
 
+.sidebar-section-item.completed {
+    color: #379B34;
+}
+
+.sidebar-section-item.completed:hover {
+    color: #379B34;
+}
+
 .section-title-text {
     flex: 1;
     overflow: hidden;
@@ -705,6 +737,16 @@ body {
     border-left-color: #c43232;
 }
 
+.sidebar-section-item.completed .section-title-text {
+    border-left-color: #379B34 !important;
+    color: #379B34;
+}
+
+.sidebar-section-item.completed:hover .section-title-text {
+    border-left-color: #379B34 !important;
+    color: #379B34;
+}
+
 .sidebar-section-item:hover .section-arrow-icon {
     transform: translateX(-7px);
 }
@@ -714,6 +756,10 @@ body {
     height: 16px;
     transition: all 0.2s ease;
     flex-shrink: 0;
+}
+
+.sidebar-section-item.completed .section-arrow-icon {
+    filter: brightness(0) saturate(100%) invert(45%) sepia(78%) saturate(451%) hue-rotate(69deg) brightness(92%) contrast(92%);
 }
 
 .empty-sections-message {
@@ -2381,6 +2427,8 @@ body[data-user-role="teacher"] .test-score-info {
     background-color: rgba(255, 68, 68, 0.1) !important;
     transition: all 0.2s ease;
 }
+
+
 
 @keyframes successPulse {
     0% { transform: scale(1); }
