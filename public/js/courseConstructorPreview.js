@@ -1478,12 +1478,11 @@ async function loadTestSection(sectionId) {
           testAttemptsScores = [];
           updateTestAttemptsDisplay();
           
-          // ПРИНУДИТЕЛЬНО сбрасываем состояние теста после очистки
-          setTimeout(() => {
-            // Полный сброс UI с баллами
-            resetTestUIWithScores();
-            updateTestButtons();
-          }, 300);
+          // ⚠️ ИСПРАВЛЕНИЕ: НЕ вызываем resetTestUIWithScores() здесь,
+          // потому что renderPreviewTestExercises создаст чистые карточки
+          // А если нужно сбросить UI, то делаем это после рендера через флаг,
+          // но не через setTimeout, который перезапишет максимальные баллы.
+          // Вместо этого просто отметим, что нужно сбросить UI после рендера
         }
       }
       
@@ -1552,12 +1551,17 @@ async function loadTestSection(sectionId) {
         if (!needsReset && testAttemptsCount > 0) {
           console.log('Восстанавливаем состояние теста с сервера');
           await restoreTestFromServer(sectionId);
+          updateTotalTestScore();
         } else if (needsReset) {
           console.log('Был сброс версии, не восстанавливаем состояние');
+          // ⚠️ ИСПРАВЛЕНИЕ: используем resetTestUI (без сброса баллов),
+          // а не resetTestUIWithScores
           resetTestUI();
+          updateTotalTestScore();  // Обновляем отображение баллов (максимальные уже установлены)
         } else if (testAttemptsCount === 0) {
           console.log('Нет сохранённых попыток, сбрасываем UI');
           resetTestUI();
+          updateTotalTestScore();
         }
       }
       
@@ -1669,6 +1673,7 @@ function renderPreviewTestExercises(exercises) {
   
   if (exercises.length === 0) {
     container.innerHTML = '<div class="empty-message">Нет тестирований</div>';
+    if (totalMaxScoreElement) totalMaxScoreElement.textContent = '0';
     return;
   }
   
@@ -1774,7 +1779,9 @@ function renderPreviewTestExercises(exercises) {
     }
   });
   
-  // После рендера обновляем кнопки
+  // После рендера обновляем баллы и кнопки
+  updateTotalTestScore();
+  
   if (currentUserRole === 'student') {
     setTimeout(() => {
       updateTestButtons();
@@ -6079,8 +6086,12 @@ function showVersionResetNotification() {
 function resetTestUI() {
   console.log('[resetTestUI] Resetting test UI (preserving scores)');
   
-  // НЕ сбрасываем отображение баллов, если они были восстановлены!
-  // Оставляем как есть - они обновятся из restoreTestFromServer
+  // СБЕРЕГАЕМ максимальные баллы перед сбросом
+  const totalMaxScoreElement = document.getElementById('totalTestMaxScore');
+  let savedMaxScore = '0';
+  if (totalMaxScoreElement) {
+    savedMaxScore = totalMaxScoreElement.textContent;
+  }
   
   // Сбрасываем только выбранные ответы (интерактивные элементы)
   const exerciseCards = document.querySelectorAll('#previewTestExercisesList .preview-test-exercise-card');
@@ -6095,7 +6106,6 @@ function resetTestUI() {
         selectedSpan.textContent = '-- выберите элемент --';
       }
       btn.classList.remove('error-highlight', 'success-highlight-temporary', 'active');
-      // НЕ сбрасываем disabled и success-highlight-permanent, если упражнение было выполнено
     });
     
     // Убираем выделение с опций matching (только у невыполненных)
@@ -6125,8 +6135,6 @@ function resetTestUI() {
     fillBlanksOptions.forEach(opt => opt.classList.remove('selected'));
     
     // НЕ СБРАСЫВАЕМ БАЛЛЫ! Они должны сохраниться после восстановления
-    // const scoreSpan = card.querySelector('.exercise-score-value');
-    // if (scoreSpan) scoreSpan.textContent = '0'; // ← УБРАТЬ ЭТУ СТРОКУ!
     
     // Удаляем атрибут блокировки ТОЛЬКО если упражнение не было выполнено
     const testId = card.dataset.sectionId;
@@ -6137,6 +6145,11 @@ function resetTestUI() {
     }
     card.classList.remove('test-card-error');
   });
+  
+  // ВОССТАНАВЛИВАЕМ максимальный балл
+  if (totalMaxScoreElement) {
+    totalMaxScoreElement.textContent = savedMaxScore;
+  }
   
   console.log('[resetTestUI] UI reset complete (scores preserved)');
 }
