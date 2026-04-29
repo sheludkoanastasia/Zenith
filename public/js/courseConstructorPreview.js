@@ -1414,6 +1414,8 @@ function resetTestState(testId) {
 
 async function loadTestSection(sectionId) {
   try {
+    console.log(`[loadTestSection] Loading section ${sectionId}`);
+    
     const sectionsAreaEl = document.getElementById('sectionsArea');
     const welcomeScreenEl = document.getElementById('welcomeScreen');
     if (sectionsAreaEl) sectionsAreaEl.style.display = 'none';
@@ -1426,8 +1428,12 @@ async function loadTestSection(sectionId) {
     
     const data = await response.json();
     
+    console.log(`[loadTestSection] Response:`, data);
+    
     if (data.success) {
       const section = data.section;
+      
+      console.log(`[loadTestSection] Section loaded: id=${section.id}, type=${section.type}, version=${section.version}, needsReset=${section.needsReset}`);
       
       currentEditingExerciseSection = section;
       currentEditingTheorySection = null;
@@ -1444,8 +1450,10 @@ async function loadTestSection(sectionId) {
       // === НОВАЯ ЛОГИКА СБРОСА (если версия изменилась) ===
       const needsReset = section.needsReset === true;
       
+      console.log('[loadTestSection] needsReset:', needsReset, 'section.version:', section.version, 'currentSectionId:', sectionId);
+      
       if (needsReset) {
-        console.log('[Version Reset] Test section needs reset');
+        console.log('[Version Reset] Test section needs reset - FULL RESET');
         
         // Очищаем localStorage для этого теста
         const keysToRemove = [];
@@ -1457,14 +1465,25 @@ async function loadTestSection(sectionId) {
             keysToRemove.push(key);
           }
         }
-        keysToRemove.forEach(key => localStorage.removeItem(key));
+        keysToRemove.forEach(key => {
+          console.log('[Version Reset] Removing localStorage key:', key);
+          localStorage.removeItem(key);
+        });
         
+        // ПОКАЗЫВАЕМ УВЕДОМЛЕНИЕ
         showVersionResetNotification();
         
         if (currentUserRole === 'student') {
           testAttemptsCount = 0;
           testAttemptsScores = [];
           updateTestAttemptsDisplay();
+          
+          // ПРИНУДИТЕЛЬНО сбрасываем состояние теста после очистки
+          setTimeout(() => {
+            // Полный сброс UI с баллами
+            resetTestUIWithScores();
+            updateTestButtons();
+          }, 300);
         }
       }
       
@@ -6058,7 +6077,7 @@ function showVersionResetNotification() {
 }
 
 function resetTestUI() {
-  console.log('[resetTestUI] Resetting test UI');
+  console.log('[resetTestUI] Resetting test UI (preserving scores)');
   
   // НЕ сбрасываем отображение баллов, если они были восстановлены!
   // Оставляем как есть - они обновятся из restoreTestFromServer
@@ -6120,6 +6139,84 @@ function resetTestUI() {
   });
   
   console.log('[resetTestUI] UI reset complete (scores preserved)');
+}
+
+// Функция для полного сброса теста при изменении версии (СБРАСЫВАЕТ БАЛЛЫ!)
+function resetTestUIWithScores() {
+  console.log('[resetTestUIWithScores] FULL RESET WITH SCORES');
+  
+  // 1. Сбрасываем глобальные переменные
+  testAttemptsCount = 0;
+  testAttemptsScores = [];
+  updateTestAttemptsDisplay();
+  
+  // 2. Сбрасываем отображение общих баллов
+  const totalScoreElement = document.getElementById('totalTestScore');
+  const totalMaxScoreElement = document.getElementById('totalTestMaxScore');
+  if (totalScoreElement) totalScoreElement.textContent = '0';
+  if (totalMaxScoreElement) totalMaxScoreElement.textContent = '0';
+  
+  // 3. Сбрасываем все карточки упражнений
+  const exerciseCards = document.querySelectorAll('#previewTestExercisesList .preview-test-exercise-card');
+  console.log(`[resetTestUIWithScores] Found ${exerciseCards.length} exercise cards`);
+  
+  exerciseCards.forEach((card, idx) => {
+    // Сбрасываем баллы в карточках
+    const scoreSpan = card.querySelector('.exercise-score-value');
+    if (scoreSpan) {
+      scoreSpan.textContent = '0';
+      console.log(`[resetTestUIWithScores] Reset score for card ${idx}`);
+    }
+    
+    // Сбрасываем matching - визуально
+    const matchingBtns = card.querySelectorAll('.matching-select-btn');
+    matchingBtns.forEach(btn => {
+      const selectedSpan = btn.querySelector('.selected-text');
+      if (selectedSpan) {
+        selectedSpan.textContent = '-- выберите элемент --';
+      }
+      btn.classList.remove('error-highlight', 'success-highlight-temporary', 'active', 'success-highlight-permanent');
+      btn.disabled = false;
+      btn.style.cursor = 'pointer';
+      btn.style.opacity = '1';
+      const chevron = btn.querySelector('.select-chevron');
+      if (chevron) chevron.style.display = 'block';
+    });
+    
+    // Убираем выделение с опций matching
+    const matchingOptions = card.querySelectorAll('.matching-select-option');
+    matchingOptions.forEach(opt => opt.classList.remove('selected'));
+    
+    // Сбрасываем choice
+    const checkboxes = card.querySelectorAll('.checkbox-student');
+    checkboxes.forEach(checkbox => {
+      checkbox.classList.remove('selected', 'success-highlight-permanent');
+      checkbox.style.pointerEvents = 'auto';
+      checkbox.style.opacity = '1';
+    });
+    
+    // Сбрасываем fill_blanks
+    const fillBlanksBtns = card.querySelectorAll('.fillblanks-select-btn');
+    fillBlanksBtns.forEach(btn => {
+      const selectedSpan = btn.querySelector('.selected-text');
+      if (selectedSpan) {
+        selectedSpan.textContent = '-- выберите слово --';
+      }
+      btn.classList.remove('error-highlight', 'success-highlight-temporary', 'active', 'success-highlight-permanent');
+      btn.disabled = false;
+      btn.style.cursor = 'pointer';
+      btn.style.opacity = '1';
+    });
+    
+    const fillBlanksOptions = card.querySelectorAll('.fillblanks-select-option');
+    fillBlanksOptions.forEach(opt => opt.classList.remove('selected'));
+    
+    // Удаляем атрибут блокировки
+    card.removeAttribute('data-locked');
+    card.classList.remove('test-card-error');
+  });
+  
+  console.log('[resetTestUIWithScores] FULL RESET complete');
 }
 
 // Полная очистка состояния теста перед загрузкой нового

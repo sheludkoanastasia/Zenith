@@ -128,14 +128,47 @@ module.exports = {
         
         const savedVersion = progress?.section_version || 0;
         
-        // ПРОВЕРКА: если прогресса нет в БД - это новый раздел, не сбрасываем
+        console.log(`[getSectionById] Section ${sectionId}: currentVersion=${currentSectionVersion}, savedVersion=${savedVersion}, progress exists: ${!!progress}`);
+        
+        // ПРОВЕРКА: если прогресса нет в БД - создаём новую запись с текущей версией
         // Если прогресс есть и версия изменилась - сбрасываем
-        if (progress && currentSectionVersion > savedVersion) {
+        if (!progress) {
+            // Создаём запись прогресса с текущей версией раздела
+            await db.StudentProgress.create({
+                student_id: req.user.id,
+                section_id: sectionId,
+                status: 'not_started',
+                attempts_count: 0,
+                best_score: 0,
+                section_version: currentSectionVersion,
+                completed_at: null
+            });
+            console.log(`[getSectionById] Created new progress record with version ${currentSectionVersion}`);
+            
+            // Если это тест и есть старые попытки - удаляем их
+            if (section.type === 'test') {
+                const test = await db.Test.findOne({ where: { section_id: sectionId } });
+                if (test) {
+                    const deletedCount = await db.TestAttempt.destroy({
+                        where: { test_id: test.id, student_id: req.user.id }
+                    });
+                    if (deletedCount > 0) {
+                        console.log(`[getSectionById] Deleted ${deletedCount} old test attempts`);
+                        needsReset = true;
+                    }
+                }
+            }
+            
+            // Новый раздел - сброс не нужен (кроме удалённых попыток выше)
+            needsReset = needsReset || false;
+        } else if (currentSectionVersion > savedVersion) {
             needsReset = true;
             console.log(`[Version Check] Section ${sectionId}: current=${currentSectionVersion}, saved=${savedVersion}, needsReset=true`);
             
             // Выполняем сброс прогресса
             await resetStudentProgressForSection(sectionId, req.user.id, currentSectionVersion, null);
+        } else {
+            console.log(`[Version Check] Section ${sectionId}: versions match (${currentSectionVersion}), no reset needed`);
         }
         }
         else if (section.block.theme.course.teacher_id !== req.user.id) {
@@ -511,6 +544,8 @@ module.exports = {
             
             if (Object.keys(updateData).length > 0) {
                 await section.test.update(updateData, { transaction });
+                // При любом обновлении теста увеличиваем версию
+                hasChanges = true;
             }
             }
             
@@ -756,8 +791,10 @@ module.exports = {
 async function incrementSectionVersion(sectionId, transaction) {
   const section = await db.Section.findByPk(sectionId, { transaction });
   if (section) {
-    const newVersion = (section.version || 0) + 1;
+    const oldVersion = section.version || 0;
+    const newVersion = oldVersion + 1;
     await section.update({ version: newVersion }, { transaction });
+    console.log(`[Version] Section ${sectionId}: ${oldVersion} -> ${newVersion}`);
     return newVersion;
   }
   return null;
@@ -765,6 +802,8 @@ async function incrementSectionVersion(sectionId, transaction) {
 
 // Функция для сброса прогресса студента при изменении версии
 async function resetStudentProgressForSection(sectionId, studentId, newVersion, transaction) {
+  console.log(`[resetStudentProgress] sectionId=${sectionId}, studentId=${studentId}, newVersion=${newVersion}`);
+  
   // 1. Обновляем или создаём запись прогресса с новой версией
   const [progress, created] = await db.StudentProgress.findOrCreate({
     where: { student_id: studentId, section_id: sectionId },
@@ -778,8 +817,11 @@ async function resetStudentProgressForSection(sectionId, studentId, newVersion, 
     transaction
   });
 
+  console.log(`[resetStudentProgress] progress found: ${!created}, current version in DB: ${progress.section_version}`);
+
   if (!created && progress.section_version < newVersion) {
     // Сбрасываем прогресс
+    console.log(`[resetStudentProgress] RESETTING progress for section ${sectionId}`);
     await progress.update({
       status: 'not_started',
       attempts_count: 0,
@@ -797,10 +839,11 @@ async function resetStudentProgressForSection(sectionId, studentId, newVersion, 
       transaction
     });
     if (test) {
-      await db.TestAttempt.destroy({
+      const deletedCount = await db.TestAttempt.destroy({
         where: { test_id: test.id, student_id: studentId },
         transaction
       });
+      console.log(`[resetStudentProgress] Deleted ${deletedCount} test attempts`);
     }
   }
 

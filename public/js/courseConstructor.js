@@ -5728,10 +5728,15 @@ async function saveTestSection() {
         if (timeLimitMinutes === 0) timeLimitMinutes = null;
     }
     
+    // Получаем passing_score из формы
+    const passingScoreInput = document.getElementById('passingScore');
+    const passingScore = passingScoreInput ? parseInt(passingScoreInput.value) || 50 : 50;
+    
     const testData = {
         title: currentEditingExerciseSection.title,
         deadline: deadline || null,
         time_limit: timeLimitMinutes,
+        passing_score: passingScore,
         exercises: currentTestData.exercises.map(ex => ({
             id: ex.id,
             type: ex.type,

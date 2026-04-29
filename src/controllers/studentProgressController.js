@@ -139,6 +139,15 @@ module.exports = {
             const { sectionId, score, maxScore } = req.body;
             const studentId = req.user.id;
             
+            // Получаем текущую версию раздела
+            const section = await db.Section.findByPk(sectionId);
+            if (!section) {
+                await transaction.rollback();
+                return res.status(404).json({ success: false, message: 'Раздел не найден' });
+            }
+            
+            const currentSectionVersion = section.version || 1;
+            
             const existingProgress = await db.StudentProgress.findOne({
                 where: {
                     student_id: studentId,
@@ -148,19 +157,31 @@ module.exports = {
             });
             
             if (existingProgress) {
-                if (existingProgress.status !== 'completed') {
+                // Проверяем, изменилась ли версия раздела
+                if (existingProgress.section_version !== currentSectionVersion) {
+                    // Версия изменилась — сбрасываем прогресс
+                    await existingProgress.update({
+                        status: 'not_started',
+                        best_score: 0,
+                        attempts_count: 0,
+                        section_version: currentSectionVersion,
+                        completed_at: null
+                    }, { transaction });
+                } else if (existingProgress.status !== 'completed') {
                     await existingProgress.update({
                         status: 'completed',
                         best_score: score,
                         completed_at: new Date()
                     }, { transaction });
                 }
+                // Если уже completed и версия совпадает — не обновляем
             } else {
                 await db.StudentProgress.create({
                     student_id: studentId,
                     section_id: sectionId,
                     status: 'completed',
                     best_score: score,
+                    section_version: currentSectionVersion,
                     completed_at: new Date()
                 }, { transaction });
             }
