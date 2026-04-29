@@ -195,7 +195,7 @@ document.addEventListener("DOMContentLoaded", async function () {
                     }
 
                     const themePercent = totalBlocks > 0
-                        ? Math.round((completedBlocks / totalBlocks) * 100)
+                        ? Math.round(blocks.reduce((sum, b) => sum + (studentProgress.blocks[b.id]?.percent || 0), 0) / totalBlocks)
                         : 0;
 
                     studentProgress.themes[theme.id] = {
@@ -223,15 +223,20 @@ document.addEventListener("DOMContentLoaded", async function () {
     
     // Обновление общего прогресса курса
     function updateCourseProgress() {
-        let totalPercent = 0;
-        let themeCount = 0;
+        let totalBlockPercent = 0;
+        let totalBlocks = 0;
         
         for (const themeId in studentProgress.themes) {
-            totalPercent += studentProgress.themes[themeId].percent;
-            themeCount++;
+            const theme = courseData.themes?.find(t => t.id == themeId);
+            if (theme?.blocks) {
+                for (const block of theme.blocks) {
+                    totalBlockPercent += studentProgress.blocks[block.id]?.percent || 0;
+                    totalBlocks++;
+                }
+            }
         }
         
-        const coursePercent = themeCount > 0 ? Math.round(totalPercent / themeCount) : 0;
+        const coursePercent = totalBlocks > 0 ? Math.round(totalBlockPercent / totalBlocks) : 0;
         
         const fill = document.querySelector('.progress-bar-fill-overlay');
         const percentText = document.getElementById('progressPercent');
