@@ -710,6 +710,8 @@ function renderThemes(themes) {
         };
         blockEl.addEventListener('click', blockEl._listener);
     });
+
+    updateHierarchyCompletionStyles();
 }
 
 function renderBlockSections(sections) {
@@ -944,6 +946,8 @@ function setSectionCompletionState(sectionId, isCompleted) {
     document.querySelectorAll(`.sidebar-section-item[data-section-id="${sectionId}"]`).forEach(item => {
         item.classList.toggle('completed', completed);
     });
+
+    updateHierarchyCompletionStyles();
 }
 
 async function getSectionCompletionStatus(section) {
@@ -1014,6 +1018,36 @@ async function applyCompletionStatesToSections(sections) {
         ...section,
         isCompleted: completionResults[idx] === true
     }));
+}
+
+function isBlockCompleted(block) {
+    const sections = block?.sections || [];
+    return sections.length > 0 && sections.every(section => section.isCompleted === true);
+}
+
+function isThemeCompleted(theme) {
+    const blocks = theme?.blocks || [];
+    return blocks.length > 0 && blocks.every(block => isBlockCompleted(block));
+}
+
+function updateHierarchyCompletionStyles() {
+    if (!currentCourse?.themes) return;
+
+    currentCourse.themes.forEach(theme => {
+        const blocks = theme.blocks || [];
+
+        blocks.forEach(block => {
+            const blockEl = document.querySelector(`.block-item[data-block-id="${block.id}"]`);
+            if (blockEl) {
+                blockEl.classList.toggle('completed', isBlockCompleted(block));
+            }
+        });
+
+        const themeHeader = document.querySelector(`.theme-item[data-theme-id="${theme.id}"] .theme-header`);
+        if (themeHeader) {
+            themeHeader.classList.toggle('completed', isThemeCompleted(theme));
+        }
+    });
 }
 
 function performBlockSwitch(clickedBlockId, blockTitle, blockDescription) {
