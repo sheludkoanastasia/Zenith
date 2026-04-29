@@ -95,13 +95,17 @@ document.addEventListener("DOMContentLoaded", async function () {
                         progressContainer.style.display = 'block';
                     }
                     
-                    // Загружаем прогресс студента
-                    await loadStudentProgress();
                 }
                 
                 // Загружаем разделы для всех блоков
                 if (course.themes && course.themes.length > 0) {
                     await loadAllBlocksSections(course.themes);
+
+                    // Для студента считаем прогресс после загрузки sections
+                    if (currentUser.role === 'student') {
+                        await loadStudentProgress();
+                    }
+
                     renderBlocksSection();
                 }
             }
@@ -111,70 +115,97 @@ document.addEventListener("DOMContentLoaded", async function () {
         }
     }
     
+    async function getSectionCompletionStatus(section) {
+        if (!section?.id) return false;
+        if (section.needsReset === true) return false;
+
+        try {
+            if (section.type === 'theory') {
+                const response = await fetch(`/api/student/progress/theory/${section.id}`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (!response.ok) return false;
+                const data = await response.json();
+                return data.completed === true;
+            }
+
+            if (section.type === 'exercise') {
+                const response = await fetch(`/api/student/progress/exercise/${section.id}`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (!response.ok) return false;
+                const data = await response.json();
+                return data.completed === true;
+            }
+
+            if (section.type === 'test') {
+                const response = await fetch(`/api/student/test/${section.id}/attempts`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (!response.ok) return false;
+                const data = await response.json();
+                const attemptsCount = data.attemptsCount || (Array.isArray(data.attempts) ? data.attempts.length : 0);
+                return attemptsCount > 0;
+            }
+        } catch (error) {
+            console.error('Ошибка проверки прогресса раздела:', section.id, error);
+        }
+
+        return false;
+    }
+
     // Функция загрузки прогресса студента
-        // Функция загрузки прогресса студента
     async function loadStudentProgress() {
         try {
-            console.log('Загрузка прогресса для курса:', currentCourseId);
-            
-            // Временные демо-данные для тестирования
+            studentProgress = { themes: {}, blocks: {} };
+
             if (courseData.themes) {
-                for (let themeIndex = 0; themeIndex < courseData.themes.length; themeIndex++) {
-                    const theme = courseData.themes[themeIndex];
-                    const totalBlocks = theme.blocks?.length || 0;
-                    
-                    if (totalBlocks > 0) {
-                        // Для демонстрации: первая тема - 100% прогресс
-                        let completedBlocks = 0;
-                        if (themeIndex === 0) {
-                            completedBlocks = totalBlocks;
-                        } else {
-                            completedBlocks = Math.floor(Math.random() * (totalBlocks + 1));
+                for (const theme of courseData.themes) {
+                    const blocks = theme.blocks || [];
+                    const totalBlocks = blocks.length;
+                    let completedBlocks = 0;
+
+                    for (const block of blocks) {
+                        const sections = block.sections || [];
+                        const totalSections = sections.length;
+
+                        let completedSections = 0;
+                        if (totalSections > 0) {
+                            const sectionResults = await Promise.all(
+                                sections.map(section => getSectionCompletionStatus(section))
+                            );
+                            completedSections = sectionResults.filter(Boolean).length;
                         }
-                        const themePercent = Math.round((completedBlocks / totalBlocks) * 100);
-                        studentProgress.themes[theme.id] = { completedBlocks, totalBlocks, percent: themePercent };
-                        
-                        // Прогресс для блоков (демо-проценты, без учета секций)
-                        if (theme.blocks) {
-                            for (let blockIndex = 0; blockIndex < theme.blocks.length; blockIndex++) {
-                                const block = theme.blocks[blockIndex];
-                                
-                                let blockPercent = 0;
-                                // Первый блок первой темы = 100%
-                                if (themeIndex === 0 && blockIndex === 0) {
-                                    blockPercent = 100;
-                                } 
-                                // Второй блок первой темы = 75%
-                                else if (themeIndex === 0 && blockIndex === 1) {
-                                    blockPercent = 75;
-                                }
-                                // Третий блок первой темы = 50%
-                                else if (themeIndex === 0 && blockIndex === 2) {
-                                    blockPercent = 50;
-                                }
-                                // Четвертый блок первой темы = 25%
-                                else if (themeIndex === 0 && blockIndex === 3) {
-                                    blockPercent = 25;
-                                }
-                                // Остальные случайные проценты
-                                else {
-                                    blockPercent = Math.floor(Math.random() * 101);
-                                }
-                                
-                                studentProgress.blocks[block.id] = { 
-                                    percent: blockPercent 
-                                };
-                                console.log(`Блок ${block.title}: ${blockPercent}%`);
-                            }
+
+                        const blockPercent = totalSections > 0
+                            ? Math.round((completedSections / totalSections) * 100)
+                            : 0;
+                        const blockCompleted = totalSections > 0 && completedSections === totalSections;
+
+                        if (blockCompleted) {
+                            completedBlocks++;
                         }
-                    } else {
-                        studentProgress.themes[theme.id] = { completedBlocks: 0, totalBlocks: 0, percent: 0 };
+
+                        studentProgress.blocks[block.id] = {
+                            completedSections,
+                            totalSections,
+                            percent: blockPercent,
+                            isCompleted: blockCompleted
+                        };
                     }
+
+                    const themePercent = totalBlocks > 0
+                        ? Math.round((completedBlocks / totalBlocks) * 100)
+                        : 0;
+
+                    studentProgress.themes[theme.id] = {
+                        completedBlocks,
+                        totalBlocks,
+                        percent: themePercent
+                    };
                 }
             }
-            
-            console.log('studentProgress после генерации:', studentProgress);
-            
+
             // Обновляем общий прогресс курса
             updateCourseProgress();
             
@@ -236,14 +267,9 @@ document.addEventListener("DOMContentLoaded", async function () {
     
     // Добавление прогресс-бара для блока
     function addBlockProgressBar(blockElement, percent) {
-        console.log('addBlockProgressBar вызван для блока:', blockElement.dataset.blockId, 'процент:', percent);
-        
         // Ищем родительский wrapper
         const blockWrapper = blockElement.closest('.block-wrapper');
-        if (!blockWrapper) {
-            console.log('blockWrapper не найден');
-            return;
-        }
+        if (!blockWrapper) return;
         
         // Проверяем, есть ли уже прогресс-бар для этого блока
         let existingBar = blockWrapper.querySelector('.block-progress-container');
@@ -272,7 +298,6 @@ document.addEventListener("DOMContentLoaded", async function () {
         progressContainer.appendChild(percentSpan);
         
         blockWrapper.appendChild(progressContainer);
-        console.log('Прогресс-бар добавлен, ширина fill:', percent, '%');
     }
     
     // Обновление прогресса всех тем и блоков после рендера
