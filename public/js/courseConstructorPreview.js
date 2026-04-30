@@ -35,6 +35,8 @@ const pendingResetSectionIds = new Set();
 let currentTestId = null;
 let testAttemptsCount = 0;
 const MAX_TEST_ATTEMPTS = 4;
+let currentTestDeadline = null;
+let currentTestDeadlinePassed = false;
 
 // Хранилище для баллов за попытки
 let testAttemptsScores = []; // Массив для хранения результатов каждой попытки
@@ -46,6 +48,17 @@ function getToken() {
 function getStorageKey(testId) {
     const role = currentUserRole === 'student' ? 'student' : 'teacher';
     return `test_state_${testId}_${role}`;
+}
+
+function isTestDeadlinePassed(deadline) {
+    if (!deadline) return false;
+    const deadlineDate = new Date(deadline);
+    return !Number.isNaN(deadlineDate.getTime()) && deadlineDate.getTime() <= Date.now();
+}
+
+function syncCurrentDeadlineState(testId, deadlinePassed) {
+    if (testId !== currentTestId) return;
+    currentTestDeadlinePassed = deadlinePassed === true || isTestDeadlinePassed(currentTestDeadline);
 }
 
 // ===== ФУНКЦИИ ДЛЯ РАБОТЫ С ТЕСТАМИ (СЕРВЕР) =====
@@ -70,16 +83,25 @@ async function loadTestStateFromServer(testId) {
         
         const data = await response.json();
         console.log('Загружены попытки с сервера:', data);
+        syncCurrentDeadlineState(testId, data.deadlinePassed || data.deadlineClosed);
         
         if (data.success && data.attempts && data.attempts.length > 0) {
             return {
                 attemptsCount: data.attempts.length,
                 attempts: data.attempts,
-                maxAttempts: data.maxAttempts || 4
+                maxAttempts: data.maxAttempts || 4,
+                deadlinePassed: data.deadlinePassed === true,
+                deadlineClosed: data.deadlineClosed === true
             };
         }
         
-        return { attemptsCount: 0, attempts: [], maxAttempts: 4 };
+        return {
+            attemptsCount: 0,
+            attempts: [],
+            maxAttempts: 4,
+            deadlinePassed: data.deadlinePassed === true,
+            deadlineClosed: data.deadlineClosed === true
+        };
     } catch (error) {
         console.error('Ошибка загрузки состояния теста с сервера:', error);
         return null;
@@ -223,6 +245,7 @@ async function restoreTestFromServer(testId) {
   
   const lastAttempt = serverState.attempts[serverState.attempts.length - 1];
   if (!lastAttempt) return false;
+  const restoreAttempt = buildRestoreAttemptForDisplay(lastAttempt, serverState.attempts);
   
   // Проверяем, что восстанавливаемые данные относятся к текущему тесту
   // (можно добавить проверку по timestamp или ID)
@@ -239,12 +262,12 @@ async function restoreTestFromServer(testId) {
     retries++;
   }
   
-  if (lastAttempt.exerciseResults) {
+  if (restoreAttempt.exerciseResults) {
     let totalRestoredScore = 0;
     
     for (const card of exerciseCards) {
       const exerciseId = card.dataset.exerciseId;
-      const exerciseResult = lastAttempt.exerciseResults[exerciseId];
+      const exerciseResult = restoreAttempt.exerciseResults[exerciseId];
       
       if (exerciseResult) {
         // Восстанавливаем баллы
@@ -281,6 +304,39 @@ async function restoreTestFromServer(testId) {
   }
   
   return false;
+}
+
+function buildRestoreAttemptForDisplay(lastAttempt, attempts) {
+  if (!lastAttempt?.exerciseResults?._deadlineClosed) return lastAttempt;
+
+  const mergedExerciseResults = { ...lastAttempt.exerciseResults };
+  const previousAttempts = attempts.filter(attempt => attempt.exerciseResults?._deadlineClosed !== true);
+
+  for (const attempt of previousAttempts) {
+    for (const [exerciseId, exerciseResult] of Object.entries(attempt.exerciseResults || {})) {
+      const currentResult = mergedExerciseResults[exerciseId] || {};
+      const currentScore = Number(currentResult.score) || 0;
+      const previousScore = Number(exerciseResult.score) || 0;
+
+      if (previousScore > currentScore || exerciseResult.isFullyCorrect === true) {
+        mergedExerciseResults[exerciseId] = {
+          ...currentResult,
+          ...exerciseResult,
+          score: previousScore
+        };
+      }
+    }
+  }
+
+  const totalScore = Object.entries(mergedExerciseResults)
+    .filter(([exerciseId]) => exerciseId !== '_deadlineClosed')
+    .reduce((sum, [, result]) => sum + (Number(result.score) || 0), 0);
+
+  return {
+    ...lastAttempt,
+    totalScore,
+    exerciseResults: mergedExerciseResults
+  };
 }
 
 async function saveTestStateToServer(testId, attemptNumber, totalScore, maxScore, exerciseResults) {
@@ -1717,6 +1773,8 @@ async function loadTestSection(sectionId) {
       }
       
       const testData = section.test || {};
+      currentTestDeadline = testData.deadline || null;
+      currentTestDeadlinePassed = isTestDeadlinePassed(currentTestDeadline);
       
       const deadlineSpan = document.getElementById('previewDeadline');
       if (deadlineSpan) {
@@ -1771,7 +1829,7 @@ async function loadTestSection(sectionId) {
         testAttemptsCount = serverAttempts;
         console.log('Попытки с сервера:', testAttemptsCount);
         updateTestAttemptsDisplay();
-        setSectionCompletionState(sectionId, !needsReset && testAttemptsCount > 0);
+        setSectionCompletionState(sectionId, !needsReset && (testAttemptsCount > 0 || currentTestDeadlinePassed));
         
         // Восстанавливаем состояние с сервера ТОЛЬКО если не было сброса И есть попытки
         if (!needsReset && testAttemptsCount > 0) {
@@ -4155,6 +4213,18 @@ async function validateAndSubmitTest() {
     console.log('testId используемый:', testId);
     console.log('currentTestId:', currentTestId);
 
+    if (isTestDeadlinePassed(currentTestDeadline)) {
+        currentTestDeadlinePassed = true;
+        testAttemptsCount = await getTestAttempts(testId);
+        updateTotalTestScore();
+        updateTestAttemptsDisplay();
+        updateTestButtons();
+        const totalScore = document.getElementById('totalTestScore')?.textContent || '0';
+        const totalMaxScore = document.getElementById('totalTestMaxScore')?.textContent || '0';
+        showNotification(`Дедлайн теста истек. Тест завершен с результатом ${totalScore} из ${totalMaxScore} баллов.`, 'warning');
+        return false;
+    }
+
     // Проверяем, не превышен ли лимит попыток для теста в целом
     if (testAttemptsCount >= MAX_TEST_ATTEMPTS) {
         showNotification(`Лимит попыток исчерпан! Вы использовали все ${MAX_TEST_ATTEMPTS} попыток.`, 'error');
@@ -5562,6 +5632,7 @@ async function getTestAttempts(testId) {
         
         if (response.ok) {
             const data = await response.json();
+            syncCurrentDeadlineState(testId, data.deadlinePassed || data.deadlineClosed);
             return data.attemptsCount || 0;
         }
         return 0;
@@ -5617,28 +5688,29 @@ function updateTestAttemptsDisplay() {
     
     const attemptsContainerEl = document.getElementById('testAttemptsInfo');
     if (attemptsContainerEl) {
-        const remainingAttempts = Math.max(0, MAX_TEST_ATTEMPTS - testAttemptsCount);
+        const remainingAttempts = currentTestDeadlinePassed ? 0 : Math.max(0, MAX_TEST_ATTEMPTS - testAttemptsCount);
+        const remainingText = currentTestDeadlinePassed ? 'дедлайн прошел' : `осталось: ${remainingAttempts}`;
         attemptsContainerEl.innerHTML = `
             <div class="attempts-row">
                 <span class="attempts-label">Попытки:</span>
                 <span class="attempts-value">${testAttemptsCount} / ${MAX_TEST_ATTEMPTS}</span>
-                <span class="attempts-remaining">(осталось: ${remainingAttempts})</span>
+                <span class="attempts-remaining">(${remainingText})</span>
             </div>
         `;
         
-        // Если попытки закончились, блокируем кнопку
-        if (testAttemptsCount >= MAX_TEST_ATTEMPTS) {
+        // Если попытки закончились или дедлайн прошел, блокируем кнопку
+        if (testAttemptsCount >= MAX_TEST_ATTEMPTS || currentTestDeadlinePassed) {
             const testSubmitBtn = document.getElementById('testSubmitBtn');
             if (testSubmitBtn) {
                 testSubmitBtn.disabled = true;
                 testSubmitBtn.style.opacity = '0.5';
                 testSubmitBtn.style.cursor = 'not-allowed';
-                testSubmitBtn.title = 'Лимит попыток исчерпан';
+                testSubmitBtn.title = currentTestDeadlinePassed ? 'Дедлайн теста истек' : 'Лимит попыток исчерпан';
             }
             // Показываем уведомление только один раз
             const lastNotification = localStorage.getItem('last_attempts_notification');
             const now = Date.now();
-            if (!lastNotification || (now - parseInt(lastNotification)) > 5000) {
+            if (!currentTestDeadlinePassed && (!lastNotification || (now - parseInt(lastNotification)) > 5000)) {
                 showNotification('Лимит попыток исчерпан!', 'warning');
                 localStorage.setItem('last_attempts_notification', now.toString());
             }
@@ -5838,7 +5910,7 @@ function updateTestButtons() {
   // Для студента
   if (currentUserRole === 'student') {
     const testCompleted = isTestCompleted();
-    const attemptsExhausted = testAttemptsCount >= MAX_TEST_ATTEMPTS;
+    const attemptsExhausted = testAttemptsCount >= MAX_TEST_ATTEMPTS || currentTestDeadlinePassed;
     
     console.log('[updateTestButtons] testCompleted:', testCompleted);
     console.log('[updateTestButtons] attemptsExhausted:', attemptsExhausted);
@@ -6681,6 +6753,8 @@ function fullResetTestState(newTestId) {
   const oldTestId = currentTestId;
   testAttemptsCount = 0;
   testAttemptsScores = [];
+  currentTestDeadline = null;
+  currentTestDeadlinePassed = false;
   
   // 2. Очищаем все временные данные из localStorage для старого теста
   if (oldTestId && oldTestId !== newTestId) {

@@ -1,6 +1,122 @@
 const db = require('../models');
 const { handleError } = require('../utils/errorHandler');
 
+const MAX_TEST_ATTEMPTS = 4;
+
+function isDeadlinePassed(deadline) {
+    if (!deadline) return false;
+    const deadlineDate = new Date(deadline);
+    return !Number.isNaN(deadlineDate.getTime()) && deadlineDate.getTime() <= Date.now();
+}
+
+function getExerciseMaxScore(exercise) {
+    return exercise?.scoring?.firstAttempt ?? 100;
+}
+
+function getBestPreviousExerciseResult(attempts, exerciseId) {
+    return attempts.reduce((bestResult, attempt) => {
+        if (attempt.exercise_results?._deadlineClosed === true) return bestResult;
+
+        const result = attempt.exercise_results?.[exerciseId];
+        if (!result) return bestResult;
+
+        const resultScore = Number(result.score) || 0;
+        const bestScore = Number(bestResult?.score) || 0;
+
+        return resultScore > bestScore || result.isFullyCorrect === true ? result : bestResult;
+    }, null);
+}
+
+function buildDeadlineExerciseResults(test, previousAttempts = []) {
+    const exerciseResults = {
+        _deadlineClosed: true
+    };
+    let totalScore = 0;
+    let totalMaxScore = 0;
+
+    (test.exercises || []).forEach(exercise => {
+        const maxScore = getExerciseMaxScore(exercise);
+        const previousResult = getBestPreviousExerciseResult(previousAttempts, exercise.id) || {};
+        const preservedScore = Number(previousResult.score) || 0;
+        totalMaxScore += maxScore;
+        totalScore += preservedScore;
+
+        exerciseResults[exercise.id] = {
+            score: preservedScore,
+            maxScore,
+            isFullyCorrect: previousResult.isFullyCorrect === true,
+            answers: previousResult.answers || {},
+            type: exercise.type
+        };
+    });
+
+    return { exerciseResults, totalScore, totalMaxScore };
+}
+
+function isTestPassed(test, attempts) {
+    if (!attempts || attempts.length === 0) return false;
+
+    const exercises = test.exercises || [];
+    const lastAttempt = attempts[attempts.length - 1];
+    const exerciseResults = lastAttempt.exercise_results || {};
+
+    if (exercises.length > 0) {
+        return exercises.every(exercise => exerciseResults[exercise.id]?.isFullyCorrect === true);
+    }
+
+    return lastAttempt.max_score > 0 && lastAttempt.total_score >= lastAttempt.max_score;
+}
+
+async function ensureDeadlineAttempt(test, studentId) {
+    const attempts = await db.TestAttempt.findAll({
+        where: {
+            test_id: test.id,
+            student_id: studentId
+        },
+        order: [['attempt_number', 'ASC']]
+    });
+
+    const deadlinePassed = isDeadlinePassed(test.deadline);
+    if (!deadlinePassed) {
+        return { attempts, deadlinePassed, deadlineClosed: false };
+    }
+
+    const deadlineAttempt = attempts.find(attempt => attempt.exercise_results?._deadlineClosed === true);
+    const previousAttempts = attempts.filter(attempt => attempt.exercise_results?._deadlineClosed !== true);
+    const alreadyClosedByDeadline = Boolean(deadlineAttempt);
+    const shouldCloseByDeadline = attempts.length < MAX_TEST_ATTEMPTS && !isTestPassed(test, attempts);
+
+    if (!alreadyClosedByDeadline && shouldCloseByDeadline) {
+        const { exerciseResults, totalScore, totalMaxScore } = buildDeadlineExerciseResults(test, previousAttempts);
+        const newDeadlineAttempt = await db.TestAttempt.create({
+            test_id: test.id,
+            student_id: studentId,
+            attempt_number: attempts.length + 1,
+            total_score: totalScore,
+            max_score: totalMaxScore,
+            exercise_results: exerciseResults,
+            completed_at: new Date()
+        });
+
+        attempts.push(newDeadlineAttempt);
+    } else if (deadlineAttempt && previousAttempts.length > 0) {
+        const { exerciseResults, totalScore, totalMaxScore } = buildDeadlineExerciseResults(test, previousAttempts);
+        if (deadlineAttempt.total_score !== totalScore || deadlineAttempt.max_score !== totalMaxScore) {
+            await deadlineAttempt.update({
+                total_score: totalScore,
+                max_score: totalMaxScore,
+                exercise_results: exerciseResults
+            });
+        }
+    }
+
+    return {
+        attempts,
+        deadlinePassed,
+        deadlineClosed: attempts.some(attempt => attempt.exercise_results?._deadlineClosed === true)
+    };
+}
+
 module.exports = {
     // Получение прогресса теории
     getTheoryProgress: async (req, res) => {
@@ -323,16 +439,9 @@ getTestAttempts: async (req, res) => {
         if (!test) {
             return res.status(404).json({ success: false, message: 'Тест не найден' });
         }
-        
-        // ВАЖНО: считаем только успешно завершенные попытки
-        const attempts = await db.TestAttempt.findAll({
-            where: {
-                test_id: test.id,
-                student_id: studentId
-                // НЕ добавляем фильтр по статусу - все попытки считаются
-            },
-            order: [['attempt_number', 'ASC']]
-        });
+
+        const deadlineState = await ensureDeadlineAttempt(test, studentId);
+        const attempts = deadlineState.attempts;
         
         res.json({
             success: true,
@@ -344,7 +453,9 @@ getTestAttempts: async (req, res) => {
                 exerciseResults: a.exercise_results,
                 completedAt: a.completed_at
             })),
-            maxAttempts: 4
+            maxAttempts: MAX_TEST_ATTEMPTS,
+            deadlinePassed: deadlineState.deadlinePassed,
+            deadlineClosed: deadlineState.deadlineClosed
         });
     } catch (error) {
         console.error('Ошибка получения попыток теста:', error);
@@ -364,6 +475,17 @@ saveTestAttempt: async (req, res) => {
         
         if (!test) {
             return res.status(404).json({ success: false, message: 'Тест не найден' });
+        }
+
+        const deadlineState = await ensureDeadlineAttempt(test, studentId);
+        if (deadlineState.deadlinePassed) {
+            return res.json({
+                success: true,
+                attempt: deadlineState.attempts[deadlineState.attempts.length - 1] || null,
+                attemptsCount: deadlineState.attempts.length,
+                deadlinePassed: true,
+                deadlineClosed: deadlineState.deadlineClosed
+            });
         }
         
         // Проверяем, не существует ли уже такой попытки
@@ -394,7 +516,7 @@ saveTestAttempt: async (req, res) => {
             }
         });
         
-        if (attemptsCount >= 4) {
+        if (attemptsCount >= MAX_TEST_ATTEMPTS) {
             return res.status(400).json({
                 success: false,
                 message: 'Лимит попыток исчерпан'
