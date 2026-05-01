@@ -29,6 +29,7 @@ db.CourseStudent = require('./CourseStudent')(sequelize);
 db.StudentProgress = require('./StudentProgress')(sequelize);
 db.TestAttempt = require('./TestAttempt')(sequelize); // ДОБАВЛЯЕМ МОДЕЛЬ TestAttempt
 db.SectionComment = require('./SectionComment')(sequelize);
+db.Notification = require('./Notification')(sequelize);
 
 // ===== НАСТРАИВАЕМ СВЯЗИ =====
 
@@ -110,6 +111,12 @@ db.SectionComment.belongsTo(db.User, { as: 'author', foreignKey: 'user_id' });
 // Threaded comments
 db.SectionComment.hasMany(db.SectionComment, { as: 'replies', foreignKey: 'parent_comment_id', onDelete: 'CASCADE' });
 db.SectionComment.belongsTo(db.SectionComment, { as: 'parent', foreignKey: 'parent_comment_id' });
+
+// User <-> Notification
+db.User.hasMany(db.Notification, { as: 'notifications', foreignKey: 'user_id' });
+db.Notification.belongsTo(db.User, { as: 'recipient', foreignKey: 'user_id' });
+db.Course.hasMany(db.Notification, { as: 'notifications', foreignKey: 'course_id' });
+db.Notification.belongsTo(db.Course, { as: 'course', foreignKey: 'course_id' });
 
 db.sequelize = sequelize;
 db.Sequelize = Sequelize;

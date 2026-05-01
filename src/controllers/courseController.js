@@ -1,5 +1,6 @@
 const db = require('../models');
 const { handleError } = require('../utils/errorHandler');
+const notificationService = require('../services/notificationService');
 
 // Добавьте эту функцию в начало файла, после require
 function generateJoinCode() {
@@ -253,6 +254,9 @@ module.exports = {
         const transaction = await db.sequelize.transaction();
         
         try {
+            const pendingNewThemes = [];
+            const pendingNewBlocks = [];
+
             const course = await db.Course.findByPk(req.params.id);
             
             if (!course) {
@@ -313,6 +317,7 @@ module.exports = {
                             course_id: course.id,
                             order_index: themeIndex
                         }, { transaction });
+                        pendingNewThemes.push(theme);
                     }
                     
                     newThemeIds.push(theme.id);
@@ -354,6 +359,7 @@ module.exports = {
                                     order_index: blockIndex,
                                     type: 'text'
                                 }, { transaction });
+                                pendingNewBlocks.push({ block, themeId: theme.id });
                             }
                             
                             newBlockIds.push(block.id);
@@ -392,6 +398,15 @@ module.exports = {
             }
 
             await transaction.commit();
+
+            pendingNewThemes.forEach((t) => {
+                notificationService.notifyStudentsNewTheme(course.id, t)
+                    .catch((err) => console.error('notify new theme', err));
+            });
+            pendingNewBlocks.forEach((nb) => {
+                notificationService.notifyStudentsNewBlock(course.id, nb.themeId, nb.block)
+                    .catch((err) => console.error('notify new block', err));
+            });
 
             // Получаем обновленный курс
             const updatedCourse = await db.Course.findByPk(course.id, {

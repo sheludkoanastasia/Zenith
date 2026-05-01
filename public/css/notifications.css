@@ -1,0 +1,349 @@
+/* Ширина контента: почти на весь экран, по ~100px поля слева и справа */
+main.settings-main.notifications-main {
+    max-width: none;
+    width: 100%;
+    margin: 0 auto;
+    padding: 40px 100px 80px;
+    box-sizing: border-box;
+}
+
+@media (max-width: 900px) {
+    main.settings-main.notifications-main {
+        padding: 32px 24px 64px;
+    }
+}
+
+/* Карточки фильтров: по высоте контента — раскрытый список удлиняет только свою карточку */
+.notifications-filters-row {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: 16px 20px;
+    margin-bottom: 28px;
+    position: relative;
+    z-index: 200;
+}
+
+.notifications-filter-card {
+    flex: 1 1 200px;
+    min-width: 180px;
+    padding: 18px 20px;
+    margin-bottom: 0;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    position: relative;
+    z-index: 1;
+    contain: layout;
+    backface-visibility: hidden;
+}
+
+/* Только порядок наложения — смена тени при открытии давала дрожание соседних блоков */
+.notifications-filter-card:has(.dropdown-menu.active) {
+    z-index: 5;
+}
+
+/* Не дублировать нижний отступ у каждой карточки — отступ у ряда один */
+.notifications-filter-card.settings-glass {
+    margin-bottom: 0;
+}
+
+.notifications-filter-label {
+    font-size: 15px;
+    font-weight: 600;
+    color: #3d3d3d;
+    white-space: nowrap;
+}
+
+/* Раскрытие по реальной высоте контента: 0fr → 1fr (без «хвоста» max-height) */
+.notifications-filter-card .dropdown-menu.notifications-dropdown {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    overflow: visible;
+}
+
+.notifications-dropdown-panel {
+    display: grid;
+    grid-template-rows: 0fr;
+    transition: grid-template-rows 0.38s cubic-bezier(0.32, 0.72, 0, 1);
+    overflow: hidden;
+}
+
+.notifications-dropdown.active .notifications-dropdown-panel {
+    grid-template-rows: 1fr;
+}
+
+.notifications-dropdown-inner {
+    min-height: 0;
+    overflow: hidden;
+}
+
+.notifications-dropdown.active .notifications-dropdown-inner {
+    overflow-x: hidden;
+    overflow-y: auto;
+    max-height: min(280px, 42vh);
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+}
+
+.notifications-dropdown.active .notifications-dropdown-inner::-webkit-scrollbar {
+    width: 0;
+    height: 0;
+    display: none;
+}
+
+.notifications-dropdown-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    width: 100%;
+    padding: 8px 4px 8px 0;
+    border-radius: 12px;
+    font-size: 17px;
+    font-weight: 400;
+    font-family: 'Ysabeau', sans-serif;
+    color: #1d1d1d;
+    cursor: pointer;
+    transition: color 0.2s ease;
+    background: transparent;
+    border: none;
+    text-align: left;
+}
+
+.notifications-dropdown-label {
+    flex: 1;
+    min-width: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.notifications-dropdown-chevron {
+    flex-shrink: 0;
+    display: block;
+    width: 14px;
+    height: 14px;
+    object-fit: contain;
+    opacity: 0.75;
+    transition: transform 0.38s cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+.notifications-dropdown.active .notifications-dropdown-chevron {
+    transform: rotate(180deg);
+}
+
+.notifications-dropdown-toggle:hover,
+.notifications-dropdown-toggle:focus {
+    color: #7651be;
+    outline: none;
+}
+
+/* Статичные отступы и линия — не анимируем (меньше сдвигов и дрожания) */
+.notifications-filter-card .dropdown-content {
+    width: 100%;
+    margin: 0;
+    padding: 10px 0 0;
+    border: none;
+    border-radius: 0;
+    border-top: 1px solid rgba(118, 81, 190, 0.14);
+    background: transparent;
+    box-shadow: none;
+}
+
+.notifications-filter-card .dropdown-menu.active .notifications-dropdown-toggle {
+    color: #7651be;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .notifications-dropdown-panel {
+        transition: none;
+    }
+
+    .notifications-dropdown-chevron {
+        transition: transform 0.18s ease;
+    }
+}
+
+.notifications-filter-card .dropdown-content a {
+    display: block;
+    padding: 11px 4px;
+    font-size: 16px;
+    color: #1d1d1d;
+    text-decoration: none;
+    font-weight: 400;
+    transition: background 0.15s ease, color 0.15s ease, padding-left 0.15s ease;
+}
+
+/* Разделители только между пунктами — без внешней рамки списка */
+.notifications-filter-card .dropdown-content a:not(:last-child) {
+    border-bottom: 1px solid rgba(118, 81, 190, 0.1);
+}
+
+.notifications-filter-card .dropdown-content a:hover,
+.notifications-filter-card .dropdown-content a:focus {
+    background-color: #f8f5ff;
+    color: #7651be;
+    padding-left: 20px;
+    font-weight: 500;
+    outline: none;
+}
+
+.notifications-status {
+    text-align: center;
+    padding: 24px;
+    color: #5c5c5c;
+    font-size: 17px;
+}
+
+/* Одна общая карточка для списка уведомлений */
+.notifications-feed {
+    position: relative;
+    z-index: 1;
+    padding: 0;
+    margin-bottom: 0;
+    overflow: hidden;
+}
+
+.notifications-feed-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.notifications-feed-item {
+    border-bottom: 1px solid rgba(118, 81, 190, 0.14);
+}
+
+.notifications-feed-item:last-child {
+    border-bottom: none;
+}
+
+/* Строка внутри общей карточки */
+.notifications-row {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 18px 24px;
+    padding: 18px 24px;
+    width: 100%;
+    font-family: 'Ysabeau', sans-serif;
+    color: #1d1d1d;
+    text-align: left;
+    cursor: pointer;
+    border: none;
+    background: transparent;
+    box-sizing: border-box;
+    transition: background 0.15s ease;
+}
+
+.notifications-row:hover {
+    background: rgba(118, 81, 190, 0.06);
+}
+
+.notifications-row:focus {
+    outline: none;
+    background: rgba(118, 81, 190, 0.08);
+    box-shadow: inset 0 0 0 2px rgba(118, 81, 190, 0.25);
+}
+
+.notifications-card-icon {
+    width: 52px;
+    height: 52px;
+    border-radius: 14px;
+    background: linear-gradient(145deg, rgba(118, 81, 190, 0.12), rgba(118, 81, 190, 0.05));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.notifications-card-icon img {
+    width: 28px;
+    height: 28px;
+    display: block;
+}
+
+.notifications-card-text-col {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    align-self: center;
+}
+
+.notifications-card-title {
+    font-size: 18px;
+    font-weight: 600;
+    margin: 0;
+    line-height: 1.35;
+    color: #1d1d1d;
+}
+
+.notifications-card-sub {
+    font-size: 15px;
+    font-weight: 400;
+    color: #5c5c5c;
+    margin: 0;
+    line-height: 1.45;
+}
+
+.notifications-card-date {
+    flex-shrink: 0;
+    font-size: 15px;
+    font-weight: 500;
+    color: #7651be;
+    white-space: nowrap;
+    align-self: center;
+}
+
+.notifications-card-date:empty {
+    display: none;
+}
+
+.notifications-card-course {
+    flex-shrink: 0;
+    font-size: 15px;
+    font-weight: 500;
+    color: #4a4a4a;
+    text-align: right;
+    align-self: center;
+    max-width: 220px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.notifications-card-course:empty {
+    display: none;
+}
+
+@media (max-width: 640px) {
+    .notifications-row {
+        gap: 12px 14px;
+        padding: 14px 16px;
+    }
+
+    .notifications-card-title {
+        font-size: 16px;
+    }
+
+    .notifications-card-sub {
+        font-size: 14px;
+    }
+
+    .notifications-card-date {
+        font-size: 13px;
+    }
+
+    .notifications-card-course {
+        font-size: 13px;
+        max-width: min(140px, 30vw);
+    }
+}

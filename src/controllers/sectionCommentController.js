@@ -1,6 +1,7 @@
 const db = require('../models');
 const { handleError } = require('../utils/errorHandler');
 const { toPublicUser } = require('../utils/userSerializer');
+const notificationService = require('../services/notificationService');
 
 async function getSectionWithCourse(sectionId) {
   return db.Section.findByPk(sectionId, {
@@ -214,6 +215,13 @@ module.exports = {
         parent_comment_id: parentCommentId,
         text
       });
+
+      const sectionForNotify = await getSectionWithCourse(sectionId);
+      if (sectionForNotify) {
+        notificationService
+          .notifyAfterSectionComment(sectionForNotify, req.user, parentCommentId)
+          .catch((err) => console.error('Уведомления комментария:', err));
+      }
 
       res.status(201).json({
         success: true,

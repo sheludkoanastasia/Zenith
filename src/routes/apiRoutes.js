@@ -6,6 +6,7 @@ const authMiddleware = require('../middleware/authMiddleware');
 const validationMiddleware = require('../middleware/validationMiddleware');
 const studentRoutes = require('./studentRoutes');
 const userProfileController = require('../controllers/userProfileController');
+const notificationController = require('../controllers/notificationController');
 const uploadAvatar = require('../config/uploadAvatar');
 
 router.post('/auth/register',
@@ -21,6 +22,11 @@ router.post('/auth/login',
 router.get('/auth/check',
   authMiddleware.verifyToken,
   authController.check
+);
+
+router.get('/notifications',
+  authMiddleware.verifyToken,
+  notificationController.list
 );
 
 router.post('/auth/check-email', authController.checkEmail);

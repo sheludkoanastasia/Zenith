@@ -11,6 +11,8 @@ const urlParams = new URLSearchParams(window.location.search);
 const courseId = urlParams.get('courseId');
 const blockId = urlParams.get('blockId');
 const themeId = urlParams.get('themeId');
+const sectionIdFromUrl = urlParams.get('sectionId');
+let sectionDeepLinkHandled = false;
 
 const courseTitleEl = document.getElementById('courseTitle');
 const themesListEl = document.getElementById('themesList');
@@ -968,15 +970,15 @@ async function loadCourseData() {
                 }
                 
                 if (targetBlock) {
+                    expandParentTheme(blockId);
+                    updateActiveBlockInSidebar(blockId);
+                    await loadBlockSections(blockId, targetBlockTitle, targetBlockDescription);
                     setTimeout(() => {
                         const blockElement = document.querySelector(`.block-item[data-block-id="${blockId}"]`);
                         if (blockElement) {
-                            blockElement.click();
                             blockElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
                         }
-                    }, 500);
-                    
-                    loadBlockSections(blockId, targetBlockTitle, targetBlockDescription);
+                    }, 200);
                 }
             }
             initButtonsByRole();
@@ -1201,6 +1203,22 @@ async function loadBlockSections(blockId, blockTitle, blockDescription) {
             renderSections(currentSections);
             
             updateActiveBlockInSidebar(blockId);
+
+            if (
+                sectionIdFromUrl &&
+                !sectionDeepLinkHandled &&
+                String(blockId) === String(urlParams.get('blockId'))
+            ) {
+                const target = currentSections.find((s) => String(s.id) === String(sectionIdFromUrl));
+                if (target) {
+                    sectionDeepLinkHandled = true;
+                    setTimeout(() => {
+                        if (target.type === 'theory') loadTheorySection(target.id);
+                        else if (target.type === 'exercise') loadExerciseSection(target.id);
+                        else if (target.type === 'test') loadTestSection(target.id);
+                    }, 120);
+                }
+            }
         }
     } catch (error) {
         console.error('Ошибка:', error);
@@ -1458,6 +1476,16 @@ function updateHierarchyCompletionStyles() {
     });
 }
 
+function findThemeIdForBlock(blockIdToFind) {
+    if (!currentCourse?.themes || !blockIdToFind) return themeId;
+    for (const th of currentCourse.themes) {
+        if (th.blocks?.some((b) => String(b.id) === String(blockIdToFind))) {
+            return th.id;
+        }
+    }
+    return themeId;
+}
+
 function performBlockSwitch(clickedBlockId, blockTitle, blockDescription) {
     const theoryPreviewContainer = document.getElementById('theoryPreviewContainer');
     const exercisePreviewContainer = document.getElementById('exercisePreviewContainer');
@@ -1476,8 +1504,14 @@ function performBlockSwitch(clickedBlockId, blockTitle, blockDescription) {
     expandParentTheme(clickedBlockId);
     updateActiveBlockInSidebar(clickedBlockId);
     
-    const newUrl = `/teacher/course-constructor-preview?courseId=${courseId}&blockId=${clickedBlockId}&themeId=${themeId}`;
-    window.history.pushState({}, '', newUrl);
+    const resolvedThemeId = findThemeIdForBlock(clickedBlockId);
+    const params = new URLSearchParams(window.location.search);
+    params.set('courseId', courseId);
+    params.set('blockId', clickedBlockId);
+    if (resolvedThemeId) params.set('themeId', resolvedThemeId);
+    params.delete('sectionId');
+    const path = window.location.pathname || '/teacher/course-constructor-preview';
+    window.history.pushState({}, '', `${path}?${params.toString()}`);
     
     loadBlockSections(clickedBlockId, blockTitle, blockDescription);
 }
@@ -2704,8 +2738,14 @@ function backToSections() {
         
         updateActiveBlockInSidebar(currentBlock.id);
         
-        const newUrl = `/teacher/course-constructor-preview?courseId=${courseId}&blockId=${currentBlock.id}&themeId=${themeId}`;
-        window.history.pushState({}, '', newUrl);
+        const resolvedThemeIdBack = findThemeIdForBlock(currentBlock.id);
+        const paramsBack = new URLSearchParams(window.location.search);
+        paramsBack.set('courseId', courseId);
+        paramsBack.set('blockId', currentBlock.id);
+        if (resolvedThemeIdBack) paramsBack.set('themeId', resolvedThemeIdBack);
+        paramsBack.delete('sectionId');
+        const pathBack = window.location.pathname || '/teacher/course-constructor-preview';
+        window.history.pushState({}, '', `${pathBack}?${paramsBack.toString()}`);
         
     } else if (welcomeScreenEl) {
         welcomeScreenEl.style.display = 'flex';
@@ -3135,8 +3175,13 @@ function navigateToNextSection() {
                 }
             });
         
-        const newUrl = `/teacher/course-constructor-preview?courseId=${courseId}&blockId=${nextSection.blockId}&themeId=${nextSection.themeId}`;
-        window.history.pushState({}, '', newUrl);
+        const paramsNext = new URLSearchParams(window.location.search);
+        paramsNext.set('courseId', courseId);
+        paramsNext.set('blockId', nextSection.blockId);
+        if (nextSection.themeId) paramsNext.set('themeId', nextSection.themeId);
+        paramsNext.delete('sectionId');
+        const pathNext = window.location.pathname || '/teacher/course-constructor-preview';
+        window.history.pushState({}, '', `${pathNext}?${paramsNext.toString()}`);
     }
 }
 

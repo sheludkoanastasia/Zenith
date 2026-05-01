@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Уведомления — Zenith</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Ysabeau:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/public/css/userSettings.css">
+    <link rel="stylesheet" href="/public/css/notifications.css">
+</head>
+<body>
+    <div class="settings-bg-fixed settings-bg-fixed--top" aria-hidden="true">
+        <img src="/images/userMainPanel/backgoundUpSectionSettengs.png" alt="" class="settings-bg-fill-img">
+    </div>
+    <div class="settings-bg-fixed settings-bg-fixed--bottom" aria-hidden="true">
+        <img src="/images/userMainPanel/backgoundDownSectionSettengs.png" alt="" class="settings-bg-fill-img">
+    </div>
+
+    <header class="settings-header" id="notificationsHeader">
+        <a href="#" class="settings-back" id="notificationsBack">
+            <span class="settings-back-arrow">←</span> Назад
+        </a>
+        <div class="settings-logo">
+            <img src="/images/userMainPanel/logo.svg" alt="Zenith">
+        </div>
+        <div class="settings-header-spacer"></div>
+    </header>
+
+    <main class="settings-main notifications-main">
+        <div class="settings-title-row">
+            <h1 class="settings-page-title">Уведомления</h1>
+            <img src="/images/notificationPage/notification.svg" alt="" class="settings-title-icon" width="40" height="40">
+        </div>
+
+        <div class="notifications-filters-row" aria-label="Фильтры">
+            <div class="settings-glass notifications-filter-card">
+                <span class="notifications-filter-label">Дата</span>
+                <div class="dropdown-menu notifications-dropdown" data-filter="date" data-value="newest">
+                    <button type="button" class="dropdown-toggle notifications-dropdown-toggle" aria-expanded="false" aria-haspopup="listbox">
+                        <span class="notifications-dropdown-label">Сначала новые</span>
+                        <img src="/images/teacherMainPanel/chevronDown.svg" alt="" class="notifications-dropdown-chevron" width="14" height="14">
+                    </button>
+                    <div class="notifications-dropdown-panel">
+                        <div class="notifications-dropdown-inner">
+                            <div class="dropdown-content" role="listbox">
+                                <a href="#" role="option" data-value="newest">Сначала новые</a>
+                                <a href="#" role="option" data-value="oldest">Сначала старые</a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="settings-glass notifications-filter-card notifications-filter-card--student" id="filterRowCategory">
+                <span class="notifications-filter-label">Категория</span>
+                <div class="dropdown-menu notifications-dropdown" data-filter="category" data-value="all">
+                    <button type="button" class="dropdown-toggle notifications-dropdown-toggle" aria-expanded="false" aria-haspopup="listbox">
+                        <span class="notifications-dropdown-label">Все</span>
+                        <img src="/images/teacherMainPanel/chevronDown.svg" alt="" class="notifications-dropdown-chevron" width="14" height="14">
+                    </button>
+                    <div class="notifications-dropdown-panel">
+                        <div class="notifications-dropdown-inner">
+                            <div class="dropdown-content" role="listbox">
+                                <a href="#" role="option" data-value="all">Все</a>
+                                <a href="#" role="option" data-value="deadline">Дедлайн</a>
+                                <a href="#" role="option" data-value="comments">Комментарии</a>
+                                <a href="#" role="option" data-value="new_content">Новый контент</a>
+                                <a href="#" role="option" data-value="section_change">Изменение раздела</a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="settings-glass notifications-filter-card">
+                <span class="notifications-filter-label">Курс</span>
+                <div class="dropdown-menu notifications-dropdown" data-filter="course" data-value="all">
+                    <button type="button" class="dropdown-toggle notifications-dropdown-toggle" aria-expanded="false" aria-haspopup="listbox">
+                        <span class="notifications-dropdown-label">Все курсы</span>
+                        <img src="/images/teacherMainPanel/chevronDown.svg" alt="" class="notifications-dropdown-chevron" width="14" height="14">
+                    </button>
+                    <div class="notifications-dropdown-panel">
+                        <div class="notifications-dropdown-inner">
+                            <div class="dropdown-content notifications-course-options" role="listbox">
+                                <a href="#" role="option" data-value="all">Все курсы</a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="notificationsStatus" class="notifications-status" hidden></div>
+        <section class="settings-glass notifications-feed" id="notificationsFeed" hidden>
+            <ul id="notificationsList" class="notifications-feed-list" role="list"></ul>
+        </section>
+    </main>
+
+    <script src="/public/js/notifications.js"></script>
+</body>
+</html>

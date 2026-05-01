@@ -4,6 +4,29 @@ const fs = require('fs');
 const path = require('path');
 const pdfParse = require('pdf-parse');
 const mammoth = require('mammoth');
+const notificationService = require('../services/notificationService');
+
+async function fireSectionEditedNotification(sectionId) {
+    try {
+        const section = await db.Section.findByPk(sectionId, {
+            include: [{
+                model: db.Block,
+                as: 'block',
+                include: [{ model: db.Theme, as: 'theme', attributes: ['id', 'course_id'] }]
+            }]
+        });
+        if (section?.block?.theme) {
+            await notificationService.notifyStudentsSectionEdited(
+                section.block.theme.course_id,
+                section,
+                section.block_id,
+                section.block.theme_id
+            );
+        }
+    } catch (e) {
+        console.error('fireSectionEditedNotification', e);
+    }
+}
 
 module.exports = {
     getSectionsByBlock: async (req, res) => {
@@ -288,6 +311,15 @@ module.exports = {
                     { model: db.Test, as: 'test' }
                 ]
             });
+
+            notificationService
+                .notifyStudentsNewSection(
+                    block.theme.course.id,
+                    createdSection,
+                    blockId,
+                    block.theme_id
+                )
+                .catch((err) => console.error('notify new section', err));
             
             res.status(201).json({
                 success: true,
@@ -366,6 +398,10 @@ module.exports = {
             }
             
             await transaction.commit();
+
+            if (hasChanges) {
+                fireSectionEditedNotification(sectionId).catch((e) => console.error(e));
+            }
             
             res.json({
             success: true,
@@ -461,6 +497,10 @@ module.exports = {
             }
             
             await transaction.commit();
+
+            if (hasChanges) {
+                fireSectionEditedNotification(sectionId).catch((e) => console.error(e));
+            }
             
             res.json({
             success: true,
@@ -554,6 +594,10 @@ module.exports = {
             }
             
             await transaction.commit();
+
+            if (hasChanges) {
+                fireSectionEditedNotification(sectionId).catch((e) => console.error(e));
+            }
             
             res.json({
             success: true,
