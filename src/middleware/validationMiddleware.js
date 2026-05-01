@@ -3,7 +3,6 @@ const { body } = require('express-validator');
 const validateRegistration = [
   body('email')
     .isEmail()
-    .normalizeEmail()
     .withMessage('Введите корректный email'),
 
   body('password')
@@ -60,7 +59,6 @@ const validateRegistration = [
 const validateLogin = [
   body('email')
     .isEmail()
-    .normalizeEmail()
     .withMessage('Введите корректный email'),
   body('password')
     .notEmpty()

@@ -487,7 +487,23 @@ document.addEventListener("DOMContentLoaded", async function () {
             }
             
         } else if (section === "Редактировать курс") {
-            // ... существующий код для редактирования ...
+            if (createCourseContainer) {
+                createCourseContainer.style.display = 'none';
+            }
+
+            if (courseSearching) {
+                courseSearching.style.display = 'flex';
+            }
+
+            if (firstMessage) {
+                if (courseCards.length === 0) {
+                    firstMessage.textContent = "У вас пока нет курсов для редактирования";
+                    firstMessage.style.display = "block";
+                } else {
+                    firstMessage.style.display = "none";
+                }
+            }
+
             courseCards.forEach(card => {
                 card.style.display = 'flex';
                 card.classList.remove('view-mode');

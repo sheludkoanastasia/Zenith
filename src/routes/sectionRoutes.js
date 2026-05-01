@@ -1,11 +1,15 @@
 const express = require('express');
 const router = express.Router();
 const sectionController = require('../controllers/sectionController');
+const sectionCommentController = require('../controllers/sectionCommentController');
 const authMiddleware = require('../middleware/authMiddleware');
 const uploadTheory = require('../config/uploadTheory');
 
 router.use(authMiddleware.verifyToken);
 
+router.get('/sections/:sectionId/comments', sectionCommentController.listComments);
+router.post('/sections/:sectionId/comments', sectionCommentController.createComment);
+router.delete('/sections/:sectionId/comments/:commentId', sectionCommentController.deleteComment);
 // НОВЫЙ МАРШРУТ - получаем раздел с контентом
 router.get('/sections/:sectionId', sectionController.getSectionById);
 router.get('/blocks/:blockId/sections', sectionController.getSectionsByBlock);

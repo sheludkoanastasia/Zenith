@@ -28,6 +28,7 @@ db.Test = require('./Test')(sequelize);
 db.CourseStudent = require('./CourseStudent')(sequelize);
 db.StudentProgress = require('./StudentProgress')(sequelize);
 db.TestAttempt = require('./TestAttempt')(sequelize); // ДОБАВЛЯЕМ МОДЕЛЬ TestAttempt
+db.SectionComment = require('./SectionComment')(sequelize);
 
 // ===== НАСТРАИВАЕМ СВЯЗИ =====
 
@@ -97,6 +98,18 @@ db.TestAttempt.belongsTo(db.Test, { as: 'test', foreignKey: 'test_id' });
 // User <-> TestAttempt
 db.User.hasMany(db.TestAttempt, { as: 'testAttempts', foreignKey: 'student_id' });
 db.TestAttempt.belongsTo(db.User, { as: 'student', foreignKey: 'student_id' });
+
+// Section <-> SectionComment
+db.Section.hasMany(db.SectionComment, { as: 'comments', foreignKey: 'section_id', onDelete: 'CASCADE' });
+db.SectionComment.belongsTo(db.Section, { as: 'section', foreignKey: 'section_id' });
+
+// User <-> SectionComment
+db.User.hasMany(db.SectionComment, { as: 'sectionComments', foreignKey: 'user_id' });
+db.SectionComment.belongsTo(db.User, { as: 'author', foreignKey: 'user_id' });
+
+// Threaded comments
+db.SectionComment.hasMany(db.SectionComment, { as: 'replies', foreignKey: 'parent_comment_id', onDelete: 'CASCADE' });
+db.SectionComment.belongsTo(db.SectionComment, { as: 'parent', foreignKey: 'parent_comment_id' });
 
 db.sequelize = sequelize;
 db.Sequelize = Sequelize;

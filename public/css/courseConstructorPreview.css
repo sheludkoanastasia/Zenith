@@ -2612,6 +2612,240 @@ body[data-user-role="teacher"] .test-score-info {
     display: none !important;
 }
 
+.section-discussion-panel {
+    margin: 34px 0 0;
+    background: rgba(255, 255, 255, 0.92);
+    border: 1px solid rgba(29, 29, 29, 0.12);
+    border-radius: 28px;
+    box-shadow: 0 12px 32px rgba(29, 29, 29, 0.12);
+    overflow: hidden;
+}
+
+.discussion-header {
+    width: 100%;
+    padding: 22px 34px;
+    margin-bottom: 22px;
+    border: none;
+    background: transparent;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    cursor: pointer;
+    font-family: 'Ysabeau', sans-serif;
+    font-size: 26px;
+    font-weight: 500;
+    color: #1d1d1d;
+}
+
+.discussion-chevron,
+.comment-chevron {
+    width: 18px;
+    height: 18px;
+    transition: transform 0.3s ease;
+    display: block;
+}
+
+.section-discussion-panel.collapsed .discussion-chevron {
+    transform: rotate(0deg);
+}
+
+.section-discussion-panel:not(.collapsed) .discussion-chevron {
+    transform: rotate(180deg);
+}
+
+.replies-toggle.collapsed .comment-chevron {
+    transform: rotate(0deg);
+}
+
+.replies-toggle:not(.collapsed) .comment-chevron {
+    transform: rotate(180deg);
+}
+
+.section-discussion-panel.collapsed .discussion-content {
+    display: none;
+}
+
+.discussion-content {
+    padding: 0 34px 34px;
+}
+
+.discussion-locked-message,
+.discussion-empty {
+    color: #4c4c4c;
+    font-size: 16px;
+    line-height: 1.5;
+    padding: 18px 0 4px;
+}
+
+.discussion-list {
+    display: flex;
+    flex-direction: column;
+    gap: 26px;
+    margin-bottom: 26px;
+}
+
+.discussion-comment {
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+}
+
+.discussion-comment.reply {
+    margin-top: 20px;
+}
+
+.comment-replies .discussion-comment.reply .comment-replies {
+    margin-left: 0;
+}
+
+.comment-avatar {
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    object-fit: cover;
+    flex: 0 0 auto;
+    border: 1px solid rgba(29, 29, 29, 0.12);
+    background: #fff;
+}
+
+.comment-main {
+    flex: 1;
+    min-width: 0;
+}
+
+.comment-meta {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 12px;
+}
+
+.comment-author {
+    font-size: 18px;
+    font-weight: 500;
+    color: #333;
+}
+
+.comment-role-badge,
+.comment-action-btn {
+    color: #7651be;
+}
+
+.comment-date {
+    color: #888;
+    font-size: 13px;
+}
+
+.comment-text {
+    color: #1d1d1d;
+    font-size: 16px;
+    line-height: 1.45;
+}
+
+.comment-reply-prefix {
+    display: block;
+    margin-bottom: 4px;
+    color: #888888;
+    font-weight: 500;
+}
+
+.comment-actions {
+    display: flex;
+    align-items: center;
+    gap: 24px;
+    margin-top: 14px;
+}
+
+.comment-action-btn {
+    border: none;
+    background: transparent;
+    padding: 0;
+    font-family: 'Ysabeau', sans-serif;
+    font-size: 15px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.comment-delete-btn {
+    border: none;
+    background: transparent;
+    padding: 0;
+    font-family: 'Ysabeau', sans-serif;
+    font-size: 15px;
+    color: #7651be;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: color 0.2s ease;
+}
+
+
+.comment-replies {
+    margin-top: 22px;
+    margin-left: 0;
+}
+
+.reply-form-slot {
+    margin-top: 14px;
+}
+
+.discussion-form {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.discussion-input {
+    width: 100%;
+    resize: none;
+    min-height: 86px;
+    overflow: hidden;
+    padding: 14px 18px;
+    border-radius: 18px;
+    border: 1px solid rgba(29, 29, 29, 0.16);
+    font-family: 'Ysabeau', sans-serif;
+    font-size: 16px;
+    color: #1d1d1d;
+    background: rgba(255, 255, 255, 0.96);
+    outline: none;
+}
+
+.discussion-input:focus {
+    border-color: #7651be;
+    box-shadow: 0 0 0 3px rgba(118, 81, 190, 0.12);
+}
+
+.discussion-form-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+}
+
+.discussion-submit-btn,
+.discussion-cancel-btn {
+    border: none;
+    border-radius: 18px;
+    padding: 9px 22px;
+    font-family: 'Ysabeau', sans-serif;
+    font-size: 16px;
+    font-weight: 500;
+    cursor: pointer;
+}
+
+.discussion-submit-btn {
+    background: #7651be;
+    color: #fff;
+}
+
+.discussion-cancel-btn {
+    background: rgba(29, 29, 29, 0.06);
+    color: #4c4c4c;
+}
+
 .error-highlight {
     border: 2px solid #ff4444 !important;
     background-color: rgba(255, 68, 68, 0.1) !important;

@@ -169,7 +169,7 @@ module.exports = {
       if (!emailRe.test(newEmailRaw)) {
         return res.status(400).json({ success: false, message: 'Некорректный email' });
       }
-      const newEmail = newEmailRaw.toLowerCase().trim();
+      const newEmail = newEmailRaw.trim();
 
       if (!currentPassword) {
         return res.status(400).json({ success: false, message: 'Введите текущий пароль' });
@@ -179,7 +179,7 @@ module.exports = {
         return res.status(400).json({ success: false, message: 'Неверный текущий пароль' });
       }
 
-      if (newEmail.toLowerCase() === String(user.email || '').toLowerCase()) {
+      if (newEmail === String(user.email || '')) {
         return res.status(400).json({ success: false, message: 'Новый email совпадает с текущим' });
       }
 

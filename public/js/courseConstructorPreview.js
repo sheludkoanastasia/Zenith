@@ -28,6 +28,8 @@ let quillPreview = null;
 let currentEditingTheorySection = null;
 let currentEditingExerciseSection = null;
 let currentUserRole = null;
+let currentUser = null;
+let activeDiscussionSection = null;
 const sectionCompletionMap = new Map();
 const pendingResetSectionIds = new Set();
 
@@ -219,7 +221,7 @@ async function startTestTimerOnServer(testId) {
 
         const data = await response.json();
         syncCurrentDeadlineState(testId, data.deadlinePassed || data.deadlineClosed);
-        syncCurrentTimerState(testId, data.timer);
+        syncCurrentTimerState(sectionId, data.timer);
 
         if (typeof data.attemptsCount === 'number') {
             testAttemptsCount = data.attemptsCount;
@@ -922,6 +924,7 @@ async function loadCourseData() {
         });
         const userData = await userResponse.json();
         if (userData.success) {
+            currentUser = userData.user;
             currentUserRole = userData.user.role;
             if (currentUserRole) {
                 document.body.setAttribute('data-user-role', currentUserRole);
@@ -1163,6 +1166,9 @@ function updateSidebarSections(blockId, sections) {
 
 async function loadBlockSections(blockId, blockTitle, blockDescription) {
     try {
+        activeDiscussionSection = null;
+        removeExistingDiscussionPanels();
+
         const response = await fetch(`${apiBaseUrl}/blocks/${blockId}/sections`, {
             headers: { 'Authorization': `Bearer ${getToken()}` }
         });
@@ -1345,6 +1351,10 @@ function setSectionCompletionState(sectionId, isCompleted) {
         item.classList.toggle('completed', completed);
     });
 
+    if (activeDiscussionSection?.id === sectionId) {
+        renderSectionDiscussionPanel(activeDiscussionSection, currentUserRole !== 'student' || completed);
+    }
+
     updateHierarchyCompletionStyles();
 }
 
@@ -1452,6 +1462,8 @@ function performBlockSwitch(clickedBlockId, blockTitle, blockDescription) {
     const theoryPreviewContainer = document.getElementById('theoryPreviewContainer');
     const exercisePreviewContainer = document.getElementById('exercisePreviewContainer');
     const testPreviewContainer = document.getElementById('testPreviewContainer');
+    activeDiscussionSection = null;
+    removeExistingDiscussionPanels();
     
     if (theoryPreviewContainer) theoryPreviewContainer.style.display = 'none';
     if (exercisePreviewContainer) exercisePreviewContainer.style.display = 'none';
@@ -1547,8 +1559,10 @@ async function loadTheorySection(sectionId) {
         const isCompleted = isResetSection ? false : await checkTheoryStatus(sectionId);
         setSectionCompletionState(sectionId, isCompleted);
         updateTheoryButtonState(sectionId, isCompleted);
+        await renderSectionDiscussionPanel(section, isCompleted);
       } else {
         updateNextStepButton(sectionId);
+        await renderSectionDiscussionPanel(section, true);
       }
     } else {
       showNotification('Ошибка загрузки раздела', 'error');
@@ -1844,6 +1858,11 @@ async function loadExerciseSection(sectionId) {
       if (theoryPreviewContainer) theoryPreviewContainer.style.display = 'none';
       if (testPreviewContainer) testPreviewContainer.style.display = 'none';
       if (previewContainer) previewContainer.style.display = 'block';
+
+      await renderSectionDiscussionPanel(
+        section,
+        currentUserRole !== 'student' || sectionCompletionMap.get(sectionId) === true
+      );
       
       // Обновляем кнопку "Следующий шаг" для учителя
       if (currentUserRole === 'teacher') {
@@ -2212,6 +2231,11 @@ async function loadTestSection(sectionId) {
       if (theoryPreviewContainer) theoryPreviewContainer.style.display = 'none';
       if (exercisePreviewContainer) exercisePreviewContainer.style.display = 'none';
       if (previewContainer) previewContainer.style.display = 'block';
+
+      await renderSectionDiscussionPanel(
+        section,
+        currentUserRole !== 'student' || sectionCompletionMap.get(sectionId) === true
+      );
       
       // Настройка кнопок в зависимости от роли
       if (currentUserRole === 'student') {
@@ -2658,6 +2682,8 @@ function backToSections() {
     const testPreviewContainer = document.getElementById('testPreviewContainer');
     const sectionsAreaEl = document.getElementById('sectionsArea');
     const welcomeScreenEl = document.getElementById('welcomeScreen');
+    activeDiscussionSection = null;
+    removeExistingDiscussionPanels();
     
     if (theoryPreviewContainer) theoryPreviewContainer.style.display = 'none';
     if (exercisePreviewContainer) exercisePreviewContainer.style.display = 'none';
@@ -2692,6 +2718,320 @@ function escapeHtml(text) {
     const div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML;
+}
+
+function getAuthorDisplayName(author) {
+    const parts = [author?.lastName, author?.firstName, author?.patronymic].filter(Boolean);
+    return parts.join(' ') || author?.email || 'Пользователь';
+}
+
+function flattenRepliesForDisplay(replies = [], parentAuthor = null) {
+    const flat = [];
+
+    replies.forEach(reply => {
+        flat.push({
+            ...reply,
+            replyToAuthor: parentAuthor,
+            replies: []
+        });
+        flat.push(...flattenRepliesForDisplay(reply.replies || [], reply.author));
+    });
+
+    return flat;
+}
+
+function formatCommentDate(value) {
+    if (!value) return '';
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return '';
+    return date.toLocaleString('ru-RU', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+    });
+}
+
+function getCommentAvatar(author) {
+    return author?.avatarUrl || '/images/userMainPanel/user.svg';
+}
+
+function getDiscussionHost(sectionType) {
+    if (sectionType === 'theory') return document.getElementById('theoryPreviewContainer');
+    if (sectionType === 'test') return document.getElementById('testPreviewContainer');
+    return document.getElementById('exercisePreviewContainer');
+}
+
+function removeExistingDiscussionPanels() {
+    document.querySelectorAll('.section-discussion-panel').forEach(panel => panel.remove());
+}
+
+function renderLockedDiscussion(host) {
+    host.insertAdjacentHTML('afterend', `
+        <section class="section-discussion-panel locked">
+            <button type="button" class="discussion-header" data-discussion-toggle>
+                <span>Обсуждение раздела</span>
+                <img src="/images/taskCreationPage/chevronDown.svg" alt="" class="discussion-chevron">
+            </button>
+            <div class="discussion-content">
+                <div class="discussion-locked-message">После решения задания будет доступно обсуждение раздела</div>
+            </div>
+        </section>
+    `);
+    setupDiscussionToggles(host.nextElementSibling || document);
+}
+
+function renderCommentItem(comment, isReply = false) {
+    const author = comment.author || {};
+    const replies = isReply ? [] : flattenRepliesForDisplay(comment.replies || [], author);
+    const replyToAuthor = comment.replyToAuthor || null;
+    const teacherBadge = author.role === 'teacher'
+        ? '<span class="comment-role-badge">(преподаватель)</span>'
+        : '';
+    const canDelete = currentUser?.id && author.id === currentUser.id;
+
+    return `
+        <article class="discussion-comment ${isReply ? 'reply' : ''}" data-comment-id="${comment.id}">
+            <img src="${escapeHtml(getCommentAvatar(author))}" alt="" class="comment-avatar">
+            <div class="comment-main">
+                <div class="comment-meta">
+                    <span class="comment-author">${escapeHtml(getAuthorDisplayName(author))}</span>
+                    ${teacherBadge}
+                    <span class="comment-date">${escapeHtml(formatCommentDate(comment.createdAt))}</span>
+                </div>
+                <div class="comment-text">
+                    ${isReply && replyToAuthor ? `<span class="comment-reply-prefix">(ответ ${escapeHtml(getAuthorDisplayName(replyToAuthor))})</span>` : ''}
+                    ${escapeHtml(comment.text).replace(/\n/g, '<br>')}
+                </div>
+                <div class="comment-actions">
+                    <button type="button" class="comment-action-btn" data-reply-to="${comment.id}">Ответить</button>
+                    ${canDelete ? `
+                        <button type="button" class="comment-delete-btn" data-delete-comment="${comment.id}" aria-label="Удалить комментарий">
+                            Удалить комментарий
+                        </button>
+                    ` : ''}
+                    ${replies.length > 0 ? `
+                        <button type="button" class="comment-action-btn replies-toggle collapsed" data-toggle-replies="${comment.id}">
+                            Показать ответы
+                            <img src="/images/taskCreationPage/chevronDown.svg" alt="" class="comment-chevron">
+                        </button>
+                    ` : ''}
+                </div>
+                <div class="reply-form-slot" data-reply-slot="${comment.id}"></div>
+                ${replies.length > 0 ? `
+                    <div class="comment-replies" data-replies-for="${comment.id}" style="display: none;">
+                        ${replies.map(reply => renderCommentItem(reply, true)).join('')}
+                    </div>
+                ` : ''}
+            </div>
+        </article>
+    `;
+}
+
+function renderDiscussionForm(parentCommentId = '') {
+    return `
+        <form class="discussion-form" data-parent-comment-id="${parentCommentId}">
+            <textarea class="discussion-input" rows="3" placeholder="${parentCommentId ? 'Напишите ответ' : 'Напишите комментарий'}"></textarea>
+            <div class="discussion-form-actions">
+                ${parentCommentId ? '<button type="button" class="discussion-cancel-btn" data-cancel-reply>Отмена</button>' : ''}
+                <button type="submit" class="discussion-submit-btn">${parentCommentId ? 'Ответить' : 'Отправить'}</button>
+            </div>
+        </form>
+    `;
+}
+
+function setupDiscussionToggles(scope = document) {
+    if (!scope) return;
+    scope.querySelectorAll('[data-discussion-toggle]').forEach(toggle => {
+        if (toggle.dataset.toggleReady === 'true') return;
+        toggle.dataset.toggleReady = 'true';
+        toggle.addEventListener('click', () => {
+            const panel = toggle.closest('.section-discussion-panel');
+            if (panel) panel.classList.toggle('collapsed');
+        });
+    });
+}
+
+function autoResizeDiscussionInput(textarea) {
+    if (!textarea) return;
+    textarea.style.height = 'auto';
+    textarea.style.height = `${textarea.scrollHeight}px`;
+}
+
+function setupDiscussionTextareas(scope = document) {
+    if (!scope) return;
+    scope.querySelectorAll('.discussion-input').forEach(textarea => {
+        autoResizeDiscussionInput(textarea);
+        if (textarea.dataset.autosizeReady === 'true') return;
+        textarea.dataset.autosizeReady = 'true';
+        textarea.addEventListener('input', () => autoResizeDiscussionInput(textarea));
+    });
+}
+
+async function submitSectionComment(sectionId, text, parentCommentId = null) {
+    const response = await fetch(`${apiBaseUrl}/sections/${sectionId}/comments`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${getToken()}`
+        },
+        body: JSON.stringify({ text, parentCommentId })
+    });
+    return response.json();
+}
+
+async function deleteSectionComment(sectionId, commentId) {
+    const response = await fetch(`${apiBaseUrl}/sections/${sectionId}/comments/${commentId}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${getToken()}` }
+    });
+    return response.json();
+}
+
+function attachDiscussionHandlers(panel, section) {
+    setupDiscussionToggles(panel);
+
+    panel.addEventListener('submit', async (event) => {
+        const form = event.target.closest('.discussion-form');
+        if (!form) return;
+        event.preventDefault();
+
+        const textarea = form.querySelector('.discussion-input');
+        const text = textarea?.value.trim();
+        if (!text) {
+            showNotification('Введите текст комментария', 'warning');
+            return;
+        }
+
+        const parentCommentId = form.dataset.parentCommentId || null;
+        const result = await submitSectionComment(section.id, text, parentCommentId);
+        if (result.success) {
+            showNotification(result.message || 'Комментарий добавлен', 'success');
+            await renderSectionDiscussionPanel(section, true);
+        } else {
+            showNotification(result.message || 'Не удалось добавить комментарий', 'error');
+        }
+    });
+
+    panel.addEventListener('click', async (event) => {
+        const replyBtn = event.target.closest('[data-reply-to]');
+        if (replyBtn) {
+            const commentId = replyBtn.dataset.replyTo;
+            const slot = panel.querySelector(`[data-reply-slot="${commentId}"]`);
+            if (slot) {
+                slot.innerHTML = renderDiscussionForm(commentId);
+                setupDiscussionTextareas(slot);
+                const textarea = slot.querySelector('.discussion-input');
+                textarea?.focus();
+                autoResizeDiscussionInput(textarea);
+            }
+            return;
+        }
+
+        const cancelBtn = event.target.closest('[data-cancel-reply]');
+        if (cancelBtn) {
+            const slot = cancelBtn.closest('.reply-form-slot');
+            if (slot) slot.innerHTML = '';
+            return;
+        }
+
+        const repliesToggle = event.target.closest('[data-toggle-replies]');
+        if (repliesToggle) {
+            const commentId = repliesToggle.dataset.toggleReplies;
+            const replies = panel.querySelector(`[data-replies-for="${commentId}"]`);
+            if (!replies) return;
+            const hidden = replies.style.display === 'none';
+            replies.style.display = hidden ? '' : 'none';
+            repliesToggle.classList.toggle('collapsed', !hidden);
+            repliesToggle.childNodes[0].textContent = hidden ? 'Скрыть ответы ' : 'Показать ответы ';
+            return;
+        }
+
+        const deleteBtn = event.target.closest('[data-delete-comment]');
+        if (deleteBtn) {
+            const commentId = deleteBtn.dataset.deleteComment;
+            const result = await deleteSectionComment(section.id, commentId);
+            if (result.success) {
+                showNotification(result.message || 'Комментарий удалён', 'success');
+                await renderSectionDiscussionPanel(section, true);
+            } else {
+                showNotification(result.message || 'Не удалось удалить комментарий', 'error');
+            }
+        }
+    });
+}
+
+async function renderSectionDiscussionPanel(section, isUnlocked) {
+    if (!section?.id) return;
+    activeDiscussionSection = section;
+
+    const host = getDiscussionHost(section.type);
+    if (!host) return;
+
+    removeExistingDiscussionPanels();
+
+    if (!isUnlocked) {
+        renderLockedDiscussion(host);
+        return;
+    }
+
+    host.insertAdjacentHTML('afterend', `
+        <section class="section-discussion-panel loading">
+            <button type="button" class="discussion-header" data-discussion-toggle>
+                <span>Обсуждение раздела</span>
+                <img src="/images/taskCreationPage/chevronDown.svg" alt="" class="discussion-chevron">
+            </button>
+            <div class="discussion-content">
+                <div class="discussion-locked-message">Загрузка обсуждения...</div>
+            </div>
+        </section>
+    `);
+
+    const panel = host.nextElementSibling?.classList?.contains('section-discussion-panel')
+        ? host.nextElementSibling
+        : document.querySelector('.section-discussion-panel');
+    setupDiscussionToggles(panel);
+
+    try {
+        const response = await fetch(`${apiBaseUrl}/sections/${section.id}/comments`, {
+            headers: { 'Authorization': `Bearer ${getToken()}` }
+        });
+        const data = await response.json();
+
+        if (!data.success) {
+            panel.querySelector('.discussion-content').innerHTML = `
+                <div class="discussion-locked-message">${escapeHtml(data.message || 'Не удалось загрузить обсуждение')}</div>
+            `;
+            return;
+        }
+
+        if (!data.unlocked) {
+            panel.classList.add('locked');
+            panel.querySelector('.discussion-content').innerHTML = `
+                <div class="discussion-locked-message">${escapeHtml(data.message || 'После решения задания будет доступно обсуждение раздела')}</div>
+            `;
+            return;
+        }
+
+        const comments = Array.isArray(data.comments) ? data.comments : [];
+        panel.classList.remove('loading', 'locked');
+        panel.querySelector('.discussion-content').innerHTML = `
+            <div class="discussion-list">
+                ${comments.length > 0
+                    ? comments.map(comment => renderCommentItem(comment)).join('')
+                    : '<div class="discussion-empty">Комментариев пока нет. Начните обсуждение раздела.</div>'}
+            </div>
+            ${renderDiscussionForm()}
+        `;
+        setupDiscussionTextareas(panel);
+        attachDiscussionHandlers(panel, section);
+    } catch (error) {
+        console.error('Ошибка загрузки обсуждения:', error);
+        panel.querySelector('.discussion-content').innerHTML = `
+            <div class="discussion-locked-message">Не удалось загрузить обсуждение</div>
+        `;
+    }
 }
 
 // ===== НАВИГАЦИЯ "СЛЕДУЮЩИЙ ШАГ" =====
@@ -4944,6 +5284,9 @@ async function validateAndSubmitTest() {
         if (saved) {
             console.log(`Попытка ${testAttemptsCount} успешно сохранена на сервере`);
             updateTotalTestScore();
+            if (activeDiscussionSection?.id === testId) {
+                await renderSectionDiscussionPanel(activeDiscussionSection, true);
+            }
             if (isTestCompleted() || testAttemptsCount >= MAX_TEST_ATTEMPTS) {
                 currentTestTimerCompleted = true;
                 clearTestTimer();
