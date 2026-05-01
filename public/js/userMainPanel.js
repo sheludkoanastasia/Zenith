@@ -78,13 +78,61 @@ document.addEventListener("DOMContentLoaded", async function () {
                 allCourses.forEach(course => {
                     console.log(`Курс: ${course.title}, joined_at: ${course.joined_at}, created_at: ${course.created_at}`);
                 });
+                renderGeneralProgress(allCourses);
                 applyFilterAndSearch();
             }
         } catch (error) {
             console.error('Ошибка загрузки курсов:', error);
             allCourses = [];
+            renderGeneralProgress(allCourses);
             applyFilterAndSearch();
         }
+    }
+
+    function getCourseProgressPercent(course) {
+        const explicitPercent = Number(course.progressPercent);
+        if (!Number.isNaN(explicitPercent)) {
+            return Math.max(0, Math.min(100, Math.round(explicitPercent)));
+        }
+
+        const blocks = (course.themes || []).flatMap(theme => theme.blocks || []);
+        if (blocks.length === 0) return 0;
+
+        const totalPercent = blocks.reduce((sum, block) => {
+            const percent = Number(block.progressPercent) || 0;
+            return sum + percent;
+        }, 0);
+
+        return Math.round(totalPercent / blocks.length);
+    }
+
+    function renderGeneralProgress(courses) {
+        const progressList = document.getElementById('generalProgressList');
+        if (!progressList) return;
+
+        progressList.innerHTML = '';
+
+        if (!courses || courses.length === 0) {
+            progressList.innerHTML = '<div class="general-progress-empty">Прогресс появится после подключения к курсам</div>';
+            return;
+        }
+
+        courses.forEach(course => {
+            const percent = getCourseProgressPercent(course);
+            const item = document.createElement('div');
+            item.className = 'general-progress-item';
+            item.innerHTML = `
+                <div class="general-progress-course-title">${escapeHtml(course.title)}</div>
+                <div class="general-progress-row">
+                    <div class="general-progress-bar-wrapper">
+                        <div class="general-progress-bar-fill" style="width: ${percent}%"></div>
+                    </div>
+                    <span class="general-progress-percent">${percent}%</span>
+                </div>
+            `;
+
+            progressList.appendChild(item);
+        });
     }
     
     // ===============================
@@ -217,6 +265,7 @@ document.addEventListener("DOMContentLoaded", async function () {
             if (data.success) {
                 showNotification('Вы успешно подключились к курсу!', 'success');
                 await loadMyCourses();
+                renderGeneralProgress(allCourses);
                 
                 const myCoursesLink = Array.from(updatedNavLinks).find(link => link.textContent === "Мои курсы");
                 if (myCoursesLink) {

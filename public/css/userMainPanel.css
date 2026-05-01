@@ -331,11 +331,108 @@ header {
 
 .progress-frame {
     position: relative;
-}
-
-.progress-frame img {
     width: 520px;
     height: 200px;
+}
+
+.progress-frame-bg {
+    width: 520px;
+    height: 200px;
+    display: block;
+}
+
+.general-progress-list {
+    position: absolute;
+    inset: 26px 34px 26px 34px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    overflow-y: auto;
+    padding-right: 22px;
+    scrollbar-width: thin;
+    scrollbar-color: #c8c8c8 transparent;
+}
+
+/* WebKit (Chrome, Safari, Edge) */
+.general-progress-list::-webkit-scrollbar {
+    width: 6px;
+    background: transparent; /* убираем фон */
+}
+
+.general-progress-list::-webkit-scrollbar-track {
+    background: transparent; /* прозрачный трек */
+    border-radius: 4px;
+}
+
+.general-progress-list::-webkit-scrollbar-thumb {
+    background: linear-gradient(180deg, #b0b0b0, #909090); /* серый градиент */
+    border-radius: 20px; /* закругленные края */
+}
+
+.general-progress-list::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(180deg, #b0b0b0, #909090); /* небольшое затемнение */
+}
+
+/* Убираем стрелки */
+.general-progress-list::-webkit-scrollbar-button {
+    display: none;
+    height: 0;
+    width: 0;
+}
+
+.general-progress-item {
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+}
+
+.general-progress-course-title {
+    max-width: 100%;
+    color: #1D1D1D;
+    font-size: 18px;
+    font-weight: 500;
+    line-height: 1.2;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.general-progress-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.general-progress-bar-wrapper {
+    flex: 1;
+    height: 8px;
+    background: #e5e7eb;
+    border-radius: 999px;
+    overflow: hidden;
+}
+
+.general-progress-bar-fill {
+    height: 100%;
+    background: linear-gradient(180deg, #F0EBFF 0%, #DBCFFF 50%, #A5B5FC 100%);
+    border-radius: 999px;
+    transition: width 0.3s ease;
+}
+
+.general-progress-percent {
+    min-width: 42px;
+    color: #7651BE;
+    font-size: 18px;
+    font-weight: 500;
+    text-align: right;
+}
+
+.general-progress-empty {
+    margin: auto;
+    color: #7651BE;
+    font-size: 18px;
+    font-weight: 500;
+    text-align: center;
+    line-height: 1.3;
 }
 
 /* ===== СТИЛИ ДЛЯ КАРТОЧЕК КУРСОВ (как у преподавателя) ===== */

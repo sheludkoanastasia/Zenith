@@ -11,6 +11,96 @@ function generateJoinCode() {
   return code;
 }
 
+async function isStudentSectionCompleted(section, studentId) {
+  const progress = await db.StudentProgress.findOne({
+    where: {
+      student_id: studentId,
+      section_id: section.id
+    }
+  });
+
+  if (progress && progress.section_version !== section.version) {
+    return false;
+  }
+
+  if (section.type === 'theory' || section.type === 'exercise') {
+    return progress?.status === 'completed';
+  }
+
+  if (section.type === 'test') {
+    const test = await db.Test.findOne({ where: { section_id: section.id } });
+    if (!test) return false;
+
+    const attemptsCount = await db.TestAttempt.count({
+      where: {
+        test_id: test.id,
+        student_id: studentId
+      }
+    });
+
+    return attemptsCount > 0;
+  }
+
+  return false;
+}
+
+async function buildStudentCourseProgress(courseId, studentId) {
+  const themes = await db.Theme.findAll({
+    where: { course_id: courseId },
+    include: [{ model: db.Block, as: 'blocks' }],
+    order: [['order_index', 'ASC']]
+  });
+
+  let totalBlockPercent = 0;
+  let totalBlocks = 0;
+  const themesWithProgress = [];
+
+  for (const theme of themes) {
+    const themeData = theme.get({ plain: true });
+    const blocksWithProgress = [];
+
+    for (const block of theme.blocks || []) {
+      const blockData = block.get({ plain: true });
+      const sections = await db.Section.findAll({
+        where: { block_id: block.id },
+        order: [['order_index', 'ASC']]
+      });
+
+      const totalSections = sections.length;
+      let completedSections = 0;
+
+      if (totalSections > 0) {
+        const completionResults = await Promise.all(
+          sections.map(section => isStudentSectionCompleted(section, studentId))
+        );
+        completedSections = completionResults.filter(Boolean).length;
+      }
+
+      const percent = totalSections > 0
+        ? Math.round((completedSections / totalSections) * 100)
+        : 0;
+
+      totalBlockPercent += percent;
+      totalBlocks++;
+
+      blocksWithProgress.push({
+        ...blockData,
+        progressPercent: percent
+      });
+    }
+
+    themesWithProgress.push({
+      ...themeData,
+      blocks: blocksWithProgress
+    });
+  }
+
+  return {
+    themes: themesWithProgress,
+    progressPercent: totalBlocks > 0 ? Math.round(totalBlockPercent / totalBlocks) : 0
+  };
+}
+
 module.exports = {
     createCourse: async (req, res) => {
         const transaction = await db.sequelize.transaction();
@@ -492,15 +582,11 @@ getStudentCourses: async (req, res) => {
             return res.json({ success: true, courses: [] });
         }
         
-        // Загружаем темы и блоки для каждого курса
+        // Загружаем темы, блоки и общий прогресс для каждого курса
         const coursesWithThemes = [];
         
         for (const course of results) {
-            const themes = await db.Theme.findAll({
-                where: { course_id: course.id },
-                include: [{ model: db.Block, as: 'blocks' }],
-                order: [['order_index', 'ASC']]
-            });
+            const progressData = await buildStudentCourseProgress(course.id, studentId);
             
             coursesWithThemes.push({
                 id: course.id,
@@ -509,7 +595,8 @@ getStudentCourses: async (req, res) => {
                 created_at: course.created_at,
                 joined_at: course.joined_at,
                 teacher: course.teacher,
-                themes: themes
+                themes: progressData.themes,
+                progressPercent: progressData.progressPercent
             });
         }
         
