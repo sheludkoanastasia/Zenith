@@ -159,6 +159,10 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('fieldFirstName').value = user.firstName || '';
     document.getElementById('fieldLastName').value = user.lastName || '';
     document.getElementById('fieldPatronymic').value = user.patronymic || '';
+    const educationFields = document.getElementById('studentEducationFields');
+    if (educationFields) {
+      educationFields.style.display = user.role === 'teacher' ? 'none' : '';
+    }
     document.getElementById('fieldInstitution').value = user.educationalInstitution || '';
     document.getElementById('fieldCourse').value = user.studyCourse || '';
     document.getElementById('fieldFaculty').value = user.faculty || '';
