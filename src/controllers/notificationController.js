@@ -1,6 +1,20 @@
+const { Op } = require('sequelize');
 const db = require('../models');
 const { handleError } = require('../utils/errorHandler');
 const notificationService = require('../services/notificationService');
+
+/** Храним уведомления в БД не дольше 7 суток (с 1 мая по 7 мая включительно; с 8 мая — удалены). */
+const NOTIFICATION_RETENTION_MS = 7 * 24 * 60 * 60 * 1000;
+
+function notificationsFreshnessCutoff() {
+  return new Date(Date.now() - NOTIFICATION_RETENTION_MS);
+}
+
+async function purgeExpiredNotifications(beforeDate) {
+  await db.Notification.destroy({
+    where: { created_at: { [Op.lt]: beforeDate } }
+  });
+}
 
 const ICONS = {
   deadline_reminder: '/images/notificationPage/deadlineTime.svg',
@@ -89,7 +103,13 @@ module.exports = {
       const courseFilter = req.query.courseId && req.query.courseId !== 'all' ? req.query.courseId : null;
       const category = req.query.category || 'all';
 
-      const where = { user_id: user.id };
+      const cutoff = notificationsFreshnessCutoff();
+      await purgeExpiredNotifications(cutoff);
+
+      const where = {
+        user_id: user.id,
+        created_at: { [Op.gte]: cutoff }
+      };
       if (courseFilter) {
         where.course_id = courseFilter;
       }
