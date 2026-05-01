@@ -2,6 +2,7 @@ const { validationResult } = require('express-validator');
 const db = require('../models');
 const { generateToken } = require('../utils/jwt');
 const { handleError, handleValidationError } = require('../utils/errorHandler');
+const { toPublicUser } = require('../utils/userSerializer');
 
 module.exports = {
   register: async (req, res) => {
@@ -36,14 +37,7 @@ module.exports = {
         success: true,
         message: 'Регистрация прошла успешно',
         token,
-        user: {
-          id: user.id,
-          email: user.email,
-          role: user.role,
-          firstName: user.firstName,
-          lastName: user.lastName,
-          patronymic: user.patronymic
-        }
+        user: toPublicUser(user)
       });
 
     } catch (error) {
@@ -91,14 +85,7 @@ module.exports = {
         success: true,
         message: 'Вход выполнен успешно',
         token,
-        user: {
-          id: user.id,
-          email: user.email,
-          role: user.role,
-          firstName: user.firstName,
-          lastName: user.lastName,
-          patronymic: user.patronymic
-        }
+        user: toPublicUser(user)
       });
 
     } catch (error) {
@@ -108,16 +95,10 @@ module.exports = {
 
   check: async (req, res) => {
     try {
+      const fresh = await db.User.findByPk(req.user.id);
       res.json({
         success: true,
-        user: {
-          id: req.user.id,
-          email: req.user.email,
-          role: req.user.role,
-          firstName: req.user.firstName,
-          lastName: req.user.lastName,
-          patronymic: req.user.patronymic
-        }
+        user: toPublicUser(fresh || req.user)
       });
     } catch (error) {
       handleError(res, error, 'Ошибка при проверке токена');

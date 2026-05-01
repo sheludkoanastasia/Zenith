@@ -8,4 +8,8 @@ router.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, '../../public/views/userMainPanel.html'));
 });
 
+router.get('/settings', (req, res) => {
+    res.sendFile(path.join(__dirname, '../../public/views/userSettings.html'));
+});
+
 module.exports = router;

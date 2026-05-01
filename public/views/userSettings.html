@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Настройки — Zenith</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Ysabeau:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/public/css/userSettings.css">
+</head>
+<body>
+    <div class="settings-bg-fixed settings-bg-fixed--top" aria-hidden="true">
+        <img src="/images/userMainPanel/backgoundUpSectionSettengs.png" alt="" class="settings-bg-fill-img">
+    </div>
+    <div class="settings-bg-fixed settings-bg-fixed--bottom" aria-hidden="true">
+        <img src="/images/userMainPanel/backgoundDownSectionSettengs.png" alt="" class="settings-bg-fill-img">
+    </div>
+
+    <header class="settings-header" id="settingsHeader">
+        <a href="#" class="settings-back" id="settingsBack">
+            <span class="settings-back-arrow">←</span> Назад
+        </a>
+        <div class="settings-logo">
+            <img src="/images/userMainPanel/logo.svg" alt="Zenith">
+        </div>
+        <div class="settings-header-spacer"></div>
+    </header>
+
+    <main class="settings-main">
+        <div class="settings-title-row">
+            <h1 class="settings-page-title">Настройки аккаунта</h1>
+            <img src="/images/userMainPanel/setting.svg" alt="" class="settings-title-icon" width="40" height="40">
+        </div>
+
+        <section class="settings-glass" aria-labelledby="profile-heading">
+            <h2 id="profile-heading" class="settings-section-title">Редактировать профиль</h2>
+
+            <div class="profile-photo-row">
+                <div class="profile-photo-wrap">
+                    <button type="button" class="profile-photo-btn" id="avatarTrigger" aria-label="Изменить фото профиля">
+                        <img id="avatarPreview" src="/images/userMainPanel/user.svg" alt="">
+                    </button>
+                    <input type="file" id="avatarInput" accept="image/jpeg,image/png,.jpg,.jpeg,.png" hidden>
+                </div>
+                <p class="profile-photo-hint">Нажмите на фото, чтобы загрузить или заменить (JPEG или PNG)</p>
+            </div>
+
+            <div class="settings-grid">
+                <label class="settings-field">
+                    <span class="settings-label">Имя</span>
+                    <input type="text" id="fieldFirstName" class="settings-input" autocomplete="given-name">
+                </label>
+                <label class="settings-field">
+                    <span class="settings-label">Фамилия</span>
+                    <input type="text" id="fieldLastName" class="settings-input" autocomplete="family-name">
+                </label>
+                <label class="settings-field settings-field-wide">
+                    <span class="settings-label">Отчество</span>
+                    <input type="text" id="fieldPatronymic" class="settings-input" autocomplete="additional-name">
+                </label>
+            </div>
+
+            <p class="teacher-fields-caption">Для преподавателей <span class="caption-muted">(необязательно для заполнения)</span></p>
+            <div class="settings-grid">
+                <label class="settings-field settings-field-wide">
+                    <span class="settings-label">Образовательное учреждение</span>
+                    <input type="text" id="fieldInstitution" class="settings-input">
+                </label>
+                <label class="settings-field">
+                    <span class="settings-label">Курс</span>
+                    <input type="text" id="fieldCourse" class="settings-input" placeholder="Например, 2">
+                </label>
+                <label class="settings-field">
+                    <span class="settings-label">Факультет</span>
+                    <input type="text" id="fieldFaculty" class="settings-input">
+                </label>
+                <label class="settings-field">
+                    <span class="settings-label">Группа</span>
+                    <input type="text" id="fieldGroup" class="settings-input">
+                </label>
+            </div>
+
+            <button type="button" class="settings-save-btn" id="saveProfileBtn">Сохранить изменения</button>
+        </section>
+
+        <section class="settings-glass" aria-labelledby="login-heading">
+            <h2 id="login-heading" class="settings-section-title">Изменить данные входа</h2>
+
+            <div class="login-subblock">
+                <h3 class="settings-subtitle">Электронная почта</h3>
+                <label class="settings-field settings-field-wide">
+                    <span class="settings-label">Текущая почта</span>
+                    <input type="email" id="fieldCurrentEmail" class="settings-input settings-input-readonly" readonly>
+                </label>
+                <label class="settings-field settings-field-wide">
+                    <span class="settings-label">Новый адрес</span>
+                    <input type="email" id="fieldNewEmail" class="settings-input" autocomplete="off">
+                </label>
+                <label class="settings-field settings-field-wide">
+                    <span class="settings-label">Текущий пароль</span>
+                    <input type="password" id="fieldEmailPassword" class="settings-input" autocomplete="current-password">
+                </label>
+                <button type="button" class="settings-save-btn" id="saveEmailBtn">Сохранить новую почту</button>
+            </div>
+
+            <div class="login-subblock login-subblock-divider">
+                <h3 class="settings-subtitle">Пароль</h3>
+                <label class="settings-field settings-field-wide">
+                    <span class="settings-label">Текущий пароль</span>
+                    <input type="password" id="fieldOldPassword" class="settings-input" autocomplete="current-password">
+                </label>
+                <label class="settings-field settings-field-wide">
+                    <span class="settings-label">Новый пароль</span>
+                    <input type="password" id="fieldNewPassword" class="settings-input" autocomplete="new-password">
+                </label>
+                <label class="settings-field settings-field-wide">
+                    <span class="settings-label">Повторите пароль</span>
+                    <input type="password" id="fieldNewPassword2" class="settings-input" autocomplete="new-password">
+                </label>
+                <button type="button" class="settings-save-btn" id="savePasswordBtn">Сохранить новый пароль</button>
+            </div>
+        </section>
+    </main>
+
+    <script src="/public/js/userSettings.js"></script>
+</body>
+</html>

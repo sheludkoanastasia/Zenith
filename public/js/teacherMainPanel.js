@@ -195,7 +195,40 @@ document.addEventListener("DOMContentLoaded", async function () {
         document.getElementById('userFirstName').textContent = user.firstName || '';
         document.getElementById('userPatronymic').textContent = user.patronymic || '';
         document.getElementById('userRole').textContent = 'Преподаватель';
+
+        const avatarEl = document.getElementById('userAvatarImg');
+        if (avatarEl) {
+            if (user.avatarUrl) {
+                avatarEl.src = user.avatarUrl + (user.avatarUrl.includes('?') ? '&' : '?') + 'v=' + Date.now();
+            } else {
+                avatarEl.src = '/images/userMainPanel/user.svg';
+            }
+        }
     }
+
+    async function refreshUserFromServer() {
+        try {
+            const response = await fetch('/api/auth/check', {
+                method: 'GET',
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            const data = await response.json();
+            if (data.success && data.user && data.user.role === 'teacher') {
+                currentUser = data.user;
+                displayUserInfo(data.user);
+            }
+        } catch (e) {
+            console.error('Не удалось обновить профиль', e);
+        }
+    }
+
+    window.addEventListener('pageshow', (event) => {
+        const nav = performance.getEntriesByType && performance.getEntriesByType('navigation')[0];
+        const backNav = nav && nav.type === 'back_forward';
+        if (event.persisted || backNav) {
+            refreshUserFromServer();
+        }
+    });
 
     // ===============================
     // ОБРАБОТЧИК ВЫХОДА

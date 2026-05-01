@@ -35,6 +35,30 @@ module.exports = (sequelize) => {
       type: DataTypes.STRING,
       allowNull: true
     },
+    educationalInstitution: {
+      type: DataTypes.STRING,
+      allowNull: true,
+      field: 'educational_institution'
+    },
+    studyCourse: {
+      type: DataTypes.STRING,
+      allowNull: true,
+      field: 'study_course'
+    },
+    faculty: {
+      type: DataTypes.STRING,
+      allowNull: true
+    },
+    studyGroup: {
+      type: DataTypes.STRING,
+      allowNull: true,
+      field: 'study_group'
+    },
+    avatarUrl: {
+      type: DataTypes.STRING,
+      allowNull: true,
+      field: 'avatar_url'
+    },
     role: {
       type: DataTypes.ENUM('student', 'teacher'),
       defaultValue: 'student'

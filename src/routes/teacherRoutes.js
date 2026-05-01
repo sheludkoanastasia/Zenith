@@ -8,6 +8,10 @@ router.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, '../../public/views/teacherMainPanel.html'));
 });
 
+router.get('/settings', (req, res) => {
+    res.sendFile(path.join(__dirname, '../../public/views/userSettings.html'));
+});
+
 // Страница создания курса
 router.get('/create-course', (req, res) => {
     console.log('GET /teacher/create-course - отправляем createCourse.html');
