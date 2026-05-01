@@ -37,6 +37,14 @@ let testAttemptsCount = 0;
 const MAX_TEST_ATTEMPTS = 4;
 let currentTestDeadline = null;
 let currentTestDeadlinePassed = false;
+let currentTestTimeLimitMinutes = null;
+let currentTestTimerInterval = null;
+let currentTestTimerExpiresAt = null;
+let currentTestTimeLimitExpired = false;
+let currentTestTimerCompleted = false;
+let pendingTimerExitAction = null;
+let currentTestTimerPausedAt = null;
+let currentTestTimerPausedRemainingMs = null;
 
 // Хранилище для баллов за попытки
 let testAttemptsScores = []; // Массив для хранения результатов каждой попытки
@@ -59,6 +67,323 @@ function isTestDeadlinePassed(deadline) {
 function syncCurrentDeadlineState(testId, deadlinePassed) {
     if (testId !== currentTestId) return;
     currentTestDeadlinePassed = deadlinePassed === true || isTestDeadlinePassed(currentTestDeadline);
+}
+
+function syncCurrentTimerState(testId, timerState) {
+    if (testId !== currentTestId || !timerState) return;
+
+    currentTestTimeLimitMinutes = timerState.timeLimitMinutes || currentTestTimeLimitMinutes;
+    currentTestTimerExpiresAt = timerState.expiresAt ? new Date(timerState.expiresAt).getTime() : null;
+    currentTestTimerCompleted = timerState.completed === true;
+    currentTestTimeLimitExpired = timerState.expired === true || timerState.completedReason === 'time_limit';
+
+    if (currentTestTimerCompleted || !currentTestTimerExpiresAt) {
+        if (currentTestTimerCompleted) {
+            markLocalTimerFinished(testId);
+        }
+        clearTestTimer();
+    }
+}
+
+function clearTestTimer() {
+    if (currentTestTimerInterval) {
+        clearInterval(currentTestTimerInterval);
+        currentTestTimerInterval = null;
+    }
+}
+
+function getLocalTimerKey(testId) {
+    return `test_timer_${testId}_${currentUserRole || 'student'}`;
+}
+
+function getLocalTimerFinishedKey(testId) {
+    return `test_timer_finished_${testId}_${currentUserRole || 'student'}`;
+}
+
+function persistLocalTimer(testId, expiresAt) {
+    if (!testId || !expiresAt) return;
+    localStorage.setItem(getLocalTimerKey(testId), JSON.stringify({
+        expiresAt,
+        timeLimitMinutes: currentTestTimeLimitMinutes
+    }));
+}
+
+function loadLocalTimer(testId) {
+    try {
+        const rawTimer = localStorage.getItem(getLocalTimerKey(testId));
+        return rawTimer ? JSON.parse(rawTimer) : null;
+    } catch (error) {
+        console.error('Ошибка чтения локального таймера:', error);
+        return null;
+    }
+}
+
+function markLocalTimerFinished(testId) {
+    if (!testId) return;
+    localStorage.setItem(getLocalTimerFinishedKey(testId), 'true');
+    localStorage.removeItem(getLocalTimerKey(testId));
+}
+
+function isLocalTimerFinished(testId) {
+    return localStorage.getItem(getLocalTimerFinishedKey(testId)) === 'true';
+}
+
+function formatTimerTime(milliseconds) {
+    const totalSeconds = Math.max(0, Math.ceil(milliseconds / 1000));
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = totalSeconds % 60;
+    const paddedMinutes = String(minutes).padStart(2, '0');
+    const paddedSeconds = String(seconds).padStart(2, '0');
+
+    if (hours > 0) {
+        return `${hours}:${paddedMinutes}:${paddedSeconds}`;
+    }
+
+    return `${paddedMinutes}:${paddedSeconds}`;
+}
+
+function updateTestTimerDisplay() {
+    const timerEl = document.getElementById('testTimerValue');
+    const timerWrap = document.getElementById('testTimerInfo');
+    if (!timerEl || !timerWrap) return;
+
+    if (!currentTestTimerExpiresAt || currentTestTimerCompleted || currentTestTimeLimitExpired) {
+        timerWrap.style.display = 'none';
+        return;
+    }
+
+    const remainingMs = currentTestTimerPausedAt
+        ? currentTestTimerPausedRemainingMs
+        : currentTestTimerExpiresAt - Date.now();
+    timerWrap.style.display = 'flex';
+    timerEl.textContent = formatTimerTime(remainingMs);
+    timerEl.classList.toggle('timer-danger', remainingMs <= 60000);
+
+    if (!currentTestTimerPausedAt && remainingMs <= 0) {
+        handleTestTimerExpired();
+    }
+}
+
+function pauseTimedTestTimer() {
+    if (!currentTestTimerExpiresAt || currentTestTimerPausedAt || currentTestTimerCompleted || currentTestTimeLimitExpired) {
+        return;
+    }
+
+    currentTestTimerPausedAt = Date.now();
+    currentTestTimerPausedRemainingMs = Math.max(0, currentTestTimerExpiresAt - currentTestTimerPausedAt);
+    clearTestTimer();
+    updateTestTimerDisplay();
+}
+
+async function resumeTimedTestTimer() {
+    if (!currentTestTimerPausedAt) return;
+
+    const pausedMs = Date.now() - currentTestTimerPausedAt;
+    const testId = currentTestId || currentEditingExerciseSection?.id;
+    currentTestTimerExpiresAt += pausedMs;
+    currentTestTimerPausedAt = null;
+    currentTestTimerPausedRemainingMs = null;
+    persistLocalTimer(testId, currentTestTimerExpiresAt);
+
+    try {
+        const response = await fetch(`${apiBaseUrl}/student/test/${testId}/timer/pause`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${getToken()}`
+            },
+            body: JSON.stringify({ pausedMs })
+        });
+        if (response.ok) {
+            const data = await response.json();
+            syncCurrentTimerState(testId, data.timer);
+            persistLocalTimer(testId, currentTestTimerExpiresAt);
+        }
+    } catch (error) {
+        console.error('Ошибка синхронизации паузы таймера:', error);
+    }
+
+    updateTestTimerDisplay();
+    currentTestTimerInterval = setInterval(updateTestTimerDisplay, 1000);
+}
+
+async function startTestTimerOnServer(testId) {
+    try {
+        const response = await fetch(`${apiBaseUrl}/student/test/${testId}/timer/start`, {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${getToken()}` }
+        });
+
+        if (!response.ok) return null;
+
+        const data = await response.json();
+        syncCurrentDeadlineState(testId, data.deadlinePassed || data.deadlineClosed);
+        syncCurrentTimerState(testId, data.timer);
+
+        if (typeof data.attemptsCount === 'number') {
+            testAttemptsCount = data.attemptsCount;
+        }
+
+        return data;
+    } catch (error) {
+        console.error('Ошибка запуска таймера теста:', error);
+        return null;
+    }
+}
+
+async function initializeTestTimer(testId, timeLimitMinutes) {
+    clearTestTimer();
+    currentTestTimeLimitMinutes = Number(timeLimitMinutes) || null;
+    currentTestTimeLimitExpired = false;
+    currentTestTimerCompleted = false;
+    currentTestTimerExpiresAt = null;
+    currentTestTimerPausedAt = null;
+    currentTestTimerPausedRemainingMs = null;
+
+    if (currentUserRole !== 'student' || !currentTestTimeLimitMinutes || currentTestTimeLimitMinutes <= 0) {
+        updateTestTimerDisplay();
+        return;
+    }
+
+    if (currentTestDeadlinePassed || testAttemptsCount >= MAX_TEST_ATTEMPTS || isTestCompleted() || isLocalTimerFinished(testId)) {
+        currentTestTimerCompleted = true;
+        updateTestTimerDisplay();
+        return;
+    }
+
+    const localTimer = loadLocalTimer(testId);
+    currentTestTimerExpiresAt = localTimer?.expiresAt || (Date.now() + currentTestTimeLimitMinutes * 60 * 1000);
+    persistLocalTimer(testId, currentTestTimerExpiresAt);
+    updateTestAttemptsDisplay();
+    updateTestTimerDisplay();
+    currentTestTimerInterval = setInterval(updateTestTimerDisplay, 1000);
+
+    const data = await startTestTimerOnServer(testId);
+    if (!data?.success || !data.timer || data.timer.completed) {
+        updateTestAttemptsDisplay();
+        updateTestButtons();
+        return;
+    }
+
+    updateTestAttemptsDisplay();
+    updateTestTimerDisplay();
+    persistLocalTimer(testId, currentTestTimerExpiresAt);
+}
+
+async function finishTimedTest(reason = 'time_limit') {
+    if (currentTestTimeLimitExpired) return;
+
+    currentTestTimeLimitExpired = true;
+    currentTestTimerCompleted = true;
+    currentTestTimerPausedAt = null;
+    currentTestTimerPausedRemainingMs = null;
+    clearTestTimer();
+
+    const testId = currentTestId || currentEditingExerciseSection?.id;
+    const { exerciseResults, totalScore, totalMaxScore } = collectExerciseResultsForSave();
+    exerciseResults._timeLimitExpired = true;
+    markLocalTimerFinished(testId);
+
+    try {
+        const response = await fetch(`${apiBaseUrl}/student/test/${testId}/timer/expire`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${getToken()}`
+            },
+            body: JSON.stringify({
+                exerciseResults,
+                totalScore,
+                totalMaxScore,
+                forceClose: reason === 'exit'
+            })
+        });
+
+        const data = await response.json();
+        if (data.success && typeof data.attemptsCount === 'number') {
+            testAttemptsCount = data.attemptsCount;
+        }
+        syncCurrentTimerState(testId, data.timer);
+    } catch (error) {
+        console.error('Ошибка завершения теста по таймеру:', error);
+    }
+
+    setSectionCompletionState(testId, true);
+    updateTotalTestScore();
+    updateTestAttemptsDisplay();
+    updateTestButtons();
+    showNotification(
+        reason === 'exit'
+            ? `Тест завершен с результатом ${totalScore} из ${totalMaxScore} баллов.`
+            : `Время вышло. Тест завершен с результатом ${totalScore} из ${totalMaxScore} баллов.`,
+        'warning'
+    );
+}
+
+async function handleTestTimerExpired() {
+    await finishTimedTest('time_limit');
+}
+
+function isActiveUnfinishedTimedTest() {
+    const testPreviewContainer = document.getElementById('testPreviewContainer');
+    return currentUserRole === 'student' &&
+        testPreviewContainer?.style.display === 'block' &&
+        currentTestTimerExpiresAt &&
+        Date.now() < currentTestTimerExpiresAt &&
+        !currentTestTimerCompleted &&
+        !currentTestTimeLimitExpired &&
+        !isTestCompleted();
+}
+
+function showTimedTestExitDialog(onConfirm) {
+    const oldDialog = document.querySelector('.timed-test-exit-overlay');
+    if (oldDialog) oldDialog.remove();
+
+    pendingTimerExitAction = onConfirm;
+    pauseTimedTestTimer();
+
+    const overlay = document.createElement('div');
+    overlay.className = 'timed-test-exit-overlay';
+    overlay.innerHTML = `
+        <div class="timed-test-exit-dialog">
+            <div class="timed-test-exit-icon">!</div>
+            <h2>Выйти из теста?</h2>
+            <p>Таймер уже запущен. Если выйти сейчас, тест будет засчитан как пройденный с текущими ответами и баллами.</p>
+            <div class="timed-test-exit-actions">
+                <button class="timed-test-exit-btn timed-test-exit-cancel">Остаться</button>
+                <button class="timed-test-exit-btn timed-test-exit-confirm">Завершить тест</button>
+            </div>
+        </div>
+    `;
+
+    document.body.appendChild(overlay);
+
+    const closeDialog = () => {
+        pendingTimerExitAction = null;
+        overlay.classList.add('hiding');
+        setTimeout(() => overlay.remove(), 250);
+        resumeTimedTestTimer();
+    };
+
+    overlay.querySelector('.timed-test-exit-cancel')?.addEventListener('click', closeDialog);
+    overlay.querySelector('.timed-test-exit-confirm')?.addEventListener('click', async () => {
+        const action = pendingTimerExitAction;
+        pendingTimerExitAction = null;
+        overlay.classList.add('hiding');
+        await finishTimedTest('exit');
+        setTimeout(() => overlay.remove(), 250);
+        if (action) action();
+    });
+}
+
+function runWithTimedTestExitGuard(action) {
+    if (isActiveUnfinishedTimedTest()) {
+        showTimedTestExitDialog(action);
+        return;
+    }
+
+    action();
 }
 
 // ===== ФУНКЦИИ ДЛЯ РАБОТЫ С ТЕСТАМИ (СЕРВЕР) =====
@@ -84,6 +409,7 @@ async function loadTestStateFromServer(testId) {
         const data = await response.json();
         console.log('Загружены попытки с сервера:', data);
         syncCurrentDeadlineState(testId, data.deadlinePassed || data.deadlineClosed);
+        syncCurrentTimerState(testId, data.timer);
         
         if (data.success && data.attempts && data.attempts.length > 0) {
             return {
@@ -91,7 +417,9 @@ async function loadTestStateFromServer(testId) {
                 attempts: data.attempts,
                 maxAttempts: data.maxAttempts || 4,
                 deadlinePassed: data.deadlinePassed === true,
-                deadlineClosed: data.deadlineClosed === true
+                deadlineClosed: data.deadlineClosed === true,
+                timeLimitClosed: data.timeLimitClosed === true,
+                timer: data.timer
             };
         }
         
@@ -100,7 +428,9 @@ async function loadTestStateFromServer(testId) {
             attempts: [],
             maxAttempts: 4,
             deadlinePassed: data.deadlinePassed === true,
-            deadlineClosed: data.deadlineClosed === true
+            deadlineClosed: data.deadlineClosed === true,
+            timeLimitClosed: data.timeLimitClosed === true,
+            timer: data.timer
         };
     } catch (error) {
         console.error('Ошибка загрузки состояния теста с сервера:', error);
@@ -372,6 +702,14 @@ async function saveTestStateToServer(testId, attemptNumber, totalScore, maxScore
         
         const data = await response.json();
         console.log('Ответ сервера при сохранении:', data);
+        syncCurrentTimerState(testId, data.timer);
+        if (data.timeLimitExpired || data.timeLimitClosed) {
+            currentTestTimeLimitExpired = true;
+            currentTestTimerCompleted = true;
+            clearTestTimer();
+            updateTestAttemptsDisplay();
+            updateTestButtons();
+        }
         
         if (data.success) {
             console.log(`Попытка ${attemptNumber} сохранена на сервере`);
@@ -762,7 +1100,7 @@ function renderThemes(themes) {
             const blockTitle = blockEl.dataset.blockTitle;
             const blockDescription = blockEl.dataset.blockDescription;
             
-            performBlockSwitch(clickedBlockId, blockTitle, blockDescription);
+            runWithTimedTestExitGuard(() => performBlockSwitch(clickedBlockId, blockTitle, blockDescription));
         };
         blockEl.addEventListener('click', blockEl._listener);
     });
@@ -806,7 +1144,8 @@ function updateSidebarSections(blockId, sections) {
             sectionEl.removeEventListener('click', sectionEl._listener);
             sectionEl._listener = (e) => {
                 e.stopPropagation();
-                if (section) {
+                runWithTimedTestExitGuard(() => {
+                  if (section) {
                     if (section.type === 'theory') {
                         loadTheorySection(section.id);
                     } else if (section.type === 'exercise') {
@@ -814,7 +1153,8 @@ function updateSidebarSections(blockId, sections) {
                     } else if (section.type === 'test') {
                         loadTestSection(section.id);
                     }
-                }
+                  }
+                });
             };
             sectionEl.addEventListener('click', sectionEl._listener);
         });
@@ -960,7 +1300,8 @@ function renderSections(sections) {
         card._listener = () => {
             const sectionId = card.dataset.sectionId;
             const section = currentSections.find(s => s.id === sectionId);
-            if (section) {
+            runWithTimedTestExitGuard(() => {
+              if (section) {
                 if (section.type === 'theory') {
                     loadTheorySection(sectionId);
                 } else if (section.type === 'exercise') {
@@ -968,7 +1309,8 @@ function renderSections(sections) {
                 } else if (section.type === 'test') {
                     loadTestSection(sectionId);
                 }
-            }
+              }
+            });
         };
         card.addEventListener('click', card._listener);
     });
@@ -1734,6 +2076,12 @@ async function loadTestSection(sectionId) {
       if (needsReset) {
         console.log('[Version Reset] Test section needs reset - FULL RESET');
         pendingResetSectionIds.add(sectionId);
+        clearTestTimer();
+        currentTestTimeLimitExpired = false;
+        currentTestTimerCompleted = false;
+        currentTestTimerExpiresAt = null;
+        currentTestTimerPausedAt = null;
+        currentTestTimerPausedRemainingMs = null;
         
         // Очищаем localStorage для этого теста
         const keysToRemove = [];
@@ -1775,6 +2123,12 @@ async function loadTestSection(sectionId) {
       const testData = section.test || {};
       currentTestDeadline = testData.deadline || null;
       currentTestDeadlinePassed = isTestDeadlinePassed(currentTestDeadline);
+      currentTestTimeLimitMinutes = Number(testData.time_limit) || null;
+      currentTestTimeLimitExpired = false;
+      currentTestTimerCompleted = false;
+      currentTestTimerExpiresAt = null;
+      currentTestTimerPausedAt = null;
+      currentTestTimerPausedRemainingMs = null;
       
       const deadlineSpan = document.getElementById('previewDeadline');
       if (deadlineSpan) {
@@ -1847,6 +2201,8 @@ async function loadTestSection(sectionId) {
           resetTestUI();
           updateTotalTestScore();
         }
+
+        await initializeTestTimer(sectionId, testData.time_limit);
       }
       
       const previewContainer = document.getElementById('testPreviewContainer');
@@ -2276,10 +2632,22 @@ window.addEventListener('beforeunload', () => {
     }
 });
 
+window.addEventListener('beforeunload', (event) => {
+    if (!isActiveUnfinishedTimedTest()) return;
+
+    event.preventDefault();
+    event.returnValue = 'Если выйти сейчас, тест будет засчитан как пройденный.';
+});
+
 // ===== ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ =====
 
 // Также сохраняем при навигации назад
 function backToSections() {
+    if (isActiveUnfinishedTimedTest()) {
+        showTimedTestExitDialog(backToSections);
+        return;
+    }
+
     // Сохраняем состояние теста перед уходом
     if (currentTestId && document.getElementById('testPreviewContainer').style.display === 'block' && testAttemptsCount > 0) {
         saveTestState(currentTestId);
@@ -2372,6 +2740,11 @@ function findNextSection(currentSectionId) {
 }
 
 function navigateToNextSection() {
+    if (isActiveUnfinishedTimedTest()) {
+        showTimedTestExitDialog(navigateToNextSection);
+        return;
+    }
+
     let currentSectionId = null;
     
     if (document.getElementById('theoryPreviewContainer').style.display === 'block') {
@@ -3781,6 +4154,7 @@ async function markExerciseAsCompleted(sectionId, score, maxScore) {
         });
         
         const data = await response.json();
+        syncCurrentTimerState(testId, data.timer);
         return data.success;
     } catch (error) {
         console.error('Ошибка сохранения прогресса упражнения:', error);
@@ -4225,6 +4599,11 @@ async function validateAndSubmitTest() {
         return false;
     }
 
+    if (currentTestTimerExpiresAt && Date.now() >= currentTestTimerExpiresAt) {
+        await handleTestTimerExpired();
+        return false;
+    }
+
     // Проверяем, не превышен ли лимит попыток для теста в целом
     if (testAttemptsCount >= MAX_TEST_ATTEMPTS) {
         showNotification(`Лимит попыток исчерпан! Вы использовали все ${MAX_TEST_ATTEMPTS} попыток.`, 'error');
@@ -4565,6 +4944,11 @@ async function validateAndSubmitTest() {
         if (saved) {
             console.log(`Попытка ${testAttemptsCount} успешно сохранена на сервере`);
             updateTotalTestScore();
+            if (isTestCompleted() || testAttemptsCount >= MAX_TEST_ATTEMPTS) {
+                currentTestTimerCompleted = true;
+                clearTestTimer();
+                updateTestTimerDisplay();
+            }
         } else {
             console.error('Не удалось сохранить попытку на сервере');
             showNotification('Ошибка при сохранении прогресса теста', 'error');
@@ -5633,6 +6017,7 @@ async function getTestAttempts(testId) {
         if (response.ok) {
             const data = await response.json();
             syncCurrentDeadlineState(testId, data.deadlinePassed || data.deadlineClosed);
+            syncCurrentTimerState(testId, data.timer);
             return data.attemptsCount || 0;
         }
         return 0;
@@ -5688,24 +6073,40 @@ function updateTestAttemptsDisplay() {
     
     const attemptsContainerEl = document.getElementById('testAttemptsInfo');
     if (attemptsContainerEl) {
-        const remainingAttempts = currentTestDeadlinePassed ? 0 : Math.max(0, MAX_TEST_ATTEMPTS - testAttemptsCount);
-        const remainingText = currentTestDeadlinePassed ? 'дедлайн прошел' : `осталось: ${remainingAttempts}`;
+        const isClosedByTime = currentTestDeadlinePassed || currentTestTimeLimitExpired;
+        const remainingAttempts = isClosedByTime ? 0 : Math.max(0, MAX_TEST_ATTEMPTS - testAttemptsCount);
+        const remainingText = currentTestDeadlinePassed
+            ? 'дедлайн прошел'
+            : currentTestTimeLimitExpired
+                ? 'время вышло'
+                : `осталось: ${remainingAttempts}`;
         attemptsContainerEl.innerHTML = `
             <div class="attempts-row">
-                <span class="attempts-label">Попытки:</span>
-                <span class="attempts-value">${testAttemptsCount} / ${MAX_TEST_ATTEMPTS}</span>
-                <span class="attempts-remaining">(${remainingText})</span>
+                <div class="attempts-details">
+                    <span class="attempts-label">Попытки:</span>
+                    <span class="attempts-value">${testAttemptsCount} / ${MAX_TEST_ATTEMPTS}</span>
+                    <span class="attempts-remaining">(${remainingText})</span>
+                </div>
+                <div class="test-timer-info" id="testTimerInfo" style="display: none;">
+                    <span class="test-timer-label">Время:</span>
+                    <span class="test-timer-value" id="testTimerValue">00:00</span>
+                </div>
             </div>
         `;
+        updateTestTimerDisplay();
         
         // Если попытки закончились или дедлайн прошел, блокируем кнопку
-        if (testAttemptsCount >= MAX_TEST_ATTEMPTS || currentTestDeadlinePassed) {
+        if (testAttemptsCount >= MAX_TEST_ATTEMPTS || currentTestDeadlinePassed || currentTestTimeLimitExpired) {
             const testSubmitBtn = document.getElementById('testSubmitBtn');
             if (testSubmitBtn) {
                 testSubmitBtn.disabled = true;
                 testSubmitBtn.style.opacity = '0.5';
                 testSubmitBtn.style.cursor = 'not-allowed';
-                testSubmitBtn.title = currentTestDeadlinePassed ? 'Дедлайн теста истек' : 'Лимит попыток исчерпан';
+                testSubmitBtn.title = currentTestDeadlinePassed
+                    ? 'Дедлайн теста истек'
+                    : currentTestTimeLimitExpired
+                        ? 'Время прохождения истекло'
+                        : 'Лимит попыток исчерпан';
             }
             // Показываем уведомление только один раз
             const lastNotification = localStorage.getItem('last_attempts_notification');
@@ -5729,10 +6130,18 @@ function updateTestAttemptsDisplay() {
 // Принудительный сброс состояния теста (для отладки)
 function forceResetTestState(testId) {
     console.log('Принудительный сброс состояния теста:', testId);
+    clearTestTimer();
     localStorage.removeItem(`test_state_${testId}`);
     localStorage.removeItem(`test_state_${testId}_temp`);
+    localStorage.removeItem(getLocalTimerKey(testId));
+    localStorage.removeItem(getLocalTimerFinishedKey(testId));
     testAttemptsCount = 0;
     testAttemptsScores = [];
+    currentTestTimeLimitExpired = false;
+    currentTestTimerCompleted = false;
+    currentTestTimerExpiresAt = null;
+    currentTestTimerPausedAt = null;
+    currentTestTimerPausedRemainingMs = null;
     resetTestScoresDisplay();
     updateTestAttemptsDisplay();
     
@@ -5910,7 +6319,7 @@ function updateTestButtons() {
   // Для студента
   if (currentUserRole === 'student') {
     const testCompleted = isTestCompleted();
-    const attemptsExhausted = testAttemptsCount >= MAX_TEST_ATTEMPTS || currentTestDeadlinePassed;
+    const attemptsExhausted = testAttemptsCount >= MAX_TEST_ATTEMPTS || currentTestDeadlinePassed || currentTestTimeLimitExpired;
     
     console.log('[updateTestButtons] testCompleted:', testCompleted);
     console.log('[updateTestButtons] attemptsExhausted:', attemptsExhausted);
@@ -6454,7 +6863,9 @@ function highlightFillBlanksResults(card, results) {
 // ===== ОБРАБОТЧИКИ СОБЫТИЙ =====
 
 backButton.addEventListener('click', () => {
-    window.location.href = `/teacher/course-preview?id=${courseId}`;
+    runWithTimedTestExitGuard(() => {
+        window.location.href = `/teacher/course-preview?id=${courseId}`;
+    });
 });
 
 window.addEventListener('pagehide', () => {
@@ -6573,6 +6984,8 @@ function clearSectionLocalStorage(sectionId, testId = null) {
     const testTempKey = `test_state_${testId}_temp`;
     localStorage.removeItem(testStateKey);
     localStorage.removeItem(testTempKey);
+    localStorage.removeItem(getLocalTimerKey(testId));
+    localStorage.removeItem(getLocalTimerFinishedKey(testId));
     
     // Очищаем флаги полностью правильных упражнений
     const exerciseCards = document.querySelectorAll('.preview-test-exercise-card');
@@ -6672,8 +7085,14 @@ function resetTestUIWithScores() {
   console.log('[resetTestUIWithScores] FULL RESET WITH SCORES');
   
   // 1. Сбрасываем глобальные переменные
+  clearTestTimer();
   testAttemptsCount = 0;
   testAttemptsScores = [];
+  currentTestTimeLimitExpired = false;
+  currentTestTimerCompleted = false;
+  currentTestTimerExpiresAt = null;
+  currentTestTimerPausedAt = null;
+  currentTestTimerPausedRemainingMs = null;
   updateTestAttemptsDisplay();
   
   // 2. Сбрасываем отображение общих баллов
@@ -6750,11 +7169,18 @@ function fullResetTestState(newTestId) {
   console.log(`[Full Reset] Clearing state for new test: ${newTestId}, old test: ${currentTestId}`);
   
   // 1. Сбрасываем глобальные переменные
+  clearTestTimer();
   const oldTestId = currentTestId;
   testAttemptsCount = 0;
   testAttemptsScores = [];
   currentTestDeadline = null;
   currentTestDeadlinePassed = false;
+  currentTestTimeLimitMinutes = null;
+  currentTestTimeLimitExpired = false;
+  currentTestTimerCompleted = false;
+  currentTestTimerExpiresAt = null;
+  currentTestTimerPausedAt = null;
+  currentTestTimerPausedRemainingMs = null;
   
   // 2. Очищаем все временные данные из localStorage для старого теста
   if (oldTestId && oldTestId !== newTestId) {
@@ -6762,6 +7188,8 @@ function fullResetTestState(newTestId) {
     for (let i = 0; i < localStorage.length; i++) {
       const key = localStorage.key(i);
       if (key && (key.includes(`test_state_${oldTestId}`) || 
+                  key.includes(`test_timer_${oldTestId}`) ||
+                  key.includes(`test_timer_finished_${oldTestId}`) ||
                   key.includes(`exercise_fully_correct_${oldTestId}`) ||
                   key.includes(`exercise_attempts_${oldTestId}`) ||
                   key.includes(`exercise_result_${oldTestId}`))) {

@@ -25,6 +25,9 @@ router.post('/test/:testId/exercise/:exerciseId/check', studentProgressControlle
 
 // Попытки теста
 router.get('/test/:testId/attempts', studentProgressController.getTestAttempts);
+router.post('/test/:testId/timer/start', studentProgressController.startTestTimer);
+router.post('/test/:testId/timer/expire', studentProgressController.expireTestTimer);
+router.post('/test/:testId/timer/pause', studentProgressController.pauseTestTimer);
 router.post('/test/:testId/attempt', studentProgressController.saveTestAttempt);
 
 module.exports = router;

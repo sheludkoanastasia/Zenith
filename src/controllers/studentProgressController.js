@@ -53,6 +53,104 @@ function buildDeadlineExerciseResults(test, previousAttempts = []) {
     return { exerciseResults, totalScore, totalMaxScore };
 }
 
+function buildTimeLimitExerciseResults(test, previousAttempts = [], clientExerciseResults = null) {
+    const exerciseResults = {
+        _timeLimitExpired: true
+    };
+    let totalScore = 0;
+    let totalMaxScore = 0;
+
+    (test.exercises || []).forEach(exercise => {
+        const maxScore = getExerciseMaxScore(exercise);
+        const clientResult = clientExerciseResults?.[exercise.id];
+        const previousResult = getBestPreviousExerciseResult(previousAttempts, exercise.id) || {};
+        const result = clientResult || previousResult || {};
+        const score = Number(result.score) || 0;
+
+        totalMaxScore += maxScore;
+        totalScore += score;
+
+        exerciseResults[exercise.id] = {
+            score,
+            maxScore,
+            isFullyCorrect: result.isFullyCorrect === true,
+            answers: result.answers || {},
+            type: result.type || exercise.type
+        };
+    });
+
+    return { exerciseResults, totalScore, totalMaxScore };
+}
+
+function getStudentTimerState(test, studentId, sectionVersion) {
+    const studentAttempts = test.student_attempts || {};
+    const timerState = studentAttempts[studentId]?.timeLimit || null;
+
+    if (!timerState || timerState.sectionVersion !== sectionVersion) {
+        return null;
+    }
+
+    return timerState;
+}
+
+async function saveStudentTimerState(test, studentId, timerState) {
+    const studentAttempts = { ...(test.student_attempts || {}) };
+    studentAttempts[studentId] = {
+        ...(studentAttempts[studentId] || {}),
+        timeLimit: timerState
+    };
+
+    await test.update({ student_attempts: studentAttempts });
+}
+
+async function getSectionVersionForTest(test) {
+    const section = await db.Section.findByPk(test.section_id, {
+        attributes: ['id', 'version']
+    });
+
+    return section?.version || 1;
+}
+
+function buildTimerResponse(test, timerState, attempts, closedByTimeLimit = false) {
+    const timeLimitMinutes = Number(test.time_limit) || 0;
+    const startedAt = timerState?.startedAt || null;
+    const expiresAt = timerState?.expiresAt || null;
+    const expired = expiresAt ? new Date(expiresAt).getTime() <= Date.now() : false;
+    const completed = Boolean(
+        closedByTimeLimit ||
+        timerState?.completedAt ||
+        attempts.some(attempt => attempt.exercise_results?._timeLimitExpired === true) ||
+        attempts.length >= MAX_TEST_ATTEMPTS ||
+        isTestPassed(test, attempts)
+    );
+
+    return {
+        timeLimitMinutes,
+        startedAt,
+        expiresAt,
+        expired,
+        completed,
+        completedReason: timerState?.completedReason || (closedByTimeLimit ? 'time_limit' : null)
+    };
+}
+
+async function shiftStudentTimer(test, studentId, pausedMs) {
+    const timeToAdd = Number(pausedMs) || 0;
+    if (timeToAdd <= 0) return null;
+
+    const sectionVersion = await getSectionVersionForTest(test);
+    const timerState = getStudentTimerState(test, studentId, sectionVersion);
+    if (!timerState?.expiresAt || timerState.completedAt) return timerState;
+
+    const shiftedTimerState = {
+        ...timerState,
+        expiresAt: new Date(new Date(timerState.expiresAt).getTime() + timeToAdd).toISOString()
+    };
+
+    await saveStudentTimerState(test, studentId, shiftedTimerState);
+    return shiftedTimerState;
+}
+
 function isTestPassed(test, attempts) {
     if (!attempts || attempts.length === 0) return false;
 
@@ -114,6 +212,76 @@ async function ensureDeadlineAttempt(test, studentId) {
         attempts,
         deadlinePassed,
         deadlineClosed: attempts.some(attempt => attempt.exercise_results?._deadlineClosed === true)
+    };
+}
+
+async function ensureTimeLimitAttempt(test, studentId, clientExerciseResults = null, forceClose = false) {
+    const attempts = await db.TestAttempt.findAll({
+        where: {
+            test_id: test.id,
+            student_id: studentId
+        },
+        order: [['attempt_number', 'ASC']]
+    });
+
+    const timeLimitMinutes = Number(test.time_limit) || 0;
+    if (timeLimitMinutes <= 0) {
+        return { attempts, timeLimitExpired: false, timeLimitClosed: false, timerState: null };
+    }
+
+    const sectionVersion = await getSectionVersionForTest(test);
+    let timerState = getStudentTimerState(test, studentId, sectionVersion);
+    if (!timerState && forceClose) {
+        const now = new Date().toISOString();
+        timerState = {
+            sectionVersion,
+            startedAt: now,
+            expiresAt: now,
+            completedAt: null,
+            completedReason: null
+        };
+        await saveStudentTimerState(test, studentId, timerState);
+    }
+    if (!timerState?.expiresAt) {
+        return { attempts, timeLimitExpired: false, timeLimitClosed: false, timerState };
+    }
+
+    const timeLimitExpired = new Date(timerState.expiresAt).getTime() <= Date.now();
+    const shouldCloseByTimer = timeLimitExpired || forceClose;
+    const timeLimitAttempt = attempts.find(attempt => attempt.exercise_results?._timeLimitExpired === true);
+    const previousAttempts = attempts.filter(attempt =>
+        attempt.exercise_results?._deadlineClosed !== true &&
+        attempt.exercise_results?._timeLimitExpired !== true
+    );
+
+    if (shouldCloseByTimer && !timeLimitAttempt && attempts.length < MAX_TEST_ATTEMPTS && !isTestPassed(test, attempts)) {
+        const { exerciseResults, totalScore, totalMaxScore } = buildTimeLimitExerciseResults(test, previousAttempts, clientExerciseResults);
+        const newTimeLimitAttempt = await db.TestAttempt.create({
+            test_id: test.id,
+            student_id: studentId,
+            attempt_number: attempts.length + 1,
+            total_score: totalScore,
+            max_score: totalMaxScore,
+            exercise_results: exerciseResults,
+            completed_at: new Date()
+        });
+
+        attempts.push(newTimeLimitAttempt);
+    }
+
+    if (shouldCloseByTimer || timeLimitAttempt || isTestPassed(test, attempts) || attempts.length >= MAX_TEST_ATTEMPTS) {
+        await saveStudentTimerState(test, studentId, {
+            ...timerState,
+            completedAt: timerState.completedAt || new Date().toISOString(),
+            completedReason: shouldCloseByTimer || timeLimitAttempt ? 'time_limit' : 'completed'
+        });
+    }
+
+    return {
+        attempts,
+        timeLimitExpired: shouldCloseByTimer,
+        timeLimitClosed: attempts.some(attempt => attempt.exercise_results?._timeLimitExpired === true),
+        timerState
     };
 }
 
@@ -441,7 +609,10 @@ getTestAttempts: async (req, res) => {
         }
 
         const deadlineState = await ensureDeadlineAttempt(test, studentId);
-        const attempts = deadlineState.attempts;
+        const timeLimitState = await ensureTimeLimitAttempt(test, studentId);
+        const attempts = timeLimitState.attempts.length > deadlineState.attempts.length
+            ? timeLimitState.attempts
+            : deadlineState.attempts;
         
         res.json({
             success: true,
@@ -455,11 +626,137 @@ getTestAttempts: async (req, res) => {
             })),
             maxAttempts: MAX_TEST_ATTEMPTS,
             deadlinePassed: deadlineState.deadlinePassed,
-            deadlineClosed: deadlineState.deadlineClosed
+            deadlineClosed: deadlineState.deadlineClosed,
+            timeLimitClosed: timeLimitState.timeLimitClosed,
+            timer: buildTimerResponse(test, timeLimitState.timerState, attempts, timeLimitState.timeLimitClosed)
         });
     } catch (error) {
         console.error('Ошибка получения попыток теста:', error);
         handleError(res, error, 'Ошибка получения попыток теста');
+    }
+},
+
+startTestTimer: async (req, res) => {
+    try {
+        const { testId } = req.params;
+        const studentId = req.user.id;
+
+        const test = await db.Test.findOne({
+            where: { section_id: testId }
+        });
+
+        if (!test) {
+            return res.status(404).json({ success: false, message: 'Тест не найден' });
+        }
+
+        const deadlineState = await ensureDeadlineAttempt(test, studentId);
+        let attempts = deadlineState.attempts;
+        const timeLimitMinutes = Number(test.time_limit) || 0;
+
+        if (timeLimitMinutes <= 0) {
+            return res.json({
+                success: true,
+                timer: buildTimerResponse(test, null, attempts, false),
+                attemptsCount: attempts.length,
+                deadlinePassed: deadlineState.deadlinePassed,
+                deadlineClosed: deadlineState.deadlineClosed
+            });
+        }
+
+        const sectionVersion = await getSectionVersionForTest(test);
+        let timerState = getStudentTimerState(test, studentId, sectionVersion);
+        const alreadyCompleted = deadlineState.deadlineClosed || attempts.length >= MAX_TEST_ATTEMPTS || isTestPassed(test, attempts);
+
+        if (!timerState && !alreadyCompleted && !deadlineState.deadlinePassed) {
+            const startedAtDate = new Date();
+            timerState = {
+                sectionVersion,
+                startedAt: startedAtDate.toISOString(),
+                expiresAt: new Date(startedAtDate.getTime() + timeLimitMinutes * 60 * 1000).toISOString(),
+                completedAt: null,
+                completedReason: null
+            };
+            await saveStudentTimerState(test, studentId, timerState);
+        }
+
+        const timeLimitState = await ensureTimeLimitAttempt(test, studentId);
+        attempts = timeLimitState.attempts.length > attempts.length ? timeLimitState.attempts : attempts;
+        timerState = timeLimitState.timerState || timerState;
+
+        res.json({
+            success: true,
+            timer: buildTimerResponse(test, timerState, attempts, timeLimitState.timeLimitClosed || alreadyCompleted),
+            attemptsCount: attempts.length,
+            deadlinePassed: deadlineState.deadlinePassed,
+            deadlineClosed: deadlineState.deadlineClosed,
+            timeLimitClosed: timeLimitState.timeLimitClosed
+        });
+    } catch (error) {
+        console.error('Ошибка запуска таймера теста:', error);
+        handleError(res, error, 'Ошибка запуска таймера теста');
+    }
+},
+
+expireTestTimer: async (req, res) => {
+    try {
+        const { testId } = req.params;
+        const studentId = req.user.id;
+        const { exerciseResults, forceClose } = req.body;
+
+        const test = await db.Test.findOne({
+            where: { section_id: testId }
+        });
+
+        if (!test) {
+            return res.status(404).json({ success: false, message: 'Тест не найден' });
+        }
+
+        const timeLimitState = await ensureTimeLimitAttempt(test, studentId, exerciseResults || null, forceClose === true);
+        const attempts = timeLimitState.attempts;
+
+        res.json({
+            success: true,
+            attemptsCount: attempts.length,
+            timeLimitExpired: timeLimitState.timeLimitExpired,
+            timeLimitClosed: timeLimitState.timeLimitClosed,
+            timer: buildTimerResponse(test, timeLimitState.timerState, attempts, timeLimitState.timeLimitClosed)
+        });
+    } catch (error) {
+        console.error('Ошибка завершения теста по таймеру:', error);
+        handleError(res, error, 'Ошибка завершения теста по таймеру');
+    }
+},
+
+pauseTestTimer: async (req, res) => {
+    try {
+        const { testId } = req.params;
+        const studentId = req.user.id;
+        const { pausedMs } = req.body;
+
+        const test = await db.Test.findOne({
+            where: { section_id: testId }
+        });
+
+        if (!test) {
+            return res.status(404).json({ success: false, message: 'Тест не найден' });
+        }
+
+        const attempts = await db.TestAttempt.findAll({
+            where: {
+                test_id: test.id,
+                student_id: studentId
+            },
+            order: [['attempt_number', 'ASC']]
+        });
+        const timerState = await shiftStudentTimer(test, studentId, pausedMs);
+
+        res.json({
+            success: true,
+            timer: buildTimerResponse(test, timerState, attempts, false)
+        });
+    } catch (error) {
+        console.error('Ошибка паузы таймера теста:', error);
+        handleError(res, error, 'Ошибка паузы таймера теста');
     }
 },
 
@@ -478,13 +775,19 @@ saveTestAttempt: async (req, res) => {
         }
 
         const deadlineState = await ensureDeadlineAttempt(test, studentId);
-        if (deadlineState.deadlinePassed) {
+        const timeLimitState = await ensureTimeLimitAttempt(test, studentId, exerciseResults || null);
+        if (deadlineState.deadlinePassed || timeLimitState.timeLimitExpired || timeLimitState.timeLimitClosed) {
+            const attempts = timeLimitState.attempts.length > deadlineState.attempts.length
+                ? timeLimitState.attempts
+                : deadlineState.attempts;
             return res.json({
                 success: true,
-                attempt: deadlineState.attempts[deadlineState.attempts.length - 1] || null,
-                attemptsCount: deadlineState.attempts.length,
-                deadlinePassed: true,
-                deadlineClosed: deadlineState.deadlineClosed
+                attempt: attempts[attempts.length - 1] || null,
+                attemptsCount: attempts.length,
+                deadlinePassed: deadlineState.deadlinePassed,
+                deadlineClosed: deadlineState.deadlineClosed,
+                timeLimitExpired: timeLimitState.timeLimitExpired,
+                timeLimitClosed: timeLimitState.timeLimitClosed
             });
         }
         
@@ -533,6 +836,26 @@ saveTestAttempt: async (req, res) => {
             exercise_results: exerciseResults,
             completed_at: new Date()
         });
+
+        const allAttempts = await db.TestAttempt.findAll({
+            where: {
+                test_id: test.id,
+                student_id: studentId
+            },
+            order: [['attempt_number', 'ASC']]
+        });
+
+        if (isTestPassed(test, allAttempts) || allAttempts.length >= MAX_TEST_ATTEMPTS) {
+            const sectionVersion = await getSectionVersionForTest(test);
+            const timerState = getStudentTimerState(test, studentId, sectionVersion);
+            if (timerState && !timerState.completedAt) {
+                await saveStudentTimerState(test, studentId, {
+                    ...timerState,
+                    completedAt: new Date().toISOString(),
+                    completedReason: isTestPassed(test, allAttempts) ? 'completed' : 'attempts_exhausted'
+                });
+            }
+        }
         
         res.json({
             success: true,
