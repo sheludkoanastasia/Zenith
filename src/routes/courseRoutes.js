@@ -42,6 +42,11 @@ router.post('/join',
     courseController.joinCourseByCode
 );
 
+router.get('/:id/performance',
+    authMiddleware.checkRole(['teacher']),
+    courseController.getTeacherCoursePerformance
+);
+
 router.get('/:id',
     courseController.getCourseById
 );

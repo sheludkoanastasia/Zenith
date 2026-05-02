@@ -90,6 +90,7 @@ document.addEventListener("DOMContentLoaded", async function () {
         const backNav = nav && nav.type === 'back_forward';
         if (event.persisted || backNav) {
             refreshUserFromServer();
+            loadMyCourses();
         }
     });
     

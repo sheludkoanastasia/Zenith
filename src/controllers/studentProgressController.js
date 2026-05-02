@@ -291,17 +291,28 @@ module.exports = {
         try {
             const { sectionId } = req.params;
             const studentId = req.user.id;
-            
+
+            const section = await db.Section.findByPk(sectionId, {
+                attributes: ['id', 'version']
+            });
+            if (!section) {
+                return res.status(404).json({ success: false, message: 'Раздел не найден' });
+            }
+
             const progress = await db.StudentProgress.findOne({
                 where: {
                     student_id: studentId,
                     section_id: sectionId
                 }
             });
-            
-            res.json({ 
-                success: true, 
-                completed: progress?.status === 'completed' 
+
+            const currentVersion = section.version || 1;
+            const versionMismatch = Boolean(progress && progress.section_version !== currentVersion);
+            const completed = !versionMismatch && progress?.status === 'completed';
+
+            res.json({
+                success: true,
+                completed
             });
         } catch (error) {
             handleError(res, error, 'Ошибка при получении прогресса');
@@ -398,17 +409,28 @@ module.exports = {
         try {
             const { sectionId } = req.params;
             const studentId = req.user.id;
-            
+
+            const section = await db.Section.findByPk(sectionId, {
+                attributes: ['id', 'version']
+            });
+            if (!section) {
+                return res.status(404).json({ success: false, message: 'Раздел не найден' });
+            }
+
             const progress = await db.StudentProgress.findOne({
                 where: {
                     student_id: studentId,
                     section_id: sectionId
                 }
             });
-            
-            res.json({ 
-                success: true, 
-                completed: progress?.status === 'completed' 
+
+            const currentVersion = section.version || 1;
+            const versionMismatch = Boolean(progress && progress.section_version !== currentVersion);
+            const completed = !versionMismatch && progress?.status === 'completed';
+
+            res.json({
+                success: true,
+                completed
             });
         } catch (error) {
             handleError(res, error, 'Ошибка при получении прогресса');
@@ -599,7 +621,31 @@ getTestAttempts: async (req, res) => {
     try {
         const { testId } = req.params;
         const studentId = req.user.id;
-        
+
+        const section = await db.Section.findByPk(testId, {
+            attributes: ['id', 'version']
+        });
+        if (!section) {
+            return res.status(404).json({ success: false, message: 'Раздел не найден' });
+        }
+
+        const progress = await db.StudentProgress.findOne({
+            where: { student_id: studentId, section_id: testId }
+        });
+        const currentVersion = section.version || 1;
+        if (progress && progress.section_version !== currentVersion) {
+            return res.json({
+                success: true,
+                attemptsCount: 0,
+                attempts: [],
+                maxAttempts: MAX_TEST_ATTEMPTS,
+                deadlinePassed: false,
+                deadlineClosed: false,
+                timeLimitClosed: false,
+                timer: null
+            });
+        }
+
         const test = await db.Test.findOne({
             where: { section_id: testId }
         });

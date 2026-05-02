@@ -1,3 +1,4 @@
+const { Op } = require('sequelize');
 const db = require('../models');
 const { handleError } = require('../utils/errorHandler');
 const notificationService = require('../services/notificationService');
@@ -100,6 +101,272 @@ async function buildStudentCourseProgress(courseId, studentId) {
     themes: themesWithProgress,
     progressPercent: totalBlocks > 0 ? Math.round(totalBlockPercent / totalBlocks) : 0
   };
+}
+
+function getExerciseMaxFromTestExercise(exercise) {
+  return exercise?.scoring?.firstAttempt ?? 100;
+}
+
+function getTestMaxScoreFromExercises(test) {
+  const exercises = test?.exercises || [];
+  if (!exercises.length) return 100;
+  return exercises.reduce((sum, e) => sum + getExerciseMaxFromTestExercise(e), 0);
+}
+
+function computeTeacherSectionMetrics(section, progress, test, attempts) {
+  const versionOk = !progress || Number(progress.section_version) === Number(section.version || 1);
+  const sectionPlain = section.get ? section.get({ plain: true }) : section;
+  const type = sectionPlain.type;
+
+  if (type === 'theory') {
+    const maxPoints = 100;
+    const completed = versionOk && progress?.status === 'completed';
+    const points = completed ? maxPoints : 0;
+    return {
+      points,
+      maxPoints,
+      completed,
+      displayPercent: completed ? 100 : 0
+    };
+  }
+
+  if (type === 'exercise') {
+    const maxPoints = 100;
+    const completed = versionOk && progress?.status === 'completed';
+    const raw = versionOk ? Math.min(maxPoints, Number(progress?.best_score) || 0) : 0;
+    const points = raw;
+    const displayPercent = completed
+      ? 100
+      : (maxPoints > 0 ? Math.round((points / maxPoints) * 100) : 0);
+    return { points, maxPoints, completed, displayPercent };
+  }
+
+  if (type === 'test') {
+    const maxFromTest = test ? getTestMaxScoreFromExercises(test) : 100;
+    if (!versionOk || !test) {
+      return {
+        points: 0,
+        maxPoints: maxFromTest,
+        completed: false,
+        displayPercent: 0
+      };
+    }
+    const list = attempts || [];
+    if (!list.length) {
+      return {
+        points: 0,
+        maxPoints: maxFromTest,
+        completed: false,
+        displayPercent: 0
+      };
+    }
+    const bestScore = Math.max(...list.map(a => Number(a.total_score) || 0));
+    const attemptMax = Math.max(...list.map(a => Number(a.max_score) || 0), 0);
+    const denom = attemptMax > 0 ? attemptMax : maxFromTest;
+    const completed = list.length > 0;
+    const displayPercent = denom > 0 ? Math.round((bestScore / denom) * 100) : 0;
+    return {
+      points: bestScore,
+      maxPoints: denom,
+      completed,
+      displayPercent
+    };
+  }
+
+  return { points: 0, maxPoints: 0, completed: false, displayPercent: 0 };
+}
+
+async function buildTeacherCoursePerformance(courseId) {
+  const themes = await db.Theme.findAll({
+    where: { course_id: courseId },
+    include: [{ model: db.Block, as: 'blocks' }],
+    order: [['order_index', 'ASC']]
+  });
+
+  const blockIds = [];
+  themes.forEach((t) => {
+    (t.blocks || []).forEach((b) => blockIds.push(b.id));
+  });
+
+  const sections = blockIds.length
+    ? await db.Section.findAll({
+        where: { block_id: { [Op.in]: blockIds } },
+        order: [['order_index', 'ASC']]
+      })
+    : [];
+
+  const sectionByBlock = new Map();
+  sections.forEach((s) => {
+    const bid = s.block_id;
+    if (!sectionByBlock.has(bid)) sectionByBlock.set(bid, []);
+    sectionByBlock.get(bid).push(s);
+  });
+
+  const sectionIds = sections.map((s) => s.id);
+  const tests = sectionIds.length
+    ? await db.Test.findAll({ where: { section_id: { [Op.in]: sectionIds } } })
+    : [];
+  const testBySectionId = new Map(tests.map((t) => [t.section_id, t]));
+
+  const enrollments = await db.CourseStudent.findAll({
+    where: { course_id: courseId },
+    include: [
+      {
+        model: db.User,
+        as: 'student',
+        attributes: [
+          'id',
+          'firstName',
+          'lastName',
+          'patronymic',
+          'avatarUrl',
+          'educationalInstitution',
+          'faculty',
+          'studyCourse',
+          'studyGroup'
+        ]
+      }
+    ],
+    order: [['joined_at', 'DESC']]
+  });
+
+  const studentIds = enrollments.map((e) => e.student_id);
+
+  let allProgress = [];
+  let allAttempts = [];
+  if (studentIds.length && sectionIds.length) {
+    allProgress = await db.StudentProgress.findAll({
+      where: {
+        student_id: { [Op.in]: studentIds },
+        section_id: { [Op.in]: sectionIds }
+      }
+    });
+    const testIds = tests.map((t) => t.id);
+    if (testIds.length) {
+      allAttempts = await db.TestAttempt.findAll({
+        where: {
+          student_id: { [Op.in]: studentIds },
+          test_id: { [Op.in]: testIds }
+        }
+      });
+    }
+  }
+
+  const progressMap = new Map();
+  allProgress.forEach((p) => {
+    progressMap.set(`${p.student_id}:${p.section_id}`, p);
+  });
+
+  const attemptsMap = new Map();
+  allAttempts.forEach((a) => {
+    const k = `${a.student_id}:${a.test_id}`;
+    if (!attemptsMap.has(k)) attemptsMap.set(k, []);
+    attemptsMap.get(k).push(a);
+  });
+
+  const sectionMaxPoints = new Map();
+  let courseMaxPoints = 0;
+  sections.forEach((sec) => {
+    const test = testBySectionId.get(sec.id);
+    let max = 100;
+    if (sec.type === 'test' && test) {
+      max = getTestMaxScoreFromExercises(test);
+    }
+    sectionMaxPoints.set(sec.id, max);
+    courseMaxPoints += max;
+  });
+
+  const studentsPayload = enrollments.map((enrollment) => {
+    const studentRow = enrollment.student;
+    const sPlain = studentRow.get ? studentRow.get({ plain: true }) : studentRow;
+    const sid = sPlain.id;
+
+    const themesOut = themes.map((theme) => {
+      const blocksRaw = [...(theme.blocks || [])].sort(
+        (a, b) => (a.order_index || 0) - (b.order_index || 0)
+      );
+
+      const blocksOut = blocksRaw.map((block) => {
+        const bPlain = block.get ? block.get({ plain: true }) : block;
+        const secs = (sectionByBlock.get(bPlain.id) || []).sort(
+          (a, b) => (a.order_index || 0) - (b.order_index || 0)
+        );
+
+        let completedCount = 0;
+        const sectionsOut = secs.map((section) => {
+          const secPlain = section.get ? section.get({ plain: true }) : section;
+          const maxPts = sectionMaxPoints.get(secPlain.id) || 100;
+          const progress = progressMap.get(`${sid}:${secPlain.id}`);
+          const test = testBySectionId.get(secPlain.id);
+          const attKey = test ? `${sid}:${test.id}` : null;
+          const attempts = attKey ? attemptsMap.get(attKey) || [] : [];
+          const metrics = computeTeacherSectionMetrics(section, progress, test, attempts);
+          if (metrics.completed) completedCount++;
+
+          return {
+            id: secPlain.id,
+            title: secPlain.title,
+            type: secPlain.type,
+            order_index: secPlain.order_index,
+            points: metrics.points,
+            maxPoints: maxPts,
+            progressPercent: metrics.displayPercent,
+            completed: metrics.completed
+          };
+        });
+
+        const blockProgressPercent = secs.length
+          ? Math.round((completedCount / secs.length) * 100)
+          : 0;
+        const blockPoints = sectionsOut.reduce((sum, x) => sum + x.points, 0);
+        const blockMaxPoints = sectionsOut.reduce((sum, x) => sum + x.maxPoints, 0);
+
+        return {
+          id: bPlain.id,
+          title: bPlain.title,
+          description: bPlain.description || '',
+          themeId: theme.id,
+          order_index: bPlain.order_index,
+          progressPercent: blockProgressPercent,
+          blockPoints,
+          blockMaxPoints,
+          sections: sectionsOut
+        };
+      });
+
+      const themePoints = blocksOut.reduce((sum, b) => sum + b.blockPoints, 0);
+      const themeMaxPoints = blocksOut.reduce((sum, b) => sum + b.blockMaxPoints, 0);
+
+      return {
+        id: theme.id,
+        title: theme.title,
+        order_index: theme.order_index,
+        themePoints,
+        themeMaxPoints,
+        blocks: blocksOut
+      };
+    });
+
+    const totalPoints = themesOut.reduce((sum, t) => sum + t.themePoints, 0);
+
+    return {
+      id: sid,
+      first_name: sPlain.firstName,
+      last_name: sPlain.lastName,
+      patronymic: sPlain.patronymic,
+      avatar_url: sPlain.avatarUrl,
+      educational_institution: sPlain.educationalInstitution,
+      faculty: sPlain.faculty,
+      study_course: sPlain.studyCourse,
+      study_group: sPlain.studyGroup,
+      joined_at: enrollment.joined_at,
+      total_points: totalPoints,
+      max_course_points: courseMaxPoints,
+      themes: themesOut
+    };
+  });
+
+  return { students: studentsPayload, course_max_points: courseMaxPoints };
 }
 
 module.exports = {
@@ -229,6 +496,10 @@ module.exports = {
                 });
             }
 
+            const enrolledCount = await db.CourseStudent.count({
+                where: { course_id: course.id }
+            });
+
             // Возвращаем курс с join_code
             res.json({ 
                 success: true, 
@@ -239,13 +510,35 @@ module.exports = {
                     status: course.status,
                     join_code: course.join_code,  // ← ДОБАВЬТЕ ЭТУ СТРОКУ
                     teacher_id: course.teacher_id,
-                    students_count: course.students_count,
+                    students_count: enrolledCount,
                     themes: course.themes,
                     teacher: course.teacher
                 }
             });
         } catch (error) {
             handleError(res, error, 'Ошибка при получении курса');
+        }
+    },
+
+    getTeacherCoursePerformance: async (req, res) => {
+        try {
+            const course = await db.Course.findByPk(req.params.id);
+            if (!course) {
+                return res.status(404).json({
+                    success: false,
+                    message: 'Курс не найден'
+                });
+            }
+            if (course.teacher_id !== req.user.id) {
+                return res.status(403).json({
+                    success: false,
+                    message: 'Нет доступа к этому курсу'
+                });
+            }
+            const data = await buildTeacherCoursePerformance(course.id);
+            res.json({ success: true, ...data });
+        } catch (error) {
+            handleError(res, error, 'Ошибка при загрузке успеваемости');
         }
     },
 

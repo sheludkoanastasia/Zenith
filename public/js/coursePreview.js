@@ -80,6 +80,13 @@ document.addEventListener("DOMContentLoaded", async function () {
                         .join(' ');
                     teacherNameSpan.textContent = fullName || 'Преподаватель';
                 }
+
+                const countStudentsEl = document.getElementById('countStudents');
+                if (countStudentsEl) {
+                    countStudentsEl.textContent = String(
+                        course.students_count != null ? course.students_count : 0
+                    );
+                }
                 
                 // Если студент - скрываем количество студентов и успеваемость
                 if (currentUser.role === 'student') {
@@ -549,26 +556,303 @@ document.addEventListener("DOMContentLoaded", async function () {
             renderPerformanceSection();
         });
     }
-    
-    function renderPerformanceSection() {
+
+    function sectionTypeLabel(type) {
+        if (type === 'theory') return 'Теория';
+        if (type === 'exercise') return 'Упражнение';
+        if (type === 'test') return 'Тест';
+        return 'Задание';
+    }
+
+    function studentDisplayName(s) {
+        const parts = [s.last_name, s.first_name, s.patronymic].filter(Boolean);
+        return parts.length ? parts.join(' ') : 'Студент';
+    }
+
+    async function renderPerformanceSection() {
         const sectionsContent = document.getElementById('sectionsContent');
         if (!sectionsContent) return;
-        
+
         sectionsContent.innerHTML = `
-            <div class="performance-section" style="opacity: 0;">
-                <div class="performance-placeholder">
-                    <h3>📊 Успеваемость студентов</h3>
-                    <p>Раздел находится в разработке.</p>
-                </div>
+            <div class="performance-section perf-loading" style="opacity: 0;">
+                <p class="perf-loading-text">Загрузка успеваемости…</p>
             </div>
         `;
-        
-        setTimeout(() => {
-            const perfSection = sectionsContent.querySelector('.performance-section');
-            if (perfSection) {
-                gsap.to(perfSection, { opacity: 1, duration: 0.3 });
+        gsap.to(sectionsContent.querySelector('.performance-section'), { opacity: 1, duration: 0.25 });
+
+        try {
+            const response = await fetch(`/api/courses/${currentCourseId}/performance`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            const data = await response.json();
+            if (!data.success) {
+                throw new Error(data.message || 'Не удалось загрузить данные');
             }
-        }, 50);
+            mountPerformanceUI(sectionsContent, data);
+        } catch (err) {
+            console.error(err);
+            sectionsContent.innerHTML = `
+                <div class="performance-section">
+                    <div class="performance-placeholder">
+                        <h3>Успеваемость</h3>
+                        <p>${escapeHtml(err.message || 'Ошибка загрузки')}</p>
+                    </div>
+                </div>
+            `;
+        }
+    }
+
+    function mountPerformanceUI(container, apiData) {
+        let sortMode = 'joined_new';
+        let searchQuery = '';
+        const students = apiData.students || [];
+
+        const root = document.createElement('div');
+        root.className = 'performance-section perf-teacher';
+        root.innerHTML = `
+            <div class="perf-toolbar">
+                <h2 class="perf-title">Список студентов, проходящих этот курс</h2>
+                <div class="perf-toolbar-right">
+                    <div class="perf-dropdown perf-sort-wrap">
+                        <button type="button" class="perf-sort-toggle" aria-expanded="false">
+                            <span class="perf-sort-label">Сначала новые</span>
+                            <img src="/images/teacherMainPanel/chevronDown.svg" alt="" class="perf-chevron">
+                        </button>
+                        <div class="perf-dropdown-menu" hidden>
+                            <button type="button" data-sort="joined_new">Сначала новые</button>
+                            <button type="button" data-sort="joined_old">Сначала старые</button>
+                            <button type="button" data-sort="name_az">По алфавиту</button>
+                        </div>
+                    </div>
+                    <div class="perf-search-wrap">
+                        <input type="search" class="perf-search-input" placeholder="Поиск" autocomplete="off">
+                        <img src="/images/userMainPanel/search.svg" alt="" class="perf-search-icon">
+                    </div>
+                </div>
+            </div>
+            <div class="perf-table-wrap">
+                <div class="perf-student-list"></div>
+            </div>
+        `;
+
+        const listEl = root.querySelector('.perf-student-list');
+        const searchInput = root.querySelector('.perf-search-input');
+        const sortToggle = root.querySelector('.perf-sort-toggle');
+        const sortMenu = root.querySelector('.perf-dropdown-menu');
+        const sortLabel = root.querySelector('.perf-sort-label');
+
+        function filteredSorted() {
+            const q = searchQuery.trim().toLowerCase();
+            let rows = students.filter((s) => {
+                if (!q) return true;
+                const hay = [
+                    studentDisplayName(s),
+                    s.educational_institution,
+                    s.faculty,
+                    s.study_group,
+                    s.study_course
+                ].filter(Boolean).join(' ').toLowerCase();
+                return hay.includes(q);
+            });
+
+            rows = [...rows];
+            if (sortMode === 'joined_new') {
+                rows.sort((a, b) => new Date(b.joined_at || 0) - new Date(a.joined_at || 0));
+            } else if (sortMode === 'joined_old') {
+                rows.sort((a, b) => new Date(a.joined_at || 0) - new Date(b.joined_at || 0));
+            } else if (sortMode === 'name_az') {
+                rows.sort((a, b) => {
+                    const la = (a.last_name || '').localeCompare(b.last_name || '', 'ru');
+                    if (la !== 0) return la;
+                    return (a.first_name || '').localeCompare(b.first_name || '', 'ru');
+                });
+            }
+            return rows;
+        }
+
+        function safeAttr(str) {
+            return String(str || '').replace(/"/g, '&quot;');
+        }
+
+        function renderStudentCard(s) {
+            const name = studentDisplayName(s);
+            const avatarSrc = s.avatar_url
+                ? (s.avatar_url + (s.avatar_url.includes('?') ? '&' : '?') + 'v=1')
+                : '/images/userMainPanel/user.svg';
+            const inst = s.educational_institution || '—';
+            const fac = s.faculty || '—';
+            const courseYear = s.study_course != null && s.study_course !== '' ? String(s.study_course) : '—';
+            const grp = s.study_group || '—';
+            const totalPts = s.total_points != null ? s.total_points : 0;
+
+            const wrap = document.createElement('div');
+            wrap.className = 'perf-student-card';
+            wrap.innerHTML = `
+                <div class="perf-student-row" data-action="toggle-student">
+                    <div class="perf-cell perf-cell-avatar">
+                        <img src="${safeAttr(avatarSrc)}" alt="" class="perf-avatar">
+                    </div>
+                    <div class="perf-cell perf-cell-name">${escapeHtml(name)}</div>
+                    <div class="perf-cell perf-cell-inst">${escapeHtml(inst)}</div>
+                    <div class="perf-cell perf-cell-fac">${escapeHtml(fac)}</div>
+                    <div class="perf-cell perf-cell-year">${escapeHtml(courseYear)}</div>
+                    <div class="perf-cell perf-cell-group">${escapeHtml(grp)}</div>
+                    <div class="perf-cell perf-cell-total"><span class="perf-total-points">${totalPts}</span></div>
+                    <div class="perf-cell perf-cell-expand">
+                        <button type="button" class="perf-icon-btn perf-student-chevron" aria-label="Развернуть">
+                            <img src="/images/teacherMainPanel/chevronDown.svg" alt="" class="perf-chevron">
+                        </button>
+                    </div>
+                </div>
+                <div class="perf-student-detail" hidden>
+                    <div class="perf-detail-inner"></div>
+                </div>
+            `;
+
+            const detailInner = wrap.querySelector('.perf-detail-inner');
+            const themes = s.themes || [];
+            themes.forEach((theme) => {
+                const themeEl = document.createElement('div');
+                themeEl.className = 'perf-theme-block';
+                const blocks = theme.blocks || [];
+                const blocksHtml = blocks.map((block) => {
+                    const sections = block.sections || [];
+                    const secRows = sections.map((sec) => `
+                        <tr>
+                            <td>${escapeHtml(sectionTypeLabel(sec.type))}: ${escapeHtml(sec.title || 'Без названия')}</td>
+                            <td class="perf-num">${sec.points != null ? sec.points : 0}</td>
+                            <td>
+                                <a class="perf-go-btn" href="/course-constructor-preview?courseId=${encodeURIComponent(currentCourseId)}&blockId=${encodeURIComponent(block.id)}&themeId=${encodeURIComponent(theme.id)}&sectionId=${encodeURIComponent(sec.id)}">Перейти</a>
+                            </td>
+                        </tr>
+                    `).join('');
+
+                    return `
+                        <div class="perf-block-card" data-block-id="${escapeHtml(block.id)}">
+                            <div class="perf-block-head" data-action="toggle-block">
+                                <div class="perf-block-meta">
+                                    <div class="perf-block-title">${escapeHtml(block.title || 'Блок')}</div>
+                                    <div class="perf-block-desc">${escapeHtml(block.description || '')}</div>
+                                </div>
+                                <div class="perf-block-progress">
+                                    <div class="perf-bar-track"><div class="perf-bar-fill" style="width:${block.progressPercent || 0}%"></div></div>
+                                    <span class="perf-pct">${block.progressPercent || 0}%</span>
+                                </div>
+                                <div class="perf-block-points">${block.blockPoints != null ? block.blockPoints : 0}</div>
+                                <button type="button" class="perf-icon-btn perf-block-chevron" aria-label="Развернуть блок">
+                                    <img src="/images/teacherMainPanel/chevronDown.svg" alt="" class="perf-chevron">
+                                </button>
+                            </div>
+                            <div class="perf-block-assignments" hidden>
+                                <table class="perf-assign-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Задания</th>
+                                            <th>Баллы за задание</th>
+                                            <th>Перейти к заданию</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>${secRows}</tbody>
+                                </table>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+
+                themeEl.innerHTML = `
+                    <div class="perf-theme-layout">
+                        <div class="perf-theme-title-col">
+                            <span class="perf-theme-name">${escapeHtml(theme.title || 'Тема')}</span>
+                        </div>
+                        <div class="perf-theme-body-col">
+                            <div class="perf-nested-header">
+                                <span>Блоки</span>
+                                <span>Прогресс по каждому блоку</span>
+                                <span>Баллы за блок</span>
+                                <span></span>
+                            </div>
+                            ${blocksHtml}
+                            <div class="perf-theme-total-row">
+                                <span class="perf-theme-total-label">Всего баллов за тему</span>
+                                <span class="perf-theme-total-val">${theme.themePoints != null ? theme.themePoints : 0}</span>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                detailInner.appendChild(themeEl);
+
+                themeEl.querySelectorAll('[data-action="toggle-block"]').forEach((head) => {
+                    head.addEventListener('click', (ev) => {
+                        ev.stopPropagation();
+                        const card = head.closest('.perf-block-card');
+                        const panel = card.querySelector('.perf-block-assignments');
+                        const btn = card.querySelector('.perf-block-chevron');
+                        const open = panel.hidden;
+                        panel.hidden = !open;
+                        if (btn) btn.classList.toggle('is-open', open);
+                    });
+                });
+            });
+
+            const row = wrap.querySelector('.perf-student-row');
+            const chev = wrap.querySelector('.perf-student-chevron');
+            const detail = wrap.querySelector('.perf-student-detail');
+            row.addEventListener('click', () => {
+                const open = detail.hidden;
+                detail.hidden = !open;
+                if (chev) chev.classList.toggle('is-open', open);
+            });
+
+            return wrap;
+        }
+
+        function redraw() {
+            listEl.innerHTML = '';
+            const rows = filteredSorted();
+            if (!rows.length) {
+                listEl.innerHTML = '<div class="perf-empty">Студенты ещё не подключились к курсу или ничего не найдено.</div>';
+                return;
+            }
+            rows.forEach((s) => listEl.appendChild(renderStudentCard(s)));
+        }
+
+        sortToggle.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const willOpen = sortMenu.hidden;
+            sortMenu.hidden = !willOpen;
+            sortToggle.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
+            if (willOpen) {
+                setTimeout(() => {
+                    const close = () => {
+                        sortMenu.hidden = true;
+                        sortToggle.setAttribute('aria-expanded', 'false');
+                        document.removeEventListener('click', close);
+                    };
+                    document.addEventListener('click', close, { once: true });
+                }, 0);
+            }
+        });
+        sortMenu.querySelectorAll('button[data-sort]').forEach((btn) => {
+            btn.addEventListener('click', (ev) => {
+                ev.stopPropagation();
+                sortMode = btn.getAttribute('data-sort');
+                sortLabel.textContent = btn.textContent.trim();
+                sortMenu.hidden = true;
+                sortToggle.setAttribute('aria-expanded', 'false');
+                redraw();
+            });
+        });
+        sortMenu.addEventListener('click', (ev) => ev.stopPropagation());
+
+        searchInput.addEventListener('input', () => {
+            searchQuery = searchInput.value;
+            redraw();
+        });
+
+        container.innerHTML = '';
+        container.appendChild(root);
+        redraw();
+        gsap.from(root, { opacity: 0, y: 12, duration: 0.35 });
     }
     
     // Кнопка назад
@@ -590,4 +874,12 @@ document.addEventListener("DOMContentLoaded", async function () {
     setTimeout(() => {
         document.documentElement.classList.add('ready');
     }, 220);
+
+    window.addEventListener('pageshow', (event) => {
+        const nav = performance.getEntriesByType && performance.getEntriesByType('navigation')[0];
+        const backNav = nav && nav.type === 'back_forward';
+        if ((event.persisted || backNav) && currentCourseId && currentUser?.role !== 'admin') {
+            loadCourseData();
+        }
+    });
 });
