@@ -3,6 +3,7 @@ const fs = require('fs');
 const db = require('../models');
 const { handleError } = require('../utils/errorHandler');
 const { toPublicUser } = require('../utils/userSerializer');
+const { destroyCourseAndDependencies } = require('./courseController');
 
 const OPTIONAL_TEXT_MAX = 200;
 const NAME_RE = /^[А-Яа-яЁёA-Za-z\s-]+$/;
@@ -235,6 +236,58 @@ module.exports = {
       res.json({ success: true, message: 'Пароль обновлён' });
     } catch (error) {
       handleError(res, error, 'Ошибка смены пароля');
+    }
+  },
+
+  deleteAccount: async (req, res) => {
+    const transaction = await db.sequelize.transaction();
+    try {
+      const { password } = req.body || {};
+      if (!password || !String(password).trim()) {
+        await transaction.rollback();
+        return res.status(400).json({
+          success: false,
+          message: 'Введите пароль для подтверждения удаления аккаунта'
+        });
+      }
+
+      const user = await db.User.findByPk(req.userId, { transaction });
+      if (!user) {
+        await transaction.rollback();
+        return res.status(404).json({ success: false, message: 'Пользователь не найден' });
+      }
+
+      const ok = await user.validatePassword(String(password));
+      if (!ok) {
+        await transaction.rollback();
+        return res.status(403).json({ success: false, message: 'Неверный пароль' });
+      }
+
+      if (user.role === 'teacher') {
+        const ownedCourses = await db.Course.findAll({
+          where: { teacher_id: user.id },
+          transaction
+        });
+        for (const course of ownedCourses) {
+          await destroyCourseAndDependencies(course, transaction);
+        }
+      }
+
+      await db.CourseStudent.destroy({ where: { student_id: user.id }, transaction });
+      await db.StudentProgress.destroy({ where: { student_id: user.id }, transaction });
+      await db.TestAttempt.destroy({ where: { student_id: user.id }, transaction });
+      await db.SectionComment.destroy({ where: { user_id: user.id }, transaction });
+      await db.Notification.destroy({ where: { user_id: user.id }, transaction });
+
+      removeAvatarFile(user.avatarUrl);
+      await user.destroy({ transaction });
+
+      await transaction.commit();
+      return res.json({ success: true, message: 'Аккаунт удалён' });
+    } catch (error) {
+      await transaction.rollback();
+      console.error('deleteAccount:', error);
+      handleError(res, error, 'Ошибка при удалении аккаунта');
     }
   }
 };

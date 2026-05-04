@@ -261,6 +261,94 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
+  function closeDeleteAccountModal() {
+    const overlay = document.getElementById('deleteAccountOverlay');
+    if (overlay) {
+      overlay.classList.remove('is-open');
+    }
+    document.removeEventListener('keydown', deleteAccountEscHandler);
+  }
+
+  function deleteAccountEscHandler(e) {
+    if (e.key === 'Escape') {
+      closeDeleteAccountModal();
+    }
+  }
+
+  function openDeleteAccountModal() {
+    let overlay = document.getElementById('deleteAccountOverlay');
+    if (!overlay) {
+      overlay = document.createElement('div');
+      overlay.id = 'deleteAccountOverlay';
+      overlay.className = 'delete-account-overlay';
+      overlay.innerHTML = `
+        <div class="delete-account-dialog" role="dialog" aria-modal="true" aria-labelledby="deleteAccountTitle">
+          <h3 id="deleteAccountTitle">Удалить аккаунт?</h3>
+          <p>Это действие нельзя отменить. Введите пароль для подтверждения.</p>
+          <label for="deleteAccountPassword">Пароль</label>
+          <input type="password" id="deleteAccountPassword" autocomplete="current-password" placeholder="Текущий пароль">
+          <div class="delete-account-actions">
+            <button type="button" class="delete-account-cancel" id="deleteAccountCancel">Отмена</button>
+            <button type="button" class="delete-account-confirm" id="deleteAccountConfirm">Удалить навсегда</button>
+          </div>
+        </div>
+      `;
+      document.body.appendChild(overlay);
+      overlay.querySelector('#deleteAccountCancel').addEventListener('click', closeDeleteAccountModal);
+      overlay.addEventListener('click', (e) => {
+        if (e.target === overlay) closeDeleteAccountModal();
+      });
+      overlay.querySelector('#deleteAccountConfirm').addEventListener('click', submitDeleteAccount);
+    }
+    const pw = overlay.querySelector('#deleteAccountPassword');
+    const btn = overlay.querySelector('#deleteAccountConfirm');
+    if (pw) pw.value = '';
+    if (btn) btn.disabled = false;
+    overlay.classList.add('is-open');
+    document.addEventListener('keydown', deleteAccountEscHandler);
+    setTimeout(() => pw?.focus(), 50);
+  }
+
+  async function submitDeleteAccount() {
+    const overlay = document.getElementById('deleteAccountOverlay');
+    const pw = overlay?.querySelector('#deleteAccountPassword');
+    const btn = overlay?.querySelector('#deleteAccountConfirm');
+    const password = pw ? String(pw.value) : '';
+    if (!password.trim()) {
+      showNotification('Введите пароль для подтверждения', 'warning');
+      return;
+    }
+    if (btn) btn.disabled = true;
+    try {
+      const res = await fetch('/api/users/me', {
+        method: 'DELETE',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ password })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.success) {
+        showNotification(data.message || 'Не удалось удалить аккаунт', 'error');
+        if (btn) btn.disabled = false;
+        return;
+      }
+      closeDeleteAccountModal();
+      localStorage.removeItem('token');
+      window.location.href = '/auth';
+    } catch (e) {
+      console.error(e);
+      showNotification('Ошибка сети', 'error');
+      if (btn) btn.disabled = false;
+    }
+  }
+
+  const openDeleteAccountBtn = document.getElementById('openDeleteAccountBtn');
+  if (openDeleteAccountBtn) {
+    openDeleteAccountBtn.addEventListener('click', () => openDeleteAccountModal());
+  }
+
   document.getElementById('savePasswordBtn').addEventListener('click', async () => {
     const currentPassword = document.getElementById('fieldOldPassword').value;
     const newPassword = document.getElementById('fieldNewPassword').value;

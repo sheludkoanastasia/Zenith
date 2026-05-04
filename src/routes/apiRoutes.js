@@ -46,6 +46,11 @@ router.patch('/users/me/password',
   userProfileController.updatePassword
 );
 
+router.delete('/users/me',
+  authMiddleware.verifyToken,
+  userProfileController.deleteAccount
+);
+
 router.patch('/users/me',
   authMiddleware.verifyToken,
   (req, res, next) => {

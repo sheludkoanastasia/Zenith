@@ -369,6 +369,58 @@ async function buildTeacherCoursePerformance(courseId) {
   return { students: studentsPayload, course_max_points: courseMaxPoints };
 }
 
+/**
+ * Полное удаление курса и связанных строк (в транзакции).
+ * @param {import('sequelize').Model} course - экземпляр Course
+ * @param {import('sequelize').Transaction} transaction
+ */
+async function destroyCourseAndDependencies(course, transaction) {
+  if (!course) return;
+
+  await db.Notification.destroy({ where: { course_id: course.id }, transaction });
+  await db.CourseStudent.destroy({ where: { course_id: course.id }, transaction });
+
+  const themeRows = await db.Theme.findAll({
+    where: { course_id: course.id },
+    attributes: ['id'],
+    transaction
+  });
+  const themeIds = themeRows.map((t) => t.id);
+  let sectionIds = [];
+  if (themeIds.length > 0) {
+    const blockRows = await db.Block.findAll({
+      where: { theme_id: { [Op.in]: themeIds } },
+      attributes: ['id'],
+      transaction
+    });
+    const blockIds = blockRows.map((b) => b.id);
+    if (blockIds.length > 0) {
+      const sectionRows = await db.Section.findAll({
+        where: { block_id: { [Op.in]: blockIds } },
+        attributes: ['id'],
+        transaction
+      });
+      sectionIds = sectionRows.map((s) => s.id);
+    }
+  }
+
+  if (sectionIds.length > 0) {
+    const tests = await db.Test.findAll({
+      where: { section_id: { [Op.in]: sectionIds } },
+      attributes: ['id'],
+      transaction
+    });
+    const testIds = tests.map((t) => t.id);
+    if (testIds.length > 0) {
+      await db.TestAttempt.destroy({ where: { test_id: { [Op.in]: testIds } }, transaction });
+    }
+    await db.StudentProgress.destroy({ where: { section_id: { [Op.in]: sectionIds } }, transaction });
+    await db.SectionComment.destroy({ where: { section_id: { [Op.in]: sectionIds } }, transaction });
+  }
+
+  await course.destroy({ transaction });
+}
+
 module.exports = {
     createCourse: async (req, res) => {
         const transaction = await db.sequelize.transaction();
@@ -664,48 +716,7 @@ module.exports = {
                 });
             }
 
-            await db.Notification.destroy({ where: { course_id: course.id }, transaction });
-            await db.CourseStudent.destroy({ where: { course_id: course.id }, transaction });
-
-            const themeRows = await db.Theme.findAll({
-                where: { course_id: course.id },
-                attributes: ['id'],
-                transaction
-            });
-            const themeIds = themeRows.map((t) => t.id);
-            let sectionIds = [];
-            if (themeIds.length > 0) {
-                const blockRows = await db.Block.findAll({
-                    where: { theme_id: themeIds },
-                    attributes: ['id'],
-                    transaction
-                });
-                const blockIds = blockRows.map((b) => b.id);
-                if (blockIds.length > 0) {
-                    const sectionRows = await db.Section.findAll({
-                        where: { block_id: blockIds },
-                        attributes: ['id'],
-                        transaction
-                    });
-                    sectionIds = sectionRows.map((s) => s.id);
-                }
-            }
-
-            if (sectionIds.length > 0) {
-                const tests = await db.Test.findAll({
-                    where: { section_id: sectionIds },
-                    attributes: ['id'],
-                    transaction
-                });
-                const testIds = tests.map((t) => t.id);
-                if (testIds.length > 0) {
-                    await db.TestAttempt.destroy({ where: { test_id: testIds }, transaction });
-                }
-                await db.StudentProgress.destroy({ where: { section_id: sectionIds }, transaction });
-                await db.SectionComment.destroy({ where: { section_id: sectionIds }, transaction });
-            }
-
-            await course.destroy({ transaction });
+            await destroyCourseAndDependencies(course, transaction);
             await transaction.commit();
             return res.json({ success: true, message: 'Курс удалён' });
         } catch (error) {
@@ -1088,5 +1099,7 @@ getStudentCourses: async (req, res) => {
         console.error('Ошибка в getStudentCourses:', error);
         handleError(res, error, 'Ошибка при получении курсов студента');
     }
-}
+    },
+
+destroyCourseAndDependencies
 };
