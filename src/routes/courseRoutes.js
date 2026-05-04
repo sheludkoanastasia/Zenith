@@ -26,6 +26,11 @@ router.put('/:id',
     courseController.updateCourse
 );
 
+router.delete('/:id',
+    authMiddleware.checkRole(['teacher']),
+    courseController.deleteCourse
+);
+
 router.get('/teacher',
     authMiddleware.checkRole(['teacher']),
     courseController.getTeacherCourses
@@ -45,6 +50,11 @@ router.post('/join',
 router.get('/:id/performance',
     authMiddleware.checkRole(['teacher']),
     courseController.getTeacherCoursePerformance
+);
+
+router.post('/:id/leave',
+    authMiddleware.checkRole(['student']),
+    courseController.leaveCourse
 );
 
 router.get('/:id',

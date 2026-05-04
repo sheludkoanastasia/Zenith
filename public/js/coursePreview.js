@@ -104,17 +104,14 @@ document.addEventListener("DOMContentLoaded", async function () {
                     
                 }
                 
-                // Загружаем разделы для всех блоков
-                if (course.themes && course.themes.length > 0) {
-                    await loadAllBlocksSections(course.themes);
-
-                    // Для студента считаем прогресс после загрузки sections
-                    if (currentUser.role === 'student') {
-                        await loadStudentProgress();
-                    }
-
-                    renderBlocksSection();
+                courseData.themes = course.themes || [];
+                if (courseData.themes.length > 0) {
+                    await loadAllBlocksSections(courseData.themes);
                 }
+                if (currentUser.role === 'student') {
+                    await loadStudentProgress();
+                }
+                renderBlocksSection();
             }
         } catch (error) {
             console.error('Ошибка загрузки курса:', error);
@@ -385,6 +382,169 @@ document.addEventListener("DOMContentLoaded", async function () {
         }
     }
     
+    function addStudentLeaveCourseStyles() {
+        if (document.getElementById('student-leave-course-styles')) return;
+        const style = document.createElement('style');
+        style.id = 'student-leave-course-styles';
+        style.textContent = `
+            .confirm-dialog-overlay.student-leave-dialog-overlay {
+                position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+                background-color: rgba(0, 0, 0, 0.5); backdrop-filter: blur(4px);
+                display: flex; align-items: center; justify-content: center;
+                z-index: 10000; opacity: 0;
+            }
+            .student-leave-dialog-overlay .confirm-dialog {
+                background: white; border-radius: 24px; padding: 32px;
+                max-width: 440px; width: 90%; box-shadow: 0 30px 60px rgba(0, 0, 0, 0.3);
+                transform-origin: center;
+            }
+            .student-leave-dialog-overlay .confirm-dialog-content { text-align: center; }
+            .student-leave-dialog-overlay .confirm-dialog-title {
+                font-size: 28px; font-weight: 500; color: #1D1D1D;
+                margin-bottom: 16px; font-family: 'Ysabeau', 'Inter', sans-serif;
+            }
+            .student-leave-dialog-overlay .confirm-dialog-message {
+                font-size: 18px; color: #4C4C4C; margin-bottom: 32px;
+                line-height: 1.5; font-family: 'Ysabeau', 'Inter', sans-serif;
+            }
+            .student-leave-dialog-overlay .confirm-dialog-buttons { display: flex; gap: 16px; justify-content: center; flex-wrap: wrap; }
+            .student-leave-dialog-overlay .confirm-dialog-btn {
+                padding: 12px 32px; border-radius: 40px; font-size: 16px;
+                font-weight: 500; font-family: 'Ysabeau', 'Inter', sans-serif;
+                cursor: pointer; transition: all 0.3s ease; border: none; min-width: 120px;
+            }
+            .student-leave-dialog-overlay .confirm-dialog-btn-cancel { background-color: #f0f0f0; color: #4C4C4C; }
+            .student-leave-dialog-overlay .confirm-dialog-btn-cancel:hover { background-color: #e0e0e0; transform: translateY(-2px); }
+            .student-leave-dialog-overlay .confirm-dialog-btn-leave {
+                background-color: #7651BE; color: white;
+            }
+            .student-leave-dialog-overlay .confirm-dialog-btn-leave:hover {
+                background-color: #6544a8; transform: translateY(-2px);
+            }
+            @media (max-width: 576px) {
+                .student-leave-dialog-overlay .confirm-dialog { padding: 24px; width: 95%; }
+                .student-leave-dialog-overlay .confirm-dialog-title { font-size: 24px; }
+                .student-leave-dialog-overlay .confirm-dialog-message { font-size: 16px; margin-bottom: 24px; }
+                .student-leave-dialog-overlay .confirm-dialog-buttons { flex-direction: column; }
+                .student-leave-dialog-overlay .confirm-dialog-btn { width: 100%; }
+            }
+        `;
+        document.head.appendChild(style);
+    }
+
+    function closeStudentLeaveDialog(overlay) {
+        if (!overlay || !overlay.parentNode) return;
+        const dialog = overlay.querySelector('.confirm-dialog');
+        if (typeof gsap !== 'undefined') {
+            gsap.to(dialog, { scale: 0.9, opacity: 0, duration: 0.3, ease: 'power2.in' });
+            gsap.to(overlay, { opacity: 0, duration: 0.3, ease: 'power2.in', onComplete: () => overlay.remove() });
+        } else {
+            overlay.remove();
+        }
+    }
+
+    function showStudentLeaveCourseDialog(courseTitle) {
+        addStudentLeaveCourseStyles();
+        const existing = document.querySelector('.student-leave-dialog-overlay');
+        if (existing) existing.remove();
+
+        const overlay = document.createElement('div');
+        overlay.className = 'confirm-dialog-overlay student-leave-dialog-overlay';
+
+        const dialog = document.createElement('div');
+        dialog.className = 'confirm-dialog';
+        dialog.innerHTML = `
+            <div class="confirm-dialog-content">
+                <div class="confirm-dialog-title">Покинуть курс?</div>
+                <div class="confirm-dialog-message"></div>
+                <div class="confirm-dialog-buttons">
+                    <button type="button" class="confirm-dialog-btn confirm-dialog-btn-cancel">Остаться</button>
+                    <button type="button" class="confirm-dialog-btn confirm-dialog-btn-leave">Покинуть курс</button>
+                </div>
+            </div>
+        `;
+        const msgEl = dialog.querySelector('.confirm-dialog-message');
+        const t = courseTitle || 'этот курс';
+        msgEl.textContent = `Вы уверены, что хотите выйти из курса «${t}»? Курс исчезнет из вашего списка, прогресс по нему будет удалён. Вернуться к курсу можно будет только по новой ссылке-приглашению от преподавателя.`;
+
+        overlay.appendChild(dialog);
+        document.body.appendChild(overlay);
+
+        if (typeof gsap !== 'undefined') {
+            gsap.fromTo(overlay, { opacity: 0 }, { opacity: 1, duration: 0.3, ease: 'power2.out' });
+            gsap.fromTo(dialog, { scale: 0.9, opacity: 0 }, { scale: 1, opacity: 1, duration: 0.4, ease: 'backOut' });
+        } else {
+            overlay.style.opacity = '1';
+        }
+
+        const cancelBtn = dialog.querySelector('.confirm-dialog-btn-cancel');
+        const leaveBtn = dialog.querySelector('.confirm-dialog-btn-leave');
+
+        const removeEsc = () => document.removeEventListener('keydown', escHandler);
+        const escHandler = (e) => {
+            if (e.key === 'Escape') {
+                removeEsc();
+                closeStudentLeaveDialog(overlay);
+            }
+        };
+        document.addEventListener('keydown', escHandler);
+
+        cancelBtn.addEventListener('click', () => {
+            removeEsc();
+            closeStudentLeaveDialog(overlay);
+        });
+        overlay.addEventListener('click', (e) => {
+            if (e.target === overlay) {
+                removeEsc();
+                closeStudentLeaveDialog(overlay);
+            }
+        });
+        leaveBtn.addEventListener('click', async () => {
+            removeEsc();
+            closeStudentLeaveDialog(overlay);
+            try {
+                const response = await fetch(`/api/courses/${encodeURIComponent(currentCourseId)}/leave`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                const data = await response.json().catch(() => ({}));
+                if (!response.ok || !data.success) {
+                    showNotification(data.message || 'Не удалось выйти из курса', 'error');
+                    return;
+                }
+                window.location.href = '/user';
+            } catch (err) {
+                console.error(err);
+                showNotification('Ошибка сети. Попробуйте ещё раз.', 'error');
+            }
+        });
+    }
+
+    function mountStudentLeaveCourseBar() {
+        const bar = document.getElementById('studentLeaveCourseBar');
+        if (!bar) return;
+        if (currentUser.role !== 'student') {
+            bar.hidden = true;
+            bar.innerHTML = '';
+            return;
+        }
+        bar.hidden = false;
+        bar.innerHTML = `
+            <button type="button" class="student-leave-course-btn" id="studentLeaveCourseBtn">Покинуть курс</button>
+            <p class="student-leave-course-note">После выхода курс пропадёт из списка на главной странице.</p>
+        `;
+        const btn = document.getElementById('studentLeaveCourseBtn');
+        if (btn) {
+            btn.addEventListener('click', () => {
+                const title = (courseData.title || '').trim() || 'Без названия';
+                showStudentLeaveCourseDialog(title);
+            });
+        }
+    }
+
     function renderBlocksSection() {
         const sectionsContent = document.getElementById('sectionsContent');
         if (!sectionsContent) return;
@@ -392,10 +552,12 @@ document.addEventListener("DOMContentLoaded", async function () {
         sectionsContent.innerHTML = `
             <div class="blocks-section" style="opacity: 0;">
                 <div class="themes-container" id="themesContainer"></div>
+                <div class="student-leave-course-bar" id="studentLeaveCourseBar" hidden></div>
             </div>
         `;
         
         loadThemesToDOM();
+        mountStudentLeaveCourseBar();
         
         setTimeout(() => {
             const blocksSection = sectionsContent.querySelector('.blocks-section');

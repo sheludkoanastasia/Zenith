@@ -450,7 +450,110 @@ module.exports = {
         }
     },
 
-   getCourseById: async (req, res) => {
+    leaveCourse: async (req, res) => {
+        const transaction = await db.sequelize.transaction();
+        try {
+            const courseId = req.params.id;
+            const course = await db.Course.findByPk(courseId, { transaction });
+            if (!course) {
+                await transaction.rollback();
+                return res.status(404).json({
+                    success: false,
+                    message: 'Курс не найден'
+                });
+            }
+
+            const enrollment = await db.CourseStudent.findOne({
+                where: { course_id: courseId, student_id: req.user.id },
+                transaction
+            });
+            if (!enrollment) {
+                await transaction.rollback();
+                return res.status(404).json({
+                    success: false,
+                    message: 'Вы не подключены к этому курсу'
+                });
+            }
+
+            const themeRows = await db.Theme.findAll({
+                where: { course_id: courseId },
+                attributes: ['id'],
+                transaction
+            });
+            const themeIds = themeRows.map((t) => t.id);
+            let sectionIds = [];
+            if (themeIds.length > 0) {
+                const blockRows = await db.Block.findAll({
+                    where: { theme_id: { [Op.in]: themeIds } },
+                    attributes: ['id'],
+                    transaction
+                });
+                const blockIds = blockRows.map((b) => b.id);
+                if (blockIds.length > 0) {
+                    const sectionRows = await db.Section.findAll({
+                        where: { block_id: { [Op.in]: blockIds } },
+                        attributes: ['id'],
+                        transaction
+                    });
+                    sectionIds = sectionRows.map((s) => s.id);
+                }
+            }
+
+            if (sectionIds.length > 0) {
+                const tests = await db.Test.findAll({
+                    where: { section_id: { [Op.in]: sectionIds } },
+                    attributes: ['id'],
+                    transaction
+                });
+                const testIds = tests.map((t) => t.id);
+                if (testIds.length > 0) {
+                    await db.TestAttempt.destroy({
+                        where: {
+                            test_id: { [Op.in]: testIds },
+                            student_id: req.user.id
+                        },
+                        transaction
+                    });
+                }
+                await db.StudentProgress.destroy({
+                    where: {
+                        section_id: { [Op.in]: sectionIds },
+                        student_id: req.user.id
+                    },
+                    transaction
+                });
+                await db.SectionComment.destroy({
+                    where: {
+                        section_id: { [Op.in]: sectionIds },
+                        user_id: req.user.id
+                    },
+                    transaction
+                });
+            }
+
+            await db.Notification.destroy({
+                where: { course_id: courseId, user_id: req.user.id },
+                transaction
+            });
+
+            await enrollment.destroy({ transaction });
+
+            const newCount = await db.CourseStudent.count({
+                where: { course_id: courseId },
+                transaction
+            });
+            await course.update({ students_count: newCount }, { transaction });
+
+            await transaction.commit();
+            return res.json({ success: true, message: 'Вы вышли из курса' });
+        } catch (error) {
+            await transaction.rollback();
+            console.error('leaveCourse:', error);
+            handleError(res, error, 'Ошибка при выходе из курса');
+        }
+    },
+
+    getCourseById: async (req, res) => {
         try {
             const course = await db.Course.findByPk(req.params.id, {
                 include: [
@@ -539,6 +642,76 @@ module.exports = {
             res.json({ success: true, ...data });
         } catch (error) {
             handleError(res, error, 'Ошибка при загрузке успеваемости');
+        }
+    },
+
+    deleteCourse: async (req, res) => {
+        const transaction = await db.sequelize.transaction();
+        try {
+            const course = await db.Course.findByPk(req.params.id, { transaction });
+            if (!course) {
+                await transaction.rollback();
+                return res.status(404).json({
+                    success: false,
+                    message: 'Курс не найден'
+                });
+            }
+            if (course.teacher_id !== req.user.id) {
+                await transaction.rollback();
+                return res.status(403).json({
+                    success: false,
+                    message: 'Нет прав на удаление этого курса'
+                });
+            }
+
+            await db.Notification.destroy({ where: { course_id: course.id }, transaction });
+            await db.CourseStudent.destroy({ where: { course_id: course.id }, transaction });
+
+            const themeRows = await db.Theme.findAll({
+                where: { course_id: course.id },
+                attributes: ['id'],
+                transaction
+            });
+            const themeIds = themeRows.map((t) => t.id);
+            let sectionIds = [];
+            if (themeIds.length > 0) {
+                const blockRows = await db.Block.findAll({
+                    where: { theme_id: themeIds },
+                    attributes: ['id'],
+                    transaction
+                });
+                const blockIds = blockRows.map((b) => b.id);
+                if (blockIds.length > 0) {
+                    const sectionRows = await db.Section.findAll({
+                        where: { block_id: blockIds },
+                        attributes: ['id'],
+                        transaction
+                    });
+                    sectionIds = sectionRows.map((s) => s.id);
+                }
+            }
+
+            if (sectionIds.length > 0) {
+                const tests = await db.Test.findAll({
+                    where: { section_id: sectionIds },
+                    attributes: ['id'],
+                    transaction
+                });
+                const testIds = tests.map((t) => t.id);
+                if (testIds.length > 0) {
+                    await db.TestAttempt.destroy({ where: { test_id: testIds }, transaction });
+                }
+                await db.StudentProgress.destroy({ where: { section_id: sectionIds }, transaction });
+                await db.SectionComment.destroy({ where: { section_id: sectionIds }, transaction });
+            }
+
+            await course.destroy({ transaction });
+            await transaction.commit();
+            return res.json({ success: true, message: 'Курс удалён' });
+        } catch (error) {
+            await transaction.rollback();
+            console.error('deleteCourse:', error);
+            handleError(res, error, 'Ошибка при удалении курса');
         }
     },
 

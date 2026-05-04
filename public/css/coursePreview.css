@@ -272,6 +272,45 @@ header {
     margin-bottom: 30px;
 }
 
+.student-leave-course-bar {
+    margin-top: 8px;
+    padding-top: 32px;
+    border-top: 1px solid #e8e8e8;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    text-align: center;
+}
+
+.student-leave-course-btn {
+    font-family: 'Ysabeau', sans-serif;
+    font-size: 17px;
+    font-weight: 500;
+    color: #7651BE;
+    background: #fff;
+    border: 2px solid #7651BE;
+    border-radius: 40px;
+    padding: 14px 36px;
+    cursor: pointer;
+    transition: background 0.2s ease, color 0.2s ease, transform 0.15s ease, box-shadow 0.2s ease;
+}
+
+.student-leave-course-btn:hover {
+    background: #7651BE;
+    color: #fff;
+    transform: translateY(-1px);
+    box-shadow: 0 8px 24px rgba(118, 81, 190, 0.25);
+}
+
+.student-leave-course-note {
+    font-size: 15px;
+    color: #666;
+    max-width: 440px;
+    line-height: 1.45;
+    margin: 0;
+}
+
 /* Обертка для одной темы */
 .theme-wrapper {
     width: 100%;

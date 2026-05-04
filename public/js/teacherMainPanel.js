@@ -126,6 +126,150 @@ document.addEventListener("DOMContentLoaded", async function () {
     }
 }
     
+    function addTeacherDeleteConfirmStyles() {
+        if (document.getElementById('teacher-delete-confirm-styles')) return;
+        const style = document.createElement('style');
+        style.id = 'teacher-delete-confirm-styles';
+        style.textContent = `
+            .confirm-dialog-overlay.teacher-delete-dialog-overlay {
+                position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+                background-color: rgba(0, 0, 0, 0.5); backdrop-filter: blur(4px);
+                display: flex; align-items: center; justify-content: center;
+                z-index: 10000; opacity: 0;
+            }
+            .teacher-delete-dialog-overlay .confirm-dialog {
+                background: white; border-radius: 24px; padding: 32px;
+                max-width: 440px; width: 90%; box-shadow: 0 30px 60px rgba(0, 0, 0, 0.3);
+                transform-origin: center;
+            }
+            .teacher-delete-dialog-overlay .confirm-dialog-content { text-align: center; }
+            .teacher-delete-dialog-overlay .confirm-dialog-title {
+                font-size: 28px; font-weight: 500; color: #1D1D1D;
+                margin-bottom: 16px; font-family: 'Ysabeau', 'Inter', sans-serif;
+            }
+            .teacher-delete-dialog-overlay .confirm-dialog-message {
+                font-size: 18px; color: #4C4C4C; margin-bottom: 32px;
+                line-height: 1.5; font-family: 'Ysabeau', 'Inter', sans-serif;
+            }
+            .teacher-delete-dialog-overlay .confirm-dialog-buttons { display: flex; gap: 16px; justify-content: center; flex-wrap: wrap; }
+            .teacher-delete-dialog-overlay .confirm-dialog-btn {
+                padding: 12px 32px; border-radius: 40px; font-size: 16px;
+                font-weight: 500; font-family: 'Ysabeau', 'Inter', sans-serif;
+                cursor: pointer; transition: all 0.3s ease; border: none; min-width: 120px;
+            }
+            .teacher-delete-dialog-overlay .confirm-dialog-btn-cancel { background-color: #f0f0f0; color: #4C4C4C; }
+            .teacher-delete-dialog-overlay .confirm-dialog-btn-cancel:hover { background-color: #e0e0e0; transform: translateY(-2px); }
+            .teacher-delete-dialog-overlay .confirm-dialog-btn-confirm-delete {
+                background-color: #c62828; color: white;
+            }
+            .teacher-delete-dialog-overlay .confirm-dialog-btn-confirm-delete:hover {
+                background-color: #b71c1c; transform: translateY(-2px);
+            }
+            @media (max-width: 576px) {
+                .teacher-delete-dialog-overlay .confirm-dialog { padding: 24px; width: 95%; }
+                .teacher-delete-dialog-overlay .confirm-dialog-title { font-size: 24px; }
+                .teacher-delete-dialog-overlay .confirm-dialog-message { font-size: 16px; margin-bottom: 24px; }
+                .teacher-delete-dialog-overlay .confirm-dialog-buttons { flex-direction: column; }
+                .teacher-delete-dialog-overlay .confirm-dialog-btn { width: 100%; }
+            }
+        `;
+        document.head.appendChild(style);
+    }
+
+    function closeTeacherDeleteConfirm(overlay) {
+        if (!overlay || !overlay.parentNode) return;
+        const dialog = overlay.querySelector('.confirm-dialog');
+        if (typeof gsap !== 'undefined') {
+            gsap.to(dialog, { scale: 0.9, opacity: 0, duration: 0.3, ease: 'power2.in' });
+            gsap.to(overlay, { opacity: 0, duration: 0.3, ease: 'power2.in', onComplete: () => overlay.remove() });
+        } else {
+            overlay.remove();
+        }
+    }
+
+    function showDeleteCourseConfirm(courseId, courseTitle) {
+        addTeacherDeleteConfirmStyles();
+        const existing = document.querySelector('.teacher-delete-dialog-overlay');
+        if (existing) existing.remove();
+
+        const overlay = document.createElement('div');
+        overlay.className = 'confirm-dialog-overlay teacher-delete-dialog-overlay';
+
+        const dialog = document.createElement('div');
+        dialog.className = 'confirm-dialog';
+        dialog.innerHTML = `
+            <div class="confirm-dialog-content">
+                <div class="confirm-dialog-title">Удалить курс?</div>
+                <div class="confirm-dialog-message"></div>
+                <div class="confirm-dialog-buttons">
+                    <button type="button" class="confirm-dialog-btn confirm-dialog-btn-cancel">Отмена</button>
+                    <button type="button" class="confirm-dialog-btn confirm-dialog-btn-confirm-delete">Удалить курс</button>
+                </div>
+            </div>
+        `;
+        const msgEl = dialog.querySelector('.confirm-dialog-message');
+        const titleText = courseTitle || 'Без названия';
+        msgEl.textContent = `Вы действительно хотите удалить курс «${titleText}»? Будут удалены все темы, блоки и материалы. У студентов, подключённых к курсу, он исчезнет из списка вместе с прогрессом. Это действие нельзя отменить.`;
+
+        overlay.appendChild(dialog);
+        document.body.appendChild(overlay);
+
+        if (typeof gsap !== 'undefined') {
+            gsap.fromTo(overlay, { opacity: 0 }, { opacity: 1, duration: 0.3, ease: 'power2.out' });
+            gsap.fromTo(dialog, { scale: 0.9, opacity: 0 }, { scale: 1, opacity: 1, duration: 0.4, ease: 'backOut' });
+        } else {
+            overlay.style.opacity = '1';
+        }
+
+        const cancelBtn = dialog.querySelector('.confirm-dialog-btn-cancel');
+        const confirmBtn = dialog.querySelector('.confirm-dialog-btn-confirm-delete');
+
+        const removeEsc = () => document.removeEventListener('keydown', escHandler);
+        const escHandler = (e) => {
+            if (e.key === 'Escape') {
+                removeEsc();
+                closeTeacherDeleteConfirm(overlay);
+            }
+        };
+        document.addEventListener('keydown', escHandler);
+
+        cancelBtn.addEventListener('click', () => {
+            removeEsc();
+            closeTeacherDeleteConfirm(overlay);
+        });
+        overlay.addEventListener('click', (e) => {
+            if (e.target === overlay) {
+                removeEsc();
+                closeTeacherDeleteConfirm(overlay);
+            }
+        });
+        confirmBtn.addEventListener('click', async () => {
+            removeEsc();
+            closeTeacherDeleteConfirm(overlay);
+            try {
+                const response = await fetch(`/api/courses/${encodeURIComponent(courseId)}`, {
+                    method: 'DELETE',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await response.json().catch(() => ({}));
+                if (!response.ok || !data.success) {
+                    showNotification(data.message || 'Не удалось удалить курс', 'error');
+                    return;
+                }
+                showNotification('Курс и все связанные данные удалены', 'success');
+                userCourses = userCourses.filter((c) => c.id !== courseId);
+                displayCourses(userCourses);
+                const activeLink = document.querySelector('.courseNavigation a.active');
+                if (activeLink && activeLink.textContent.trim() === 'Редактировать курс') {
+                    showContent('Редактировать курс');
+                }
+            } catch (err) {
+                console.error(err);
+                showNotification('Ошибка сети при удалении курса', 'error');
+            }
+        });
+    }
+
     // ===============================
     // СОЗДАНИЕ КАРТОЧКИ КУРСА
     // ===============================
@@ -164,16 +308,37 @@ document.addEventListener("DOMContentLoaded", async function () {
             imageWrapper.style.backgroundSize = 'cover';
         }
         
-        // Создаем overlay для иконки редактирования
         const editOverlay = document.createElement('div');
         editOverlay.className = 'edit-overlay';
-        
+
+        const actionsRow = document.createElement('div');
+        actionsRow.className = 'edit-overlay-actions';
+
+        const editBtn = document.createElement('button');
+        editBtn.type = 'button';
+        editBtn.className = 'course-card-icon-btn';
+        editBtn.dataset.action = 'edit';
+        editBtn.setAttribute('aria-label', 'Редактировать курс');
         const editIcon = document.createElement('img');
         editIcon.src = '/images/teacherMainPanel/edit.svg';
-        editIcon.className = 'edit-icon-overlay';
-        editIcon.alt = 'Редактировать';
-        
-        editOverlay.appendChild(editIcon);
+        editIcon.className = 'course-card-icon-img';
+        editIcon.alt = '';
+        editBtn.appendChild(editIcon);
+
+        const deleteBtn = document.createElement('button');
+        deleteBtn.type = 'button';
+        deleteBtn.className = 'course-card-icon-btn course-card-delete-btn';
+        deleteBtn.dataset.action = 'delete';
+        deleteBtn.setAttribute('aria-label', 'Удалить курс');
+        const deleteIcon = document.createElement('img');
+        deleteIcon.src = '/images/teacherMainPanel/delete.svg';
+        deleteIcon.className = 'course-card-icon-img';
+        deleteIcon.alt = '';
+        deleteBtn.appendChild(deleteIcon);
+
+        actionsRow.appendChild(editBtn);
+        actionsRow.appendChild(deleteBtn);
+        editOverlay.appendChild(actionsRow);
         card.appendChild(imageWrapper);
         card.appendChild(editOverlay);
         cardContainer.appendChild(card);
@@ -520,25 +685,56 @@ document.addEventListener("DOMContentLoaded", async function () {
                     editOverlay.style.opacity = '0';
                     editOverlay.style.pointerEvents = 'none';
                     
-                    // Находим или создаем иконку
-                    let editIcon = editOverlay.querySelector('.edit-icon-overlay');
-                    if (!editIcon) {
-                        editIcon = document.createElement('img');
-                        editIcon.src = '/images/teacherMainPanel/edit.svg';
-                        editIcon.className = 'edit-icon-overlay';
-                        editIcon.alt = 'Редактировать';
-                        editOverlay.appendChild(editIcon);
+                    let editBtn = editOverlay.querySelector('[data-action="edit"]');
+                    let deleteBtn = editOverlay.querySelector('[data-action="delete"]');
+                    if (!editBtn || !deleteBtn) {
+                        const actionsRow = document.createElement('div');
+                        actionsRow.className = 'edit-overlay-actions';
+                        editBtn = document.createElement('button');
+                        editBtn.type = 'button';
+                        editBtn.className = 'course-card-icon-btn';
+                        editBtn.dataset.action = 'edit';
+                        editBtn.setAttribute('aria-label', 'Редактировать курс');
+                        const ei = document.createElement('img');
+                        ei.src = '/images/teacherMainPanel/edit.svg';
+                        ei.className = 'course-card-icon-img';
+                        ei.alt = '';
+                        editBtn.appendChild(ei);
+                        deleteBtn = document.createElement('button');
+                        deleteBtn.type = 'button';
+                        deleteBtn.className = 'course-card-icon-btn course-card-delete-btn';
+                        deleteBtn.dataset.action = 'delete';
+                        deleteBtn.setAttribute('aria-label', 'Удалить курс');
+                        const di = document.createElement('img');
+                        di.src = '/images/teacherMainPanel/delete.svg';
+                        di.className = 'course-card-icon-img';
+                        di.alt = '';
+                        deleteBtn.appendChild(di);
+                        actionsRow.appendChild(editBtn);
+                        actionsRow.appendChild(deleteBtn);
+                        editOverlay.innerHTML = '';
+                        editOverlay.appendChild(actionsRow);
+                        editBtn = editOverlay.querySelector('[data-action="edit"]');
+                        deleteBtn = editOverlay.querySelector('[data-action="delete"]');
                     }
-                    
-                    // Удаляем старый обработчик, если есть
-                    const newEditIcon = editIcon.cloneNode(true);
-                    editIcon.parentNode.replaceChild(newEditIcon, editIcon);
-                    
-                    // Добавляем обработчик на иконку
-                    newEditIcon.addEventListener('click', function(e) {
+
+                    const actionsParent = editBtn.parentNode;
+                    const newEditBtn = editBtn.cloneNode(true);
+                    const newDeleteBtn = deleteBtn.cloneNode(true);
+                    actionsParent.replaceChild(newEditBtn, editBtn);
+                    actionsParent.replaceChild(newDeleteBtn, deleteBtn);
+
+                    newEditBtn.addEventListener('click', function(e) {
                         e.stopPropagation();
                         const courseId = card.dataset.courseId;
                         window.location.href = `/teacher/create-course?id=${courseId}`;
+                    });
+                    newDeleteBtn.addEventListener('click', function(e) {
+                        e.stopPropagation();
+                        const courseId = card.dataset.courseId;
+                        const titleEl = card.querySelector('.course-card-title');
+                        const courseTitle = titleEl ? titleEl.textContent.trim() : '';
+                        showDeleteCourseConfirm(courseId, courseTitle);
                     });
                     
                     // Добавляем обработчик наведения на карточку

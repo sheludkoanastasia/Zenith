@@ -587,27 +587,48 @@ header {
     border-radius: 25px;
 }
 
+.course-card-container .edit-overlay-actions {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+}
+
+.course-card-container .course-card-icon-btn {
+    width: 52px;
+    height: 52px;
+    border-radius: 50%;
+    background: #ffffff;
+    border: none;
+    box-shadow: 0 2px 14px rgba(0, 0, 0, 0.14);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    padding: 0;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.course-card-container .course-card-icon-btn:hover {
+    transform: scale(1.08);
+    box-shadow: 0 4px 18px rgba(0, 0, 0, 0.18);
+}
+
+.course-card-container .course-card-icon-img {
+    width: 26px;
+    height: 26px;
+    object-fit: contain;
+    pointer-events: none;
+    filter: none !important;
+}
+
 /* Показываем overlay только при наведении на карточку в режиме редактирования */
 .course-card-container.edit-mode:hover .edit-overlay {
     opacity: 1;
     pointer-events: auto;
 }
 
-/* Стили для иконки редактирования - без блюра */
-.course-card-container .edit-icon-overlay {
-    width: 60px;
-    height: 60px;
-    cursor: pointer;
-    transition: transform 0.2s ease;
-    z-index: 11;
-    filter: none !important; /* Гарантируем отсутствие блюра */
-    backdrop-filter: none !important; /* Гарантируем отсутствие блюра */
-    -webkit-backdrop-filter: none !important; /* Гарантируем отсутствие блюра */
-}
-
-.course-card-container .edit-icon-overlay:hover {
-    transform: scale(1.1);
-}
 
 /* Адаптация для мобильных */
 @media (max-width: 1200px) {
