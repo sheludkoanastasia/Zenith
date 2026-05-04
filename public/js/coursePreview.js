@@ -625,18 +625,33 @@ document.addEventListener("DOMContentLoaded", async function () {
                         </div>
                     </div>
                     <div class="perf-search-wrap">
-                        <input type="search" class="perf-search-input" placeholder="Поиск" autocomplete="off">
+                        <input type="text" class="perf-search-input" placeholder="Поиск" autocomplete="off" inputmode="search" enterkeyhint="search">
+                        <button type="button" class="perf-search-clear" hidden aria-label="Очистить поиск">
+                            <img src="/images/teacherMainPanel/delete.svg" alt="">
+                        </button>
                         <img src="/images/userMainPanel/search.svg" alt="" class="perf-search-icon">
                     </div>
                 </div>
             </div>
             <div class="perf-table-wrap">
+                <div class="perf-table-header perf-student-grid" aria-hidden="true">
+                    <div class="perf-header-cell perf-header-avatar"></div>
+                    <div class="perf-header-cell">ФИО</div>
+                    <div class="perf-header-cell">Образовательная организация</div>
+                    <div class="perf-header-cell">Факультет</div>
+                    <div class="perf-header-cell">Курс</div>
+                    <div class="perf-header-cell">Группа</div>
+                    <div class="perf-header-cell">Баллы</div>
+                    <div class="perf-header-cell perf-header-expand"></div>
+                </div>
                 <div class="perf-student-list"></div>
             </div>
         `;
 
         const listEl = root.querySelector('.perf-student-list');
+        const searchWrap = root.querySelector('.perf-search-wrap');
         const searchInput = root.querySelector('.perf-search-input');
+        const searchClear = root.querySelector('.perf-search-clear');
         const sortToggle = root.querySelector('.perf-sort-toggle');
         const sortMenu = root.querySelector('.perf-dropdown-menu');
         const sortLabel = root.querySelector('.perf-sort-label');
@@ -688,7 +703,7 @@ document.addEventListener("DOMContentLoaded", async function () {
             const wrap = document.createElement('div');
             wrap.className = 'perf-student-card';
             wrap.innerHTML = `
-                <div class="perf-student-row" data-action="toggle-student">
+                <div class="perf-student-row perf-student-grid" data-action="toggle-student">
                     <div class="perf-cell perf-cell-avatar">
                         <img src="${safeAttr(avatarSrc)}" alt="" class="perf-avatar">
                     </div>
@@ -760,22 +775,20 @@ document.addEventListener("DOMContentLoaded", async function () {
                 }).join('');
 
                 themeEl.innerHTML = `
-                    <div class="perf-theme-layout">
-                        <div class="perf-theme-title-col">
+                    <div class="perf-theme-stack">
+                        <div class="perf-theme-title-row">
                             <span class="perf-theme-name">${escapeHtml(theme.title || 'Тема')}</span>
                         </div>
-                        <div class="perf-theme-body-col">
-                            <div class="perf-nested-header">
-                                <span>Блоки</span>
-                                <span>Прогресс по каждому блоку</span>
-                                <span>Баллы за блок</span>
-                                <span></span>
-                            </div>
-                            ${blocksHtml}
-                            <div class="perf-theme-total-row">
-                                <span class="perf-theme-total-label">Всего баллов за тему</span>
-                                <span class="perf-theme-total-val">${theme.themePoints != null ? theme.themePoints : 0}</span>
-                            </div>
+                        <div class="perf-nested-header">
+                            <span>Блоки</span>
+                            <span>Прогресс по каждому блоку</span>
+                            <span>Баллы за блок</span>
+                            <span></span>
+                        </div>
+                        ${blocksHtml}
+                        <div class="perf-theme-total-row">
+                            <span class="perf-theme-total-label">Всего баллов за тему</span>
+                            <span class="perf-theme-total-val">${theme.themePoints != null ? theme.themePoints : 0}</span>
                         </div>
                     </div>
                 `;
@@ -821,11 +834,13 @@ document.addEventListener("DOMContentLoaded", async function () {
             const willOpen = sortMenu.hidden;
             sortMenu.hidden = !willOpen;
             sortToggle.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
+            sortToggle.classList.toggle('is-open', willOpen);
             if (willOpen) {
                 setTimeout(() => {
                     const close = () => {
                         sortMenu.hidden = true;
                         sortToggle.setAttribute('aria-expanded', 'false');
+                        sortToggle.classList.remove('is-open');
                         document.removeEventListener('click', close);
                     };
                     document.addEventListener('click', close, { once: true });
@@ -839,18 +854,37 @@ document.addEventListener("DOMContentLoaded", async function () {
                 sortLabel.textContent = btn.textContent.trim();
                 sortMenu.hidden = true;
                 sortToggle.setAttribute('aria-expanded', 'false');
+                sortToggle.classList.remove('is-open');
                 redraw();
             });
         });
         sortMenu.addEventListener('click', (ev) => ev.stopPropagation());
 
+        function syncSearchClear() {
+            const has = Boolean(searchInput.value && searchInput.value.trim());
+            if (searchClear) searchClear.hidden = !has;
+            if (searchWrap) searchWrap.classList.toggle('perf-search-wrap--has-value', has);
+        }
+
         searchInput.addEventListener('input', () => {
             searchQuery = searchInput.value;
+            syncSearchClear();
             redraw();
         });
+        if (searchClear) {
+            searchClear.addEventListener('click', (e) => {
+                e.stopPropagation();
+                searchInput.value = '';
+                searchQuery = '';
+                syncSearchClear();
+                redraw();
+                searchInput.focus();
+            });
+        }
 
         container.innerHTML = '';
         container.appendChild(root);
+        syncSearchClear();
         redraw();
         gsap.from(root, { opacity: 0, y: 12, duration: 0.35 });
     }

@@ -545,6 +545,11 @@ header {
     width: 20px;
     height: 20px;
     opacity: 0.7;
+    transition: transform 0.25s ease;
+}
+
+.perf-sort-toggle.is-open .perf-chevron {
+    transform: rotate(180deg);
 }
 
 .perf-dropdown-menu {
@@ -593,16 +598,54 @@ header {
 .perf-search-input {
     width: 220px;
     max-width: 100%;
-    padding: 10px 40px 10px 14px;
+    padding: 10px 44px 10px 14px;
     border: 1px solid #e0e0e0;
     border-radius: 12px;
     font-family: 'Ysabeau', sans-serif;
     font-size: 16px;
     outline: none;
+    transition: padding-right 0.15s ease;
+}
+
+.perf-search-wrap--has-value .perf-search-input {
+    padding-right: 76px;
 }
 
 .perf-search-input:focus {
     border-color: #7651BE;
+}
+
+.perf-search-clear {
+    position: absolute;
+    right: 40px;
+    top: 50%;
+    transform: translateY(-50%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    border: none;
+    background: transparent;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background 0.15s;
+}
+
+.perf-search-clear:hover {
+    background: #f0ebff;
+}
+
+.perf-search-clear img {
+    width: 18px;
+    height: 18px;
+    display: block;
+    pointer-events: none;
+}
+
+.perf-search-clear[hidden] {
+    display: none !important;
 }
 
 .perf-search-icon {
@@ -643,15 +686,37 @@ header {
     border-bottom: none;
 }
 
-.perf-student-row {
+.perf-student-grid {
     display: grid;
     grid-template-columns: 56px minmax(120px, 1fr) minmax(140px, 1.35fr) minmax(90px, 0.85fr) 44px 88px 72px 44px;
     gap: 12px 14px;
     align-items: center;
+    min-width: 920px;
+}
+
+.perf-table-header {
+    padding: 12px 20px 14px;
+    background: #ffffff;
+    border-bottom: 1px solid #eee;
+}
+
+.perf-header-cell {
+    font-size: 12px;
+    font-weight: 600;
+    color: #666;
+    line-height: 1.3;
+    overflow: hidden;
+}
+
+.perf-header-avatar,
+.perf-header-expand {
+    min-height: 1px;
+}
+
+.perf-student-row {
     padding: 16px 20px;
     cursor: pointer;
     transition: background 0.2s;
-    min-width: 920px;
 }
 
 .perf-student-row:hover {
@@ -716,14 +781,24 @@ header {
 }
 
 .perf-student-detail {
-    background: #fafafa;
+    background-image: url("/public/images/teacherMainPanel/backgroundPerf.png");
+    background-size: auto 110%; /* Высота на 100% контейнера, ширина автоматически */
+    background-position: center;
+    background-repeat: no-repeat;
+    background-origin: border-box;
+    background-clip: border-box;
     border-top: 1px solid #eee;
-    padding: 20px 16px 28px;
+    padding: 0;
+    margin: 0;
+    width: 100%;
+    box-sizing: border-box;
 }
 
 .perf-detail-inner {
     max-width: 100%;
     overflow-x: auto;
+    padding: 20px 20px 24px;
+    box-sizing: border-box;
 }
 
 .perf-theme-block {
@@ -734,17 +809,23 @@ header {
     margin-bottom: 0;
 }
 
-.perf-theme-layout {
-    display: grid;
-    grid-template-columns: minmax(120px, 160px) 1fr;
-    gap: 16px 24px;
-    align-items: start;
+.perf-theme-stack {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
 }
 
-.perf-theme-name {
+.perf-theme-title-row {
+    margin-bottom: 14px;
+}
+
+.perf-theme-title-row .perf-theme-name {
+    display: block;
     font-weight: 600;
-    font-size: 18px;
-    color: #1D1D1D;
+    font-size: 20px;
+    color: #1d1d1d;
+    line-height: 1.3;
+    letter-spacing: -0.01em;
     position: sticky;
     left: 0;
 }
@@ -753,12 +834,17 @@ header {
     display: grid;
     grid-template-columns: minmax(180px, 1.6fr) minmax(140px, 1fr) 100px 44px;
     gap: 12px;
-    padding: 8px 12px 12px;
+    padding: 10px 12px 12px;
     font-size: 13px;
     font-weight: 600;
     color: #666;
     border-bottom: 1px solid #e5e5e5;
     margin-bottom: 12px;
+}
+
+.perf-nested-header > span:nth-child(3) {
+    justify-self: center;
+    text-align: center;
 }
 
 .perf-block-card {
@@ -777,6 +863,10 @@ header {
     align-items: center;
     padding: 14px 14px;
     cursor: pointer;
+}
+
+.perf-block-head > .perf-block-points {
+    justify-self: center;
 }
 
 .perf-block-head:hover {
@@ -828,8 +918,7 @@ header {
 
 .perf-block-points {
     font-weight: 600;
-    text-align: right;
-    padding-right: 8px;
+    text-align: center;
 }
 
 .perf-block-assignments {
@@ -868,18 +957,19 @@ header {
 .perf-go-btn {
     display: inline-block;
     padding: 8px 18px;
-    background: #3d3d3d;
+    background: #7651BE;
     color: #fff !important;
     text-decoration: none;
     border-radius: 10px;
     font-size: 14px;
     font-weight: 500;
-    transition: background 0.2s, transform 0.15s;
+    transition: background 0.2s, transform 0.15s, box-shadow 0.2s;
 }
 
 .perf-go-btn:hover {
-    background: #7651BE;
+    background: #6544a8;
     transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(118, 81, 190, 0.35);
 }
 
 .perf-theme-total-row {
