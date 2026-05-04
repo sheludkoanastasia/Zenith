@@ -364,7 +364,7 @@ document.addEventListener('DOMContentLoaded', () => {
             duration: 0.6,
             ease: 'power2.out'
         }, '-=0.4')
-        .from('.right-image', {
+        .from('.right-image, .right-image-frame', {
             scale: 0.8,
             opacity: 0,
             duration: 1,
@@ -676,7 +676,7 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Анимация для .next-container (появляется на мобильных)
     if (window.innerWidth <= 992) {
-        gsap.from('.next-container .right-image', {
+        gsap.from('.next-container .right-image, .next-container .right-image-frame', {
             scale: 0.9,
             opacity: 0,
             duration: 1,

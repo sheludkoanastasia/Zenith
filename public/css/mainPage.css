@@ -265,24 +265,59 @@ header {
     align-items: center;
     justify-content: center;
     padding: 0 40px 0 40px;
+    overflow: visible;
 }
 
 .image-container {
+    position: relative;
     display: flex;
     align-items: center;
     justify-content: center;
     width: 100%;
     height: 100%;
-    max-width: 817px;
-    max-height: 500px;
+    max-width: min(1100px, 96vw);
+    max-height: min(720px, 82vh);
+    overflow: visible;
 }
 
-.right-image {
+/* Градиент под рамкой: видимый «выступ» ~40px на десктопе (инсет рамки от краёв фона) */
+.hero-demo-stack {
+    --hero-demo-inset: 40px;
+    position: relative;
+    display: block;
     width: 100%;
+    max-width: 100%;
+    max-height: 100%;
+    margin: 0 auto;
+    overflow: visible;
+}
+
+.hero-demo-stack .right-image {
+    position: relative;
+    z-index: 0;
+    display: block;
+    width: 100%;
+    max-width: 100%;
+    max-height: min(720px, 82vh);
+    height: auto;
+    object-fit: contain;
+}
+
+.hero-demo-stack .right-image-frame {
+    position: absolute;
+    top: var(--hero-demo-inset);
+    right: var(--hero-demo-inset);
+    bottom: var(--hero-demo-inset);
+    left: var(--hero-demo-inset);
+    z-index: 1;
+    margin: auto;
+    width: auto;
     height: auto;
     max-width: 100%;
     max-height: 100%;
-    object-fit: contain; /* Сохраняем пропорции */
+    object-fit: contain;
+    pointer-events: none;
+    display: block;
 }
 
 /* Новый раздел "Студентам" */
@@ -534,6 +569,7 @@ header {
     margin: 0 auto;
     padding: 0 40px;
     gap: 0; /* Убираем промежутки между колонками */
+    overflow: visible;
 }
 
 .teachers-grid-1-text-content {
@@ -566,6 +602,7 @@ header {
     min-height: 650px;
     box-sizing: border-box;
     width: 100%;
+    overflow: visible;
 }
 
 /* Центральная линия */
@@ -573,7 +610,7 @@ header {
     width: 0.8px;
     background-color: #E5E5E5;
     align-self: stretch;
-    z-index: 1;
+    z-index: 0;
     margin: 0; /* Убираем все отступы */
 }
 
@@ -602,24 +639,42 @@ header {
     text-align: left; /* Центрируем текст */
 }
 
-/* Для демо-контента в правом квадрате */
-.teachersFrameBackground {
-    max-width: 100%;
-    max-height: 100%;
-    width: auto;
-    height: auto;
+/* Скрин + рамка в одном стеке — масштаб общий, рамка не «уезжает» на адаптиве */
+.teachers-demo-stack {
+    position: relative;
     display: block;
+    width: 100%;
+    max-width: 100%;
+    margin: 0 auto;
+    transform: scale(1.14);
+    transform-origin: center center;
 }
 
-.teachersFrame {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    max-width: 80%; /* Ограничиваем размер внутри квадрата */
-    max-height: 80%;
-    width: auto;
+.teachers-demo-stack .teachersFrameBackground {
+    position: relative;
+    z-index: 0;
+    display: block;
+    width: 100%;
+    max-width: 100%;
     height: auto;
+    object-fit: contain;
+}
+
+.teachers-demo-stack .teachersFrame {
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 2;
+    margin: auto;
+    width: 82%;
+    height: 82%;
+    max-width: 82%;
+    max-height: 82%;
+    object-fit: contain;
+    pointer-events: none;
+    display: block;
 }
 
 .teachers-grid-2 {
@@ -634,6 +689,7 @@ header {
     margin: 0 auto;
     padding: 0 40px;
     gap: 0; /* Убираем промежутки между колонками */
+    overflow: visible;
 }
 
 .teachers-grid-2-text-content {
@@ -666,6 +722,7 @@ header {
     min-height: 650px;
     box-sizing: border-box;
     width: 100%;
+    overflow: visible;
 }
 
 /* Центральная линия */
@@ -673,7 +730,7 @@ header {
     width: 0.8px;
     background-color: #E5E5E5;
     align-self: stretch;
-    z-index: 1;
+    z-index: 0;
     margin: 0; /* Убираем все отступы */
 }
 
@@ -714,6 +771,7 @@ header {
     margin: 0 auto;
     padding: 0 40px;
     gap: 0; /* Убираем промежутки между колонками */
+    overflow: visible;
 }
 
 .teachers-grid-3-text-content {
@@ -745,6 +803,7 @@ header {
     border-bottom: none;
     min-height: 650px;
     box-sizing: border-box;
+    overflow: visible;
     width: 100%;
 }
 
@@ -921,21 +980,17 @@ footer p {
         text-align: left; /* Центрируем текст */
     }
 
-    /* Для демо-контента в правом квадрате */
-    .teachersFrameBackground {
-        max-width: 110%;
-        max-height: 110%;
+    /* Демо-преподавателей: общий масштаб стека */
+    .teachers-demo-stack {
+        transform: scale(1.11);
     }
 
-    .teachersFrame {
-        position: absolute;
-        top: 50%;
-        left: 50%;
-        transform: translate(-50%, -50%);
-        max-width: 80%; /* Ограничиваем размер внутри квадрата */
+    .teachers-demo-stack .teachersFrame {
+        z-index: 2;
+        width: 80%;
+        height: 80%;
+        max-width: 80%;
         max-height: 80%;
-        width: auto;
-        height: auto;
     }
 
     .teachers-grid-2{
@@ -1131,8 +1186,16 @@ footer p {
     }
     
     .image-container {
-        max-width: 569px;
-        max-height: 348px;
+        max-width: min(820px, 96vw);
+        max-height: min(520px, 48vh);
+    }
+
+    .hero-demo-stack {
+        --hero-demo-inset: 40px;
+    }
+
+    .hero-demo-stack .right-image {
+        max-height: min(520px, 48vh);
     }
     
     /* Адаптация регистрационной секции для мобильных */
@@ -1193,39 +1256,31 @@ footer p {
        
     }
 
-    .teachersFrameBackground {
-        max-width: 100%;
-        max-height: 100%;
+    .teachers-demo-stack {
+        transform: scale(1.08);
     }
 
-    .teachersFrame {
-        position: absolute;
-        top: 50%;
-        left: 50%;
-        transform: translate(-50%, -50%);
-        max-width: 70%; /* Ограничиваем размер внутри квадрата */
-        max-height: 70%;
-        width: auto;
-        height: auto;
+    .teachers-demo-stack .teachersFrame {
+        z-index: 2;
+        width: 76%;
+        height: 76%;
+        max-width: 76%;
+        max-height: 76%;
     }
 
 }
 
 @media (max-width:885px){
-    .teachersFrameBackground {
-        max-width: 100%;
-        max-height: 100%;
+    .teachers-demo-stack {
+        transform: scale(1.08);
     }
 
-    .teachersFrame {
-        position: absolute;
-        top: 50%;
-        left: 50%;
-        transform: translate(-50%, -50%);
-        max-width: 70%; /* Ограничиваем размер внутри квадрата */
-        max-height: 70%;
-        width: auto;
-        height: auto;
+    .teachers-demo-stack .teachersFrame {
+        z-index: 2;
+        width: 76%;
+        height: 76%;
+        max-width: 76%;
+        max-height: 76%;
     }
     .teachers-grid-1{
        grid-template-columns: minmax(350px, 450px) auto minmax(350px, 450px); 
@@ -1374,6 +1429,13 @@ footer p {
 }
 
 @media (max-width: 774px) {
+    /* В колонке разделитель между текстом и демо не нужен — ломал порядок и визуально первый блок */
+    .teachers-grid-1 > .vertical-line,
+    .teachers-grid-2 > .vertical-line,
+    .teachers-grid-3 > .vertical-line {
+        display: none;
+    }
+
     .teachers-title {
         font-size: 13px;
     }
@@ -1445,17 +1507,22 @@ footer p {
         padding: 0;
         margin-bottom: 40px;
         min-height: 200px;
+        overflow: visible;
     }
 
-    .teachersFrameBackground {
-        max-width: 80%;
-        max-height: 80%;
-        object-fit:contain;
+    .teachers-demo-stack {
+        width: 100%;
+        transform: scale(1.06);
     }
 
-    .teachersFrame {
-        max-width: 90%;
-        max-height: 90%;
+    .teachers-demo-stack .teachersFrame {
+        z-index: 2;
+        width: 88%;
+        height: 88%;
+        max-width: 88%;
+        max-height: 88%;
+        object-fit: contain;
+        pointer-events: none;
     }
 
     .teachers-grid-2 {
@@ -1515,6 +1582,7 @@ footer p {
         padding: 0;
         margin-bottom: 40px;
         min-height: 200px;
+        overflow: visible;
     }
 
     .teachers-grid-3 {
@@ -1576,6 +1644,7 @@ footer p {
         padding: 0;
         margin-bottom: 40px;
         min-height: 200px;
+        overflow: visible;
     }
 
     .logoUniversity img {
@@ -1610,11 +1679,21 @@ footer p {
         padding: 0;
     }
     
-    .right-image {
+    .hero-demo-stack {
+        width: 100%;
+        max-width: 100%;
+    }
+
+    .hero-demo-stack .right-image {
         width: 100% !important;
-        height: 100% !important;
-        object-fit: cover;
+        max-width: 100% !important;
+        height: auto !important;
+        object-fit: contain;
         display: block;
+    }
+
+    .hero-demo-stack {
+        --hero-demo-inset: clamp(18px, 5vw, 28px);
     }
 
     .students-main-title {
