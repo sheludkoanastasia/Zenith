@@ -35,6 +35,12 @@ let activeDiscussionSection = null;
 const sectionCompletionMap = new Map();
 const pendingResetSectionIds = new Set();
 
+/** Ответы упражнений в localStorage — с user id, иначе на одном ПК второй студент видит чужие черновики. */
+function getExerciseAnswersStorageKey(kind, sectionId) {
+    const uid = currentUser?.id != null ? String(currentUser.id) : 'anon';
+    return `${kind}_answers_${uid}_${sectionId}`;
+}
+
 // Добавляем переменные для отслеживания попыток теста
 let currentTestId = null;
 let testAttemptsCount = 0;
@@ -223,7 +229,7 @@ async function startTestTimerOnServer(testId) {
 
         const data = await response.json();
         syncCurrentDeadlineState(testId, data.deadlinePassed || data.deadlineClosed);
-        syncCurrentTimerState(sectionId, data.timer);
+        syncCurrentTimerState(testId, data.timer);
 
         if (typeof data.attemptsCount === 'number') {
             testAttemptsCount = data.attemptsCount;
@@ -1675,7 +1681,7 @@ async function loadExerciseSection(sectionId) {
           const isCompleted = isResetSection ? false : await checkExerciseStatus(sectionId);
           
           // Пытаемся получить сохранённые ответы
-          let savedAnswers = localStorage.getItem(`matching_answers_${sectionId}`);
+          let savedAnswers = localStorage.getItem(getExerciseAnswersStorageKey('matching', sectionId));
           let showCorrectInstead = false;
           
           if (isCompleted && (!savedAnswers || section.needsReset)) {
@@ -1748,7 +1754,7 @@ async function loadExerciseSection(sectionId) {
           document.getElementById('choiceExercisePreview').style.display = 'block';
           
           const isCompleted = isResetSection ? false : await checkExerciseStatus(sectionId);
-          let savedAnswers = localStorage.getItem(`choice_answers_${sectionId}`);
+          let savedAnswers = localStorage.getItem(getExerciseAnswersStorageKey('choice', sectionId));
           let showCorrectInstead = false;
           
           if (isCompleted && (!savedAnswers || section.needsReset)) {
@@ -1808,7 +1814,7 @@ async function loadExerciseSection(sectionId) {
           document.getElementById('fillBlanksExercisePreview').style.display = 'block';
           
           const isCompleted = isResetSection ? false : await checkExerciseStatus(sectionId);
-          let savedAnswers = localStorage.getItem(`fillblanks_answers_${sectionId}`);
+          let savedAnswers = localStorage.getItem(getExerciseAnswersStorageKey('fillblanks', sectionId));
           let showCorrectInstead = false;
           
           if (isCompleted && (!savedAnswers || section.needsReset)) {
@@ -2833,7 +2839,9 @@ function renderCommentItem(comment, isReply = false) {
 
     return `
         <article class="discussion-comment ${isReply ? 'reply' : ''}" data-comment-id="${comment.id}">
-            <img src="${escapeHtml(getCommentAvatar(author))}" alt="" class="comment-avatar">
+            <span class="comment-avatar-wrap" aria-hidden="true">
+                <img src="${escapeHtml(getCommentAvatar(author))}" alt="" class="comment-avatar" width="48" height="48" decoding="async">
+            </span>
             <div class="comment-main">
                 <div class="comment-meta">
                     <span class="comment-author">${escapeHtml(getAuthorDisplayName(author))}</span>
@@ -4539,7 +4547,9 @@ async function markExerciseAsCompleted(sectionId, score, maxScore) {
         });
         
         const data = await response.json();
-        syncCurrentTimerState(testId, data.timer);
+        if (data.timer && currentTestId) {
+            syncCurrentTimerState(currentTestId, data.timer);
+        }
         return data.success;
     } catch (error) {
         console.error('Ошибка сохранения прогресса упражнения:', error);
@@ -4601,7 +4611,7 @@ async function submitMatchingSolution(sectionId) {
         showNotification('Упражнение выполнено верно!', 'success');
         
         // Сохраняем ответы в localStorage
-        localStorage.setItem(`matching_answers_${sectionId}`, JSON.stringify(userPairs));
+        localStorage.setItem(getExerciseAnswersStorageKey('matching', sectionId), JSON.stringify(userPairs));
         
         selectWrappers.forEach(wrapper => {
             const btn = wrapper.querySelector('.matching-select-btn');
@@ -4621,7 +4631,7 @@ async function submitMatchingSolution(sectionId) {
         showNotification('Есть ошибки. Попробуйте еще раз.', 'warning');
         
         // Сохраняем ответы даже если есть ошибки
-        localStorage.setItem(`matching_answers_${sectionId}`, JSON.stringify(userPairs));
+        localStorage.setItem(getExerciseAnswersStorageKey('matching', sectionId), JSON.stringify(userPairs));
         
         if (result.results) {
             for (const [targetId, isCorrect] of Object.entries(result.results)) {
@@ -4770,7 +4780,7 @@ async function submitChoiceSolution(sectionId) {
         console.log('Упражнение выполнено верно! Обновляем интерфейс...');
         showNotification('Упражнение выполнено верно!', 'success');
         
-        localStorage.setItem(`choice_answers_${sectionId}`, JSON.stringify(userAnswers));
+        localStorage.setItem(getExerciseAnswersStorageKey('choice', sectionId), JSON.stringify(userAnswers));
         
         console.log('Блокируем чекбоксы...');
         statementCards.forEach(card => {
@@ -4794,7 +4804,7 @@ async function submitChoiceSolution(sectionId) {
     } else {
         showNotification('Есть ошибки. Попробуйте еще раз.', 'warning');
         
-        localStorage.setItem(`choice_answers_${sectionId}`, JSON.stringify(userAnswers));
+        localStorage.setItem(getExerciseAnswersStorageKey('choice', sectionId), JSON.stringify(userAnswers));
         
         if (result.results) {
             for (const [statementId, isCorrect] of Object.entries(result.results)) {
@@ -4901,7 +4911,7 @@ async function submitFillBlanksSolution(sectionId) {
     if (result.success && result.correct) {
         showNotification('Упражнение выполнено верно!', 'success');
         
-        localStorage.setItem(`fillblanks_answers_${sectionId}`, JSON.stringify(userAnswers));
+        localStorage.setItem(getExerciseAnswersStorageKey('fillblanks', sectionId), JSON.stringify(userAnswers));
         
         // Блокируем все dropdown и делаем зелеными
         const allSelectWrappers = document.querySelectorAll('#fillBlanksExercisePreview .fillblanks-select-wrapper');
@@ -4922,7 +4932,7 @@ async function submitFillBlanksSolution(sectionId) {
     } else {
         showNotification('Есть ошибки. Попробуйте еще раз.', 'warning');
         
-        localStorage.setItem(`fillblanks_answers_${sectionId}`, JSON.stringify(userAnswers));
+        localStorage.setItem(getExerciseAnswersStorageKey('fillblanks', sectionId), JSON.stringify(userAnswers));
         
         if (result.results) {
             for (const [sentenceId, sentenceResult] of Object.entries(result.results)) {
@@ -7357,14 +7367,12 @@ function getCorrectAnswers(card, exerciseType) {
 function clearSectionLocalStorage(sectionId, testId = null) {
   console.log(`[Reset] Clearing localStorage for section ${sectionId}`);
   
-  // Очищаем ответы упражнений
-  const matchingKey = `matching_answers_${sectionId}`;
-  const choiceKey = `choice_answers_${sectionId}`;
-  const fillblanksKey = `fillblanks_answers_${sectionId}`;
-  
-  localStorage.removeItem(matchingKey);
-  localStorage.removeItem(choiceKey);
-  localStorage.removeItem(fillblanksKey);
+  // Очищаем ответы упражнений (текущий пользователь + старые ключи без user id)
+  const kinds = ['matching', 'choice', 'fillblanks'];
+  kinds.forEach((kind) => {
+    localStorage.removeItem(getExerciseAnswersStorageKey(kind, sectionId));
+    localStorage.removeItem(`${kind}_answers_${sectionId}`);
+  });
   
   // Если есть testId, очищаем данные теста
   if (testId) {

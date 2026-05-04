@@ -66,7 +66,17 @@ document.addEventListener("DOMContentLoaded", async function () {
                 
                 // Отображаем информацию о курсе
                 const titleInput = document.getElementById('courseTitle');
-                if (titleInput) titleInput.value = course.title;
+                if (titleInput) {
+                    titleInput.value = course.title;
+                    if (titleInput.tagName === 'TEXTAREA') {
+                        requestAnimationFrame(() => {
+                            titleInput.style.height = 'auto';
+                            const minH = 52;
+                            const maxH = 320;
+                            titleInput.style.height = Math.min(Math.max(titleInput.scrollHeight, minH), maxH) + 'px';
+                        });
+                    }
+                }
                 
                 if (course.cover_image) {
                     displayCourseImage(course.cover_image);
@@ -765,7 +775,7 @@ document.addEventListener("DOMContentLoaded", async function () {
     }
 
     function mountPerformanceUI(container, apiData) {
-        let sortMode = 'joined_new';
+        let sortMode = 'name_az';
         let searchQuery = '';
         const students = apiData.students || [];
 
@@ -776,14 +786,16 @@ document.addEventListener("DOMContentLoaded", async function () {
                 <h2 class="perf-title">Список студентов, проходящих этот курс</h2>
                 <div class="perf-toolbar-right">
                     <div class="perf-dropdown perf-sort-wrap">
-                        <button type="button" class="perf-sort-toggle" aria-expanded="false">
-                            <span class="perf-sort-label">Сначала новые</span>
+                        <button type="button" class="perf-sort-toggle" aria-expanded="false" title="Сортировка списка студентов">
+                            <span class="perf-sort-label">По алфавиту</span>
                             <img src="/images/teacherMainPanel/chevronDown.svg" alt="" class="perf-chevron">
                         </button>
                         <div class="perf-dropdown-menu" hidden>
-                            <button type="button" data-sort="joined_new">Сначала новые</button>
-                            <button type="button" data-sort="joined_old">Сначала старые</button>
                             <button type="button" data-sort="name_az">По алфавиту</button>
+                            <button type="button" data-sort="joined_new" class="perf-sort-group-start">Дата подключения: недавние первыми</button>
+                            <button type="button" data-sort="joined_old">Дата подключения: давние первыми</button>
+                            <button type="button" data-sort="points_desc" class="perf-sort-group-start">Баллы: от большего к меньшему</button>
+                            <button type="button" data-sort="points_asc">Баллы: от меньшего к большему</button>
                         </div>
                     </div>
                     <div class="perf-search-wrap">
@@ -803,7 +815,7 @@ document.addEventListener("DOMContentLoaded", async function () {
                     <div class="perf-header-cell">Факультет</div>
                     <div class="perf-header-cell">Курс</div>
                     <div class="perf-header-cell">Группа</div>
-                    <div class="perf-header-cell">Баллы</div>
+                    <div class="perf-header-cell perf-header-cell-score">Баллы<br><span class="perf-th-sub">набрано / макс.</span></div>
                     <div class="perf-header-cell perf-header-expand"></div>
                 </div>
                 <div class="perf-student-list"></div>
@@ -833,16 +845,37 @@ document.addEventListener("DOMContentLoaded", async function () {
             });
 
             rows = [...rows];
+            const nameCompare = (a, b) => {
+                const la = (a.last_name || '').localeCompare(b.last_name || '', 'ru');
+                if (la !== 0) return la;
+                return (a.first_name || '').localeCompare(b.first_name || '', 'ru');
+            };
             if (sortMode === 'joined_new') {
-                rows.sort((a, b) => new Date(b.joined_at || 0) - new Date(a.joined_at || 0));
-            } else if (sortMode === 'joined_old') {
-                rows.sort((a, b) => new Date(a.joined_at || 0) - new Date(b.joined_at || 0));
-            } else if (sortMode === 'name_az') {
                 rows.sort((a, b) => {
-                    const la = (a.last_name || '').localeCompare(b.last_name || '', 'ru');
-                    if (la !== 0) return la;
-                    return (a.first_name || '').localeCompare(b.first_name || '', 'ru');
+                    const d = new Date(b.joined_at || 0) - new Date(a.joined_at || 0);
+                    if (d !== 0) return d;
+                    return nameCompare(a, b);
                 });
+            } else if (sortMode === 'joined_old') {
+                rows.sort((a, b) => {
+                    const d = new Date(a.joined_at || 0) - new Date(b.joined_at || 0);
+                    if (d !== 0) return d;
+                    return nameCompare(a, b);
+                });
+            } else if (sortMode === 'points_desc') {
+                rows.sort((a, b) => {
+                    const d = (Number(b.total_points) || 0) - (Number(a.total_points) || 0);
+                    if (d !== 0) return d;
+                    return nameCompare(a, b);
+                });
+            } else if (sortMode === 'points_asc') {
+                rows.sort((a, b) => {
+                    const d = (Number(a.total_points) || 0) - (Number(b.total_points) || 0);
+                    if (d !== 0) return d;
+                    return nameCompare(a, b);
+                });
+            } else {
+                rows.sort(nameCompare);
             }
             return rows;
         }
@@ -851,16 +884,37 @@ document.addEventListener("DOMContentLoaded", async function () {
             return String(str || '').replace(/"/g, '&quot;');
         }
 
+        const PERF_EMPTY = '—';
+
+        /** Пусто / пробелы → одинаковый прочерк, как в колонке «Факультет». */
+        function perfFieldDisplay(val) {
+            if (val == null || val === '') return PERF_EMPTY;
+            const s = String(val).trim();
+            return s.length ? s : PERF_EMPTY;
+        }
+
+        /** Набранные и максимум (тесты); при max === 0 — только набранные. outerClass — корневой класс (стили строки). */
+        function formatScorePair(earned, max, outerClass = 'perf-total-points') {
+            const e = earned != null ? Number(earned) : 0;
+            const m = max != null ? Number(max) : 0;
+            if (m > 0) {
+                return `<span class="${outerClass} perf-score-pair"><span class="perf-pts-earned">${e}</span><span class="perf-pts-slash">/</span><span class="perf-pts-max">${m}</span></span>`;
+            }
+            return `<span class="${outerClass}">${e}</span>`;
+        }
+
         function renderStudentCard(s) {
             const name = studentDisplayName(s);
             const avatarSrc = s.avatar_url
                 ? (s.avatar_url + (s.avatar_url.includes('?') ? '&' : '?') + 'v=1')
                 : '/images/userMainPanel/user.svg';
-            const inst = s.educational_institution || '—';
-            const fac = s.faculty || '—';
-            const courseYear = s.study_course != null && s.study_course !== '' ? String(s.study_course) : '—';
-            const grp = s.study_group || '—';
+            const inst = perfFieldDisplay(s.educational_institution);
+            const fac = perfFieldDisplay(s.faculty);
+            const courseYear = perfFieldDisplay(s.study_course);
+            const grp = perfFieldDisplay(s.study_group);
             const totalPts = s.total_points != null ? s.total_points : 0;
+            const maxCourse = s.max_course_points != null ? s.max_course_points : 0;
+            const totalPointsHtml = formatScorePair(totalPts, maxCourse);
 
             const wrap = document.createElement('div');
             wrap.className = 'perf-student-card';
@@ -874,7 +928,7 @@ document.addEventListener("DOMContentLoaded", async function () {
                     <div class="perf-cell perf-cell-fac">${escapeHtml(fac)}</div>
                     <div class="perf-cell perf-cell-year">${escapeHtml(courseYear)}</div>
                     <div class="perf-cell perf-cell-group">${escapeHtml(grp)}</div>
-                    <div class="perf-cell perf-cell-total"><span class="perf-total-points">${totalPts}</span></div>
+                    <div class="perf-cell perf-cell-total">${totalPointsHtml}</div>
                     <div class="perf-cell perf-cell-expand">
                         <button type="button" class="perf-icon-btn perf-student-chevron" aria-label="Развернуть">
                             <img src="/images/teacherMainPanel/chevronDown.svg" alt="" class="perf-chevron">
@@ -894,15 +948,31 @@ document.addEventListener("DOMContentLoaded", async function () {
                 const blocks = theme.blocks || [];
                 const blocksHtml = blocks.map((block) => {
                     const sections = block.sections || [];
-                    const secRows = sections.map((sec) => `
+                    const secRows = sections.map((sec) => {
+                        const isTheoryOrExercise = sec.type === 'theory' || sec.type === 'exercise';
+                        let statusPointsCell;
+                        if (isTheoryOrExercise) {
+                            statusPointsCell = sec.completed
+                                ? `<td class="perf-col-status"><span class="perf-status-cell"><img src="/images/teacherMainPanel/check.svg" alt="Пройдено" class="perf-pass-icon" width="22" height="16"></span></td>`
+                                : `<td class="perf-col-status"><span class="perf-status-cell perf-na">—</span></td>`;
+                        } else {
+                            const te = sec.points != null ? sec.points : 0;
+                            const tm = sec.maxPoints != null ? sec.maxPoints : 0;
+                            const testPair = tm > 0
+                                ? `<span class="perf-num perf-score-pair"><span class="perf-pts-earned">${te}</span><span class="perf-pts-slash">/</span><span class="perf-pts-max">${tm}</span></span>`
+                                : `<span class="perf-num">${te}</span>`;
+                            statusPointsCell = `<td class="perf-col-status"><span class="perf-status-cell">${testPair}</span></td>`;
+                        }
+                        return `
                         <tr>
-                            <td>${escapeHtml(sectionTypeLabel(sec.type))}: ${escapeHtml(sec.title || 'Без названия')}</td>
-                            <td class="perf-num">${sec.points != null ? sec.points : 0}</td>
-                            <td>
+                            <td class="perf-col-task">${escapeHtml(sectionTypeLabel(sec.type))}: ${escapeHtml(sec.title || 'Без названия')}</td>
+                            ${statusPointsCell}
+                            <td class="perf-col-go">
                                 <a class="perf-go-btn" href="/course-constructor-preview?courseId=${encodeURIComponent(currentCourseId)}&blockId=${encodeURIComponent(block.id)}&themeId=${encodeURIComponent(theme.id)}&sectionId=${encodeURIComponent(sec.id)}">Перейти</a>
                             </td>
                         </tr>
-                    `).join('');
+                    `;
+                    }).join('');
 
                     return `
                         <div class="perf-block-card" data-block-id="${escapeHtml(block.id)}">
@@ -915,18 +985,18 @@ document.addEventListener("DOMContentLoaded", async function () {
                                     <div class="perf-bar-track"><div class="perf-bar-fill" style="width:${block.progressPercent || 0}%"></div></div>
                                     <span class="perf-pct">${block.progressPercent || 0}%</span>
                                 </div>
-                                <div class="perf-block-points">${block.blockPoints != null ? block.blockPoints : 0}</div>
+                                <div class="perf-block-points">${formatScorePair(block.blockPoints != null ? block.blockPoints : 0, block.blockMaxPoints != null ? block.blockMaxPoints : 0, 'perf-block-points-inner')}</div>
                                 <button type="button" class="perf-icon-btn perf-block-chevron" aria-label="Развернуть блок">
                                     <img src="/images/teacherMainPanel/chevronDown.svg" alt="" class="perf-chevron">
                                 </button>
                             </div>
                             <div class="perf-block-assignments" hidden>
-                                <table class="perf-assign-table">
+                                <table class="perf-assign-table perf-assign-table--fixed">
                                     <thead>
                                         <tr>
-                                            <th>Задания</th>
-                                            <th>Баллы за задание</th>
-                                            <th>Перейти к заданию</th>
+                                            <th class="perf-col-task">Задания</th>
+                                            <th class="perf-col-status">Пройдено / Баллы за задание</th>
+                                            <th class="perf-col-go">Перейти к заданию</th>
                                         </tr>
                                     </thead>
                                     <tbody>${secRows}</tbody>
@@ -944,13 +1014,13 @@ document.addEventListener("DOMContentLoaded", async function () {
                         <div class="perf-nested-header">
                             <span>Блоки</span>
                             <span>Прогресс по каждому блоку</span>
-                            <span>Баллы за блок</span>
+                            <span class="perf-nested-header-score">Баллы<br><span class="perf-th-sub">набрано / макс.</span></span>
                             <span></span>
                         </div>
                         ${blocksHtml}
                         <div class="perf-theme-total-row">
-                            <span class="perf-theme-total-label">Всего баллов за тему</span>
-                            <span class="perf-theme-total-val">${theme.themePoints != null ? theme.themePoints : 0}</span>
+                            <span class="perf-theme-total-label">Всего за тему (набрано / макс.)</span>
+                            <span class="perf-theme-total-wrap">${formatScorePair(theme.themePoints != null ? theme.themePoints : 0, theme.themeMaxPoints != null ? theme.themeMaxPoints : 0, 'perf-theme-total-val')}</span>
                         </div>
                     </div>
                 `;

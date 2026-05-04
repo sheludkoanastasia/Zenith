@@ -95,7 +95,86 @@ function sortByDate(items, order) {
   });
 }
 
+/**
+ * Список уведомлений как на странице ленты (без href), с теми же фильтрами.
+ */
+async function loadMergedNotifications(user, { courseFilter, category, dateOrder }) {
+  const cutoff = notificationsFreshnessCutoff();
+  await purgeExpiredNotifications(cutoff);
+
+  const where = {
+    user_id: user.id,
+    created_at: { [Op.gte]: cutoff }
+  };
+  if (courseFilter) {
+    where.course_id = courseFilter;
+  }
+
+  const rows = await db.Notification.findAll({
+    where,
+    order: [['created_at', 'DESC']],
+    limit: 500
+  });
+
+  const courseIds = rows.map((r) => r.course_id).filter(Boolean);
+  const nameMap = await loadCourseNamesMap(courseIds);
+
+  let items = rows.map((r) => serializeDbRow(r, nameMap.get(r.course_id) || ''));
+
+  if (user.role === 'student') {
+    items = items.filter((it) => studentCategoryMatches(category, it.type));
+    if (category === 'all' || category === 'deadline') {
+      const deadlines = await notificationService.buildDeadlineRemindersForStudent(user.id);
+      let dItems = deadlines;
+      if (courseFilter) {
+        dItems = dItems.filter((d) => d.courseId === courseFilter);
+      }
+      if (category !== 'all' && category !== 'deadline') {
+        dItems = [];
+      }
+      items = items.concat(dItems.map((d) => ({
+        ...d,
+        icon: iconForType(d.type)
+      })));
+    }
+  } else if (user.role === 'teacher') {
+    items = items.filter((it) =>
+      it.type === 'teacher_new_comment' || it.type === 'teacher_comment_reply'
+    );
+  }
+
+  return sortByDate(items, dateOrder);
+}
+
+function latestCreatedAtIso(items) {
+  let latestMs = 0;
+  for (const it of items) {
+    const t = new Date(it.createdAt).getTime();
+    if (!Number.isNaN(t) && t > latestMs) latestMs = t;
+  }
+  return latestMs ? new Date(latestMs).toISOString() : null;
+}
+
 module.exports = {
+  bell: async (req, res) => {
+    try {
+      const user = req.user;
+      const items = await loadMergedNotifications(user, {
+        courseFilter: null,
+        category: 'all',
+        dateOrder: 'newest'
+      });
+      const latestNotificationAt = latestCreatedAtIso(items);
+      res.json({
+        success: true,
+        hasAny: items.length > 0,
+        latestNotificationAt
+      });
+    } catch (error) {
+      handleError(res, error, 'Ошибка статуса уведомлений');
+    }
+  },
+
   list: async (req, res) => {
     try {
       const user = req.user;
@@ -103,51 +182,7 @@ module.exports = {
       const courseFilter = req.query.courseId && req.query.courseId !== 'all' ? req.query.courseId : null;
       const category = req.query.category || 'all';
 
-      const cutoff = notificationsFreshnessCutoff();
-      await purgeExpiredNotifications(cutoff);
-
-      const where = {
-        user_id: user.id,
-        created_at: { [Op.gte]: cutoff }
-      };
-      if (courseFilter) {
-        where.course_id = courseFilter;
-      }
-
-      const rows = await db.Notification.findAll({
-        where,
-        order: [['created_at', 'DESC']],
-        limit: 500
-      });
-
-      const courseIds = rows.map((r) => r.course_id).filter(Boolean);
-      const nameMap = await loadCourseNamesMap(courseIds);
-
-      let items = rows.map((r) => serializeDbRow(r, nameMap.get(r.course_id) || ''));
-
-      if (user.role === 'student') {
-        items = items.filter((it) => studentCategoryMatches(category, it.type));
-        if (category === 'all' || category === 'deadline') {
-          const deadlines = await notificationService.buildDeadlineRemindersForStudent(user.id);
-          let dItems = deadlines;
-          if (courseFilter) {
-            dItems = dItems.filter((d) => d.courseId === courseFilter);
-          }
-          if (category !== 'all' && category !== 'deadline') {
-            dItems = [];
-          }
-          items = items.concat(dItems.map((d) => ({
-            ...d,
-            icon: iconForType(d.type)
-          })));
-        }
-      } else if (user.role === 'teacher') {
-        items = items.filter((it) =>
-          it.type === 'teacher_new_comment' || it.type === 'teacher_comment_reply'
-        );
-      }
-
-      items = sortByDate(items, dateOrder);
+      const items = await loadMergedNotifications(user, { courseFilter, category, dateOrder });
 
       const withHref = items.map((it) => ({
         ...it,

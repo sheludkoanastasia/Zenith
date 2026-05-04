@@ -40,6 +40,10 @@ document.addEventListener("DOMContentLoaded", async function () {
         
         // Загружаем курсы преподавателя
         await loadTeacherCourses();
+
+        if (typeof window.updateNavNotificationBell === 'function') {
+            await window.updateNavNotificationBell(token, 'teacher');
+        }
         
     } catch (error) {
         console.error('Ошибка проверки авторизации:', error);

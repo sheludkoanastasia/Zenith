@@ -59,6 +59,32 @@ header {
     display: block; 
 }
 
+.nav-notification-bell .nav-notification-bell-icon {
+    width: 28px;
+    height: auto;
+    display: block;
+    flex-shrink: 0;
+    color: #1d1d1d;
+    transition: color 0.2s ease, transform 0.2s ease;
+}
+
+.nav-notification-bell .nav-notification-bell-icon path {
+    stroke-width: 0.88;
+    stroke-linejoin: round;
+}
+
+.nav-notification-bell.nav-notification-bell--unread .nav-notification-bell-icon {
+    color: #e53935;
+}
+
+.nav-right a.nav-notification-bell--unread:hover .nav-notification-bell-icon {
+    color: #c62828;
+}
+
+.nav-right a.nav-notification-bell:not(.nav-notification-bell--unread):hover .nav-notification-bell-icon {
+    color: #7651be;
+}
+
 .nav-right a:last-child {
     margin-left: 20px; /* Добавляет отступ слева для последней ссылки */
 }
@@ -85,7 +111,7 @@ header {
 }
 
 /* Применение анимаций к иконкам */
-.nav-right a:first-child:hover img {
+.nav-right a:first-child:hover .nav-notification-bell-icon {
     animation: bellRing 0.6s ease-in-out forwards;
 }
 

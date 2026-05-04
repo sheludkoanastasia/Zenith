@@ -58,6 +58,32 @@ header {
     display: block;
 }
 
+.nav-notification-bell .nav-notification-bell-icon {
+    width: 28px;
+    height: auto;
+    display: block;
+    flex-shrink: 0;
+    color: #1d1d1d;
+    transition: color 0.2s ease, transform 0.2s ease;
+}
+
+.nav-notification-bell .nav-notification-bell-icon path {
+    stroke-width: 0.88;
+    stroke-linejoin: round;
+}
+
+.nav-notification-bell.nav-notification-bell--unread .nav-notification-bell-icon {
+    color: #e53935;
+}
+
+.nav-right a.nav-notification-bell--unread:hover .nav-notification-bell-icon {
+    color: #c62828;
+}
+
+.nav-right a.nav-notification-bell:not(.nav-notification-bell--unread):hover .nav-notification-bell-icon {
+    color: #7651be;
+}
+
 .nav-right a:last-child {
     margin-left: 20px;
 }
@@ -84,7 +110,7 @@ header {
 }
 
 /* Применение анимаций к иконкам */
-.nav-right a:first-child:hover img {
+.nav-right a:first-child:hover .nav-notification-bell-icon {
     animation: bellRing 0.6s ease-in-out forwards;
 }
 
@@ -323,8 +349,9 @@ header {
     margin-top: 34px;
     font-size: 40px;
     font-weight: 400;
-    line-height: 1.2;
+    line-height: 1.3;
     text-align: right;
+    padding-bottom: 4px;
 }
 
 .progress-title span {
@@ -345,14 +372,21 @@ header {
 
 .general-progress-list {
     position: absolute;
-    inset: 26px 34px 26px 34px;
+    inset: 22px 34px 22px 34px;
     display: flex;
     flex-direction: column;
-    gap: 16px;
+    gap: 10px;
+    align-items: stretch;
     overflow-y: auto;
-    padding-right: 22px;
+    overflow-x: hidden;
+    padding: 10px 22px 12px 0;
     scrollbar-width: thin;
     scrollbar-color: #c8c8c8 transparent;
+}
+
+/* Пары курсов друг под другом: после каждого второго — увеличенный отступ до следующей пары */
+.general-progress-list > .general-progress-item:nth-child(even) {
+    margin-bottom: 18px;
 }
 
 /* WebKit (Chrome, Safari, Edge) */
@@ -386,6 +420,7 @@ header {
     display: flex;
     flex-direction: column;
     gap: 7px;
+    min-width: 0;
 }
 
 .general-progress-course-title {
@@ -393,10 +428,16 @@ header {
     color: #1D1D1D;
     font-size: 18px;
     font-weight: 500;
-    line-height: 1.2;
+    line-height: 1.45;
+    min-width: 0;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
     overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    padding-bottom: 2px;
 }
 
 .general-progress-row {
@@ -421,11 +462,12 @@ header {
 }
 
 .general-progress-percent {
-    min-width: 42px;
+    min-width: 40px;
     color: #7651BE;
-    font-size: 18px;
+    font-size: 17px;
     font-weight: 500;
     text-align: right;
+    line-height: 1.2;
 }
 
 .general-progress-empty {
@@ -434,7 +476,8 @@ header {
     font-size: 18px;
     font-weight: 500;
     text-align: center;
-    line-height: 1.3;
+    line-height: 1.45;
+    padding: 8px 4px 12px;
 }
 
 /* ===== СТИЛИ ДЛЯ КАРТОЧЕК КУРСОВ (как у преподавателя) ===== */

@@ -1,7 +1,9 @@
+const path = require('path');
 const { Op } = require('sequelize');
 const db = require('../models');
 const { handleError } = require('../utils/errorHandler');
 const notificationService = require('../services/notificationService');
+const { processCourseCoverUpload } = require('../utils/processCourseCoverUpload');
 
 // Добавьте эту функцию в начало файла, после require
 function generateJoinCode() {
@@ -119,26 +121,23 @@ function computeTeacherSectionMetrics(section, progress, test, attempts) {
   const type = sectionPlain.type;
 
   if (type === 'theory') {
-    const maxPoints = 100;
     const completed = versionOk && progress?.status === 'completed';
-    const points = completed ? maxPoints : 0;
     return {
-      points,
-      maxPoints,
+      points: 0,
+      maxPoints: 0,
       completed,
       displayPercent: completed ? 100 : 0
     };
   }
 
   if (type === 'exercise') {
-    const maxPoints = 100;
     const completed = versionOk && progress?.status === 'completed';
-    const raw = versionOk ? Math.min(maxPoints, Number(progress?.best_score) || 0) : 0;
-    const points = raw;
-    const displayPercent = completed
-      ? 100
-      : (maxPoints > 0 ? Math.round((points / maxPoints) * 100) : 0);
-    return { points, maxPoints, completed, displayPercent };
+    return {
+      points: 0,
+      maxPoints: 0,
+      completed,
+      displayPercent: completed ? 100 : 0
+    };
   }
 
   if (type === 'test') {
@@ -267,10 +266,11 @@ async function buildTeacherCoursePerformance(courseId) {
   const sectionMaxPoints = new Map();
   let courseMaxPoints = 0;
   sections.forEach((sec) => {
+    const secPlain = sec.get ? sec.get({ plain: true }) : sec;
     const test = testBySectionId.get(sec.id);
-    let max = 100;
-    if (sec.type === 'test' && test) {
-      max = getTestMaxScoreFromExercises(test);
+    let max = 0;
+    if (secPlain.type === 'test') {
+      max = test ? getTestMaxScoreFromExercises(test) : 100;
     }
     sectionMaxPoints.set(sec.id, max);
     courseMaxPoints += max;
@@ -295,7 +295,7 @@ async function buildTeacherCoursePerformance(courseId) {
         let completedCount = 0;
         const sectionsOut = secs.map((section) => {
           const secPlain = section.get ? section.get({ plain: true }) : section;
-          const maxPts = sectionMaxPoints.get(secPlain.id) || 100;
+          const maxPts = sectionMaxPoints.get(secPlain.id) ?? 0;
           const progress = progressMap.get(`${sid}:${secPlain.id}`);
           const test = testBySectionId.get(secPlain.id);
           const attKey = test ? `${sid}:${test.id}` : null;
@@ -931,7 +931,17 @@ module.exports = {
                 });
             }
 
-            const imageUrl = `/public/uploads/courses/${req.file.filename}`;
+            let filename = req.file.filename;
+            const absPath =
+                req.file.path ||
+                path.join(__dirname, '../../public/uploads/courses', filename);
+            try {
+                filename = await processCourseCoverUpload(absPath);
+            } catch (e) {
+                console.error('Course cover processing failed, using original file:', e.message);
+            }
+
+            const imageUrl = `/public/uploads/courses/${filename}`;
 
             res.json({
                 success: true,

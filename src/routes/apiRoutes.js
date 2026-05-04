@@ -24,6 +24,11 @@ router.get('/auth/check',
   authController.check
 );
 
+router.get('/notifications/bell',
+  authMiddleware.verifyToken,
+  notificationController.bell
+);
+
 router.get('/notifications',
   authMiddleware.verifyToken,
   notificationController.list

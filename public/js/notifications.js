@@ -7,6 +7,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const panelBase = window.location.pathname.startsWith('/teacher') ? '/teacher' : '/user';
 
+  const lastSeenKey =
+    panelBase === '/teacher'
+      ? 'zenith_notifications_last_seen_teacher'
+      : 'zenith_notifications_last_seen_student';
+  localStorage.setItem(lastSeenKey, new Date().toISOString());
+
   const filterRowCategory = document.getElementById('filterRowCategory');
   if (panelBase === '/teacher' && filterRowCategory) {
     filterRowCategory.hidden = true;

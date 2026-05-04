@@ -24,7 +24,16 @@ document.addEventListener("DOMContentLoaded", async function () {
     // СОХРАНЕНИЕ И ВОССТАНОВЛЕНИЕ ДАННЫХ (ЧЕРНОВИК)
     // ===============================
     const STORAGE_KEY = 'course_draft';
-    
+    const COURSE_TITLE_MAX_LEN = 200;
+
+    function syncCourseTitleTextareaHeight(el) {
+        if (!el || el.tagName !== 'TEXTAREA') return;
+        el.style.height = 'auto';
+        const minH = 52;
+        const maxH = 320;
+        el.style.height = Math.min(Math.max(el.scrollHeight, minH), maxH) + 'px';
+    }
+
     function saveDraft() {
         if (currentCourseId) return;
         
@@ -149,7 +158,10 @@ document.addEventListener("DOMContentLoaded", async function () {
             const draftData = JSON.parse(savedDraft);
             
             const titleInput = document.getElementById('courseTitle');
-            if (titleInput && draftData.title) titleInput.value = draftData.title;
+            if (titleInput && draftData.title) {
+                titleInput.value = String(draftData.title).slice(0, COURSE_TITLE_MAX_LEN);
+                syncCourseTitleTextareaHeight(titleInput);
+            }
             
             if (draftData.cover_image) {
                 currentCoverImage = draftData.cover_image;
@@ -209,7 +221,10 @@ document.addEventListener("DOMContentLoaded", async function () {
                 const course = data.course;
                 
                 const titleInput = document.getElementById('courseTitle');
-                if (titleInput) titleInput.value = course.title;
+                if (titleInput) {
+                    titleInput.value = course.title;
+                    syncCourseTitleTextareaHeight(titleInput);
+                }
 
                 const countStudentsEl = document.getElementById('countStudents');
                 if (countStudentsEl) {
@@ -962,7 +977,11 @@ document.addEventListener("DOMContentLoaded", async function () {
             showNotification('Введите название курса', 'warning');
             return;
         }
-        
+        if (title.length < 3 || title.length > COURSE_TITLE_MAX_LEN) {
+            showNotification(`Название курса: от 3 до ${COURSE_TITLE_MAX_LEN} символов`, 'warning');
+            return;
+        }
+
         collectDataFromDOM();
         
         console.log('=== ПРОВЕРКА ПЕРЕД ОТПРАВКОЙ ===');
@@ -1116,7 +1135,11 @@ document.addEventListener("DOMContentLoaded", async function () {
     // ===============================
     const titleInputElem = document.getElementById('courseTitle');
     if (titleInputElem) {
-        titleInputElem.addEventListener('input', () => scheduleAutoSave());
+        titleInputElem.addEventListener('input', () => {
+            syncCourseTitleTextareaHeight(titleInputElem);
+            scheduleAutoSave();
+        });
+        requestAnimationFrame(() => syncCourseTitleTextareaHeight(titleInputElem));
     }
     
     // ===============================

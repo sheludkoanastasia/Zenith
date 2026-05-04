@@ -2698,14 +2698,26 @@ body[data-user-role="teacher"] .test-score-info {
     margin-left: 0;
 }
 
-.comment-avatar {
-    width: 38px;
-    height: 38px;
-    border-radius: 50%;
-    object-fit: cover;
+/* Квадратная оболочка: flex не сжимает круг, фото всегда cover внутри */
+.comment-avatar-wrap {
     flex: 0 0 auto;
+    width: 48px;
+    height: 48px;
+    min-width: 48px;
+    min-height: 48px;
+    border-radius: 50%;
+    overflow: hidden;
     border: 1px solid rgba(29, 29, 29, 0.12);
     background: #fff;
+    align-self: flex-start;
+}
+
+.comment-avatar {
+    width: 100%;
+    height: 100%;
+    display: block;
+    object-fit: cover;
+    object-position: center;
 }
 
 .comment-main {

@@ -4,6 +4,7 @@ const db = require('../models');
 const { handleError } = require('../utils/errorHandler');
 const { toPublicUser } = require('../utils/userSerializer');
 const { destroyCourseAndDependencies } = require('./courseController');
+const { processAvatarUpload } = require('../utils/processAvatarUpload');
 
 const OPTIONAL_TEXT_MAX = 200;
 const NAME_RE = /^[А-Яа-яЁёA-Za-z\s-]+$/;
@@ -136,7 +137,16 @@ module.exports = {
 
       if (req.file) {
         removeAvatarFile(user.avatarUrl);
-        updates.avatarUrl = `/public/uploads/avatars/${req.file.filename}`;
+        let avatarFilename = req.file.filename;
+        const absPath =
+          req.file.path ||
+          path.join(__dirname, '../../public/uploads/avatars', req.file.filename);
+        try {
+          avatarFilename = await processAvatarUpload(absPath);
+        } catch (e) {
+          console.error('Avatar processing failed, keeping uploaded file:', e.message);
+        }
+        updates.avatarUrl = `/public/uploads/avatars/${avatarFilename}`;
       }
 
       await user.update(updates);
