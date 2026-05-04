@@ -472,7 +472,8 @@ module.exports = {
                     title: course.title,
                     cover_image: course.cover_image,
                     status: course.status,
-                    join_code: course.join_code  // ← УБЕДИТЕСЬ, ЧТО ЭТА СТРОКА ЕСТЬ
+                    join_code: course.join_code,
+                    students_count: course.students_count != null ? course.students_count : 0
                 }
             });
 
@@ -896,6 +897,10 @@ module.exports = {
                 ]
             });
 
+            const enrolledAfterUpdate = await db.CourseStudent.count({
+                where: { course_id: updatedCourse.id }
+            });
+
             res.json({
                 success: true,
                 message: 'Курс успешно обновлен',
@@ -904,7 +909,8 @@ module.exports = {
                     title: updatedCourse.title,
                     cover_image: updatedCourse.cover_image,
                     status: updatedCourse.status,
-                    join_code: updatedCourse.join_code,  // ← ДОБАВЬТЕ ЭТУ СТРОКУ
+                    join_code: updatedCourse.join_code,
+                    students_count: enrolledAfterUpdate,
                     themes: updatedCourse.themes
                 }
             });

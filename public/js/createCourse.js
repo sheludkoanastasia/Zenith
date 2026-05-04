@@ -210,6 +210,13 @@ document.addEventListener("DOMContentLoaded", async function () {
                 
                 const titleInput = document.getElementById('courseTitle');
                 if (titleInput) titleInput.value = course.title;
+
+                const countStudentsEl = document.getElementById('countStudents');
+                if (countStudentsEl) {
+                    countStudentsEl.textContent = String(
+                        course.students_count != null ? course.students_count : 0
+                    );
+                }
                 
                 // Сохраняем join_code
                 courseData.join_code = course.join_code;
@@ -360,6 +367,7 @@ document.addEventListener("DOMContentLoaded", async function () {
         
         // Обновляем order_index после загрузки
         updateThemeOrderIndices();
+        scheduleThemeTextareasLayoutSync();
     }
     
     function updateThemeOrderIndices() {
@@ -674,6 +682,23 @@ document.addEventListener("DOMContentLoaded", async function () {
     // ===============================
     // ФУНКЦИИ ДЛЯ РАБОТЫ С ТЕМАМИ И БЛОКАМИ
     // ===============================
+
+    const THEME_TEXTAREA_MIN_PX = 52;
+    const THEME_TEXTAREA_MAX_PX = 480;
+
+    function syncThemeTextareaHeight(el) {
+        if (!el || el.tagName !== 'TEXTAREA') return;
+        el.style.overflowY = 'hidden';
+        el.style.height = 'auto';
+        const sh = el.scrollHeight;
+        const next = Math.min(Math.max(sh, THEME_TEXTAREA_MIN_PX), THEME_TEXTAREA_MAX_PX);
+        el.style.height = `${next}px`;
+        el.style.overflowY = sh > THEME_TEXTAREA_MAX_PX ? 'auto' : 'hidden';
+    }
+
+    function syncAllThemeTextareaHeights() {
+        document.querySelectorAll('#themesContainer .course-theme-input').forEach(syncThemeTextareaHeight);
+    }
     
     function createTheme(themeTitle = '', themeId = null) {
         const themeWrapper = document.createElement('div');
@@ -686,7 +711,7 @@ document.addEventListener("DOMContentLoaded", async function () {
                     <button class="toggle-theme-btn" title="Свернуть/развернуть тему">
                         <img src="/images/teacherMainPanel/chevronDown.svg" alt="Toggle" class="chevron-icon">
                     </button>
-                    <input type="text" class="course-theme-input" placeholder="Тема курса" value="${themeTitle}">
+                    <textarea class="course-theme-input" rows="1" placeholder="Тема курса" spellcheck="true"></textarea>
                 </div>
                 <button class="delete-theme-btn" title="Удалить тему">
                     <img src="/images/teacherMainPanel/delete.svg" alt="Удалить" class="delete-icon">
@@ -700,6 +725,21 @@ document.addEventListener("DOMContentLoaded", async function () {
         const chevronIcon = themeWrapper.querySelector('.chevron-icon');
         const blocksContainer = themeWrapper.querySelector('.blocks-container');
         const themeInput = themeWrapper.querySelector('.course-theme-input');
+        if (themeInput) {
+            themeInput.value = themeTitle || '';
+        }
+
+        const titleContainer = themeWrapper.querySelector('.theme-title-container');
+        if (titleContainer && themeInput && typeof ResizeObserver !== 'undefined') {
+            const ro = new ResizeObserver(() => syncThemeTextareaHeight(themeInput));
+            ro.observe(titleContainer);
+        }
+
+        requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+                if (themeInput && themeInput.isConnected) syncThemeTextareaHeight(themeInput);
+            });
+        });
         
         let isThemeOpen = true;
         gsap.set(chevronIcon, { rotation: 180 });
@@ -727,8 +767,13 @@ document.addEventListener("DOMContentLoaded", async function () {
         });
         
         themeInput.addEventListener('input', () => {
+            syncThemeTextareaHeight(themeInput);
             collectDataFromDOM();
             scheduleAutoSave();
+        });
+
+        themeInput.addEventListener('paste', () => {
+            requestAnimationFrame(() => syncThemeTextareaHeight(themeInput));
         });
         
         deleteBtn.addEventListener('click', function(e) {
@@ -751,6 +796,15 @@ document.addEventListener("DOMContentLoaded", async function () {
         blocksContainer.appendChild(createPlusBlock());
         return themeWrapper;
     }
+
+    function scheduleThemeTextareasLayoutSync() {
+        requestAnimationFrame(() => {
+            requestAnimationFrame(() => syncAllThemeTextareaHeights());
+        });
+        if (document.fonts && document.fonts.ready) {
+            document.fonts.ready.then(syncAllThemeTextareaHeights).catch(() => {});
+        }
+    }
     
     function addNewTheme(themeTitle = '') {
         const themesContainer = document.getElementById('themesContainer');
@@ -758,6 +812,7 @@ document.addEventListener("DOMContentLoaded", async function () {
         
         const newTheme = createTheme(themeTitle);
         themesContainer.appendChild(newTheme);
+        scheduleThemeTextareasLayoutSync();
         updateThemeOrderIndices();
         collectDataFromDOM();
         scheduleAutoSave();
@@ -976,6 +1031,13 @@ document.addEventListener("DOMContentLoaded", async function () {
                 }
                 
                 updateDOMWithIds(courseData.themes);
+
+                const countStudentsEl = document.getElementById('countStudents');
+                if (countStudentsEl && data.course) {
+                    countStudentsEl.textContent = String(
+                        data.course.students_count != null ? data.course.students_count : 0
+                    );
+                }
                 
                 // Если мы сейчас на вкладке connection - обновляем отображение ссылки
                 if (connectionLink && connectionLink.classList.contains('active')) {
@@ -1014,6 +1076,7 @@ document.addEventListener("DOMContentLoaded", async function () {
                 });
             }
         });
+        scheduleThemeTextareasLayoutSync();
     }
     
     // ===============================
