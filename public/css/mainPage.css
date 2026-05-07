@@ -855,6 +855,231 @@ footer p {
     display: block;
 }
 
+/* Возврат прежней логики для всех экранов меньше 2K */
+@media (max-width: 2559px) {
+    .hero-demo-stack .right-image-frame {
+        left: 50% !important;
+        transform: translate(-50%, -50%) !important;
+        width: 84%;
+        max-width: 84%;
+    }
+}
+
+/* 2K мониторы (2560x1440 и выше) */
+@media (min-width: 2560px) {
+    header {
+        padding: 28px 70px;
+    }
+
+    .logo img {
+        width: 82px;
+        height: 28px;
+    }
+
+    .nav-center {
+        gap: 56px;
+    }
+
+    .nav-center a,
+    .nav-right a {
+        font-size: 24px;
+    }
+
+    .main-container {
+        max-height: 88vh;
+    }
+
+    .left-section,
+    .right-section {
+        padding-left: 80px;
+        padding-right: 80px;
+    }
+
+    .image-container {
+        max-width: min(1300px, 96vw);
+        max-height: min(820px, 84vh);
+    }
+
+    .title {
+        font-size: 62px;
+        max-width: 1100px;
+        margin-bottom: 26px;
+    }
+
+    .subtitle {
+        font-size: 26px;
+        max-width: 980px;
+        margin-bottom: 34px;
+    }
+
+    .registration-section {
+        gap: 24px;
+        margin-top: 26px;
+        margin-bottom: 26px;
+    }
+
+    .registration-text,
+    .registration-button {
+        font-size: 22px;
+    }
+
+    .registration-button {
+        padding: 14px 36px;
+        border-radius: 24px;
+    }
+
+    .students-header {
+        margin-top: 150px;
+        margin-bottom: 48px;
+        padding-left: 40px;
+        padding-right: 40px;
+    }
+
+    .students-title,
+    .teachers-title {
+        font-size: 28px;
+    }
+
+    .students-background {
+        max-height: 940px;
+    }
+
+    .students-text-content {
+        top: 110px;
+        max-width: 940px;
+    }
+
+    .students-content {
+        min-height: 980px;
+    }
+
+    .students-main-title,
+    .students-disscution-title,
+    .students-progress-title,
+    .teachers-grid-1-title,
+    .teachers-grid-2-title,
+    .teachers-grid-3-title {
+        font-size: 62px;
+    }
+
+    .students-description,
+    .students-disscution-description,
+    .students-progress-description,
+    .teachers-grid-1-description,
+    .teachers-grid-2-description,
+    .teachers-grid-3-description {
+        font-size: 26px;
+    }
+
+    .students-images {
+        top: 560px;
+        gap: 80px;
+    }
+
+    .image-frame {
+        width: 250px;
+        height: 250px;
+    }
+
+    .icon {
+        width: 185px;
+        height: 185px;
+    }
+
+    .signFrame {
+        font-size: 24px;
+        padding-top: 30px;
+    }
+
+    .students-section-disscution,
+    .students-section-progress {
+        gap: 90px;
+        padding-top: 90px;
+        padding-bottom: 80px;
+        padding-left: 80px;
+        padding-right: 80px;
+    }
+
+    .students-text-content-disscution,
+    .students-text-content-progress {
+        max-width: 760px;
+    }
+
+    .discussion-image {
+        max-width: 430px;
+    }
+
+    .progress-image {
+        max-width: 490px;
+    }
+
+    .teachers-header {
+        margin-top: 160px;
+        margin-bottom: 44px;
+        padding-left: 40px;
+        padding-right: 40px;
+    }
+
+    .horizontal-line {
+        margin-top: 70px;
+        margin-bottom: 50px;
+    }
+
+    .teachers-grid-1,
+    .teachers-grid-2,
+    .teachers-grid-3 {
+        grid-template-columns: minmax(680px, 860px) auto minmax(680px, 860px);
+        min-height: 860px;
+        max-width: 1920px;
+        padding: 0 60px;
+    }
+
+    .teachers-grid-1-text-content,
+    .teachers-grid-2-text-content,
+    .teachers-grid-3-text-content,
+    .teachers-grid-demo,
+    .teachers-grid-demo-2,
+    .teachers-grid-demo-3 {
+        min-height: 860px;
+        padding: 56px;
+    }
+
+    .teachers-grid-1-title,
+    .teachers-grid-2-title,
+    .teachers-grid-3-title {
+        margin-bottom: 60px;
+    }
+
+    .teachers-grid-1-description,
+    .teachers-grid-2-description,
+    .teachers-grid-3-description {
+        padding-bottom: 40px;
+    }
+
+    .teachers-grid-1-text-content > *,
+    .teachers-grid-2-text-content > *,
+    .teachers-grid-3-text-content > * {
+        max-width: 700px;
+    }
+
+    .teachers-demo-stack {
+        transform: scale(1.26);
+    }
+
+    footer {
+        padding: 28px 60px;
+    }
+
+    footer p {
+        font-size: 24px;
+    }
+
+    .logoUniversity img {
+        width: 390px;
+    }
+}
+
+
 @media (max-width: 1440px) {
     .left-section {
         padding-left: 40px;
