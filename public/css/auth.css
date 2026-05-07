@@ -297,6 +297,86 @@ header {
     background-color: #7651BE;
 }
 
+@media (min-width: 2560px) {
+    header {
+        padding: 28px 70px;
+    }
+
+    .logo img {
+        width: 82px;
+        height: 28px;
+    }
+
+    .nav-right a {
+        font-size: 24px;
+    }
+
+    .auth-form-container {
+        padding: 72px;
+    }
+
+    .auth-form {
+        max-width: 620px;
+    }
+
+    .auth-title {
+        font-size: 66px;
+        margin-bottom: 30px;
+        max-width: 980px;
+    }
+
+    .auth-switch {
+        margin-bottom: 30px;
+        font-size: 26px;
+        gap: 16px;
+    }
+
+    .form-group {
+        margin-bottom: 32px;
+    }
+
+    .form-label {
+        font-size: 26px;
+        margin-bottom: 14px;
+    }
+
+    .form-input {
+        padding: 18px 24px;
+        border-radius: 20px;
+        font-size: 24px;
+    }
+
+    .auth-button {
+        padding: 20px;
+        border-radius: 20px;
+        font-size: 28px;
+        margin-top: 22px;
+    }
+
+    .forgot-password {
+        margin-top: 32px;
+    }
+
+    .forgot-password-link,
+    .role-selector {
+        font-size: 24px;
+    }
+
+    .role-selector {
+        gap: 40px;
+        margin-bottom: 32px;
+    }
+
+    .auth-visual {
+        justify-content: center;
+    }
+
+    .gradient-image {
+        width: 108%;
+        min-width: 1200px;
+    }
+}
+
 @media(max-width:1740px){
     .auth-visual {
     box-shadow: inset 10px 0 20px rgba(0, 0, 0, 0.1); /* Тень слева, темная у края */
