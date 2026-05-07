@@ -281,13 +281,12 @@ header {
 }
 
 /* Градиент под рамкой: видимый «выступ» ~40px на десктопе (инсет рамки от краёв фона) */
+/* Фикс для демо-изображений — единые пропорции для всех разрешений */
 .hero-demo-stack {
-    --hero-demo-inset: 40px;
     position: relative;
     display: block;
     width: 100%;
     max-width: 100%;
-    max-height: 100%;
     margin: 0 auto;
     overflow: visible;
 }
@@ -298,23 +297,20 @@ header {
     display: block;
     width: 100%;
     max-width: 100%;
-    max-height: min(720px, 82vh);
     height: auto;
     object-fit: contain;
+    margin: 0 auto;
 }
 
 .hero-demo-stack .right-image-frame {
     position: absolute;
-    top: var(--hero-demo-inset);
-    right: var(--hero-demo-inset);
-    bottom: var(--hero-demo-inset);
-    left: var(--hero-demo-inset);
+    top: 50%;
+    left: 50%;
     z-index: 1;
-    margin: auto;
-    width: auto;
+    transform: translate(-50%, -50%);
+    width: 84%; /* Фиксированный процент — подложка выступает на 16% */
     height: auto;
-    max-width: 100%;
-    max-height: 100%;
+    max-width: 84%;
     object-fit: contain;
     pointer-events: none;
     display: block;
@@ -548,6 +544,7 @@ header {
     height: 0.8px;
     background-color: #E5E5E5;
     margin-top: 50px; /* Отступ сверху */
+    margin-bottom: 30px; /* Отступ до первого teachers-grid */
 }
 
 .horizontal-line-bottom{
@@ -877,6 +874,10 @@ footer p {
 }
 
 @media (max-width: 1366px) {
+    .hero-demo-stack {
+        --hero-demo-inset: 4.2%;
+    }
+
     .left-section {
         padding-left: 40px;
     }
@@ -1071,6 +1072,10 @@ footer p {
 }
 
 @media (max-width: 1200px) {
+    .hero-demo-stack {
+        --hero-demo-inset: 4.8%;
+    }
+
     .left-section {
         padding-left: 40px;
         padding-right: 30px;
@@ -1132,6 +1137,10 @@ footer p {
 
 /* Стили для мобильных устройств (992px и меньше) */
 @media (max-width: 992px) {
+    .hero-demo-stack {
+        --hero-demo-inset: 5.4%;
+    }
+
     .main-container {
         height: 50vh;
         max-height: 50vh;
@@ -1186,16 +1195,8 @@ footer p {
     }
     
     .image-container {
-        max-width: min(820px, 96vw);
-        max-height: min(520px, 48vh);
-    }
-
-    .hero-demo-stack {
-        --hero-demo-inset: 40px;
-    }
-
-    .hero-demo-stack .right-image {
-        max-height: min(520px, 48vh);
+        max-width: 569px;
+        max-height: 348px;
     }
     
     /* Адаптация регистрационной секции для мобильных */
@@ -1271,6 +1272,10 @@ footer p {
 }
 
 @media (max-width:885px){
+    .hero-demo-stack {
+        --hero-demo-inset: 5.8%;
+    }
+
     .teachers-demo-stack {
         transform: scale(1.08);
     }
@@ -1429,6 +1434,10 @@ footer p {
 }
 
 @media (max-width: 774px) {
+    .hero-demo-stack {
+        --hero-demo-inset: 6.6%;
+    }
+
     /* В колонке разделитель между текстом и демо не нужен — ломал порядок и визуально первый блок */
     .teachers-grid-1 > .vertical-line,
     .teachers-grid-2 > .vertical-line,
@@ -1655,9 +1664,12 @@ footer p {
 
 }
 
-
 /* Стили для маленьких экранов (650px и меньше) 885 и меньше доделать*/
 @media (max-width: 650px) {
+    .hero-demo-stack {
+        --hero-demo-inset: 8%;
+    }
+
     .next-container {
         padding: 20px; /* Отступ 20px от main-container */
         height: auto !important;
@@ -1679,21 +1691,20 @@ footer p {
         padding: 0;
     }
     
-    .hero-demo-stack {
-        width: 100%;
-        max-width: 100%;
-    }
-
     .hero-demo-stack .right-image {
         width: 100% !important;
-        max-width: 100% !important;
         height: auto !important;
+        max-width: 100%;
+        max-height: 100%;
         object-fit: contain;
         display: block;
+        margin: 0 auto;
     }
 
-    .hero-demo-stack {
-        --hero-demo-inset: clamp(18px, 5vw, 28px);
+    .hero-demo-stack .right-image-frame {
+        max-width: 100%;
+        max-height: 100%;
+        object-fit: contain;
     }
 
     .students-main-title {
