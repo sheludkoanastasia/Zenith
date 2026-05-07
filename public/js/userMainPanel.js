@@ -245,6 +245,7 @@ document.addEventListener("DOMContentLoaded", async function () {
         container.className = 'course-card-container';
         
         const coverImage = course.cover_image || '';
+        const progressPercent = getCourseProgressPercent(course);
         
         container.innerHTML = `
             <div class="course-card">
@@ -253,6 +254,12 @@ document.addEventListener("DOMContentLoaded", async function () {
                 </div>
             </div>
             <div class="course-card-title">${escapeHtml(course.title)}</div>
+            <div class="course-card-progress">
+                <div class="course-card-progress-bar">
+                    <div class="course-card-progress-fill" style="width: ${progressPercent}%"></div>
+                </div>
+                <span class="course-card-progress-percent">${progressPercent}%</span>
+            </div>
         `;
         
         container.addEventListener('click', () => {
@@ -530,14 +537,17 @@ document.addEventListener("DOMContentLoaded", async function () {
     function updateActiveLink(activeLink) {
         updatedNavLinks.forEach(link => {
             if (link === activeLink) {
-                link.style.fontSize = "32px";
-                link.style.fontWeight = "400";
+                link.classList.add('active');
             } else {
-                link.style.fontSize = "22px";
-                link.style.fontWeight = "400";
+                link.classList.remove('active');
                 link.style.color = "#1D1D1D";
             }
         });
+
+        const mobileSelectorText = document.querySelector('.mobile-course-selector-text');
+        if (mobileSelectorText && activeLink) {
+            mobileSelectorText.textContent = activeLink.textContent.trim();
+        }
     }
     
     function clearExtraContent() {
@@ -588,9 +598,12 @@ document.addEventListener("DOMContentLoaded", async function () {
         }
         
         if (section === "Мои курсы") {
+            if (courseSearching) {
+                courseSearching.style.setProperty('display', 'flex', 'important');
+            }
+
             if (firstMessage) {
                 firstMessage.style.display = "none";
-                courseSearching.style.display = "flex";
             }
             // Сбрасываем поиск и фильтр при переходе на вкладку
             const searchInput = document.getElementById('main-search');
@@ -600,9 +613,12 @@ document.addEventListener("DOMContentLoaded", async function () {
             currentFilter = 'new';
             applyFilterAndSearch();
         } else if (section === "Подключиться по ссылке") {
+            if (courseSearching) {
+                courseSearching.style.setProperty('display', 'none', 'important');
+            }
+
             if (firstMessage) {
                 firstMessage.style.display = "none";
-                courseSearching.style.display = "none";
             }
             
             // Создаем отдельный контейнер для подключения
@@ -649,6 +665,53 @@ document.addEventListener("DOMContentLoaded", async function () {
             showContent(this.textContent);
         });
     });
+
+    function setupMobileCourseSelector() {
+        const coursePanel = document.querySelector('.coursePanel');
+        const courseNavigation = document.querySelector('.courseNavigation');
+        const links = Array.from(updatedNavLinks);
+        if (!coursePanel || !courseNavigation || links.length === 0 || document.querySelector('.mobile-course-selector')) return;
+
+        const selector = document.createElement('div');
+        selector.className = 'mobile-course-selector';
+        selector.innerHTML = `
+            <button type="button" class="mobile-course-selector-toggle" aria-expanded="false">
+                <span class="mobile-course-selector-text">${links.find(link => link.classList.contains('active'))?.textContent.trim() || links[0].textContent.trim()}</span>
+                <img src="/images/teacherMainPanel/chevronDown.svg" alt="" class="mobile-course-selector-chevron">
+            </button>
+            <div class="mobile-course-selector-menu"></div>
+        `;
+
+        const menu = selector.querySelector('.mobile-course-selector-menu');
+        links.forEach(link => {
+            const item = document.createElement('button');
+            item.type = 'button';
+            item.className = 'mobile-course-selector-item';
+            item.textContent = link.textContent.trim();
+            item.addEventListener('click', () => {
+                link.click();
+                selector.classList.remove('active');
+                selector.querySelector('.mobile-course-selector-toggle').setAttribute('aria-expanded', 'false');
+            });
+            menu.appendChild(item);
+        });
+
+        selector.querySelector('.mobile-course-selector-toggle').addEventListener('click', () => {
+            const isActive = selector.classList.toggle('active');
+            selector.querySelector('.mobile-course-selector-toggle').setAttribute('aria-expanded', String(isActive));
+        });
+
+        document.addEventListener('click', (event) => {
+            if (!selector.contains(event.target)) {
+                selector.classList.remove('active');
+                selector.querySelector('.mobile-course-selector-toggle').setAttribute('aria-expanded', 'false');
+            }
+        });
+
+        coursePanel.insertBefore(selector, courseNavigation);
+    }
+
+    setupMobileCourseSelector();
     
     const myCoursesLink = Array.from(updatedNavLinks).find(link => link.textContent === "Мои курсы");
     if (myCoursesLink) {

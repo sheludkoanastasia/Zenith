@@ -605,6 +605,11 @@ document.addEventListener("DOMContentLoaded", async function () {
                 link.classList.remove('active');
             }
         });
+
+        const mobileSelectorText = document.querySelector('.mobile-course-selector-text');
+        if (mobileSelectorText && activeLink) {
+            mobileSelectorText.textContent = activeLink.textContent.trim();
+        }
     }
 
     function showContent(section) {
@@ -805,6 +810,53 @@ document.addEventListener("DOMContentLoaded", async function () {
             showContent("Создать курс");
         });
     }
+
+    function setupMobileCourseSelector() {
+        const coursePanel = document.querySelector('.coursePanel');
+        const courseNavigation = document.querySelector('.courseNavigation');
+        const links = [myCoursesLink, editCourseLink, createCourseLink].filter(Boolean);
+        if (!coursePanel || !courseNavigation || links.length === 0 || document.querySelector('.mobile-course-selector')) return;
+
+        const selector = document.createElement('div');
+        selector.className = 'mobile-course-selector';
+        selector.innerHTML = `
+            <button type="button" class="mobile-course-selector-toggle" aria-expanded="false">
+                <span class="mobile-course-selector-text">${links.find(link => link.classList.contains('active'))?.textContent.trim() || links[0].textContent.trim()}</span>
+                <img src="/images/teacherMainPanel/chevronDown.svg" alt="" class="mobile-course-selector-chevron">
+            </button>
+            <div class="mobile-course-selector-menu"></div>
+        `;
+
+        const menu = selector.querySelector('.mobile-course-selector-menu');
+        links.forEach(link => {
+            const item = document.createElement('button');
+            item.type = 'button';
+            item.className = 'mobile-course-selector-item';
+            item.textContent = link.textContent.trim();
+            item.addEventListener('click', () => {
+                link.click();
+                selector.classList.remove('active');
+                selector.querySelector('.mobile-course-selector-toggle').setAttribute('aria-expanded', 'false');
+            });
+            menu.appendChild(item);
+        });
+
+        selector.querySelector('.mobile-course-selector-toggle').addEventListener('click', () => {
+            const isActive = selector.classList.toggle('active');
+            selector.querySelector('.mobile-course-selector-toggle').setAttribute('aria-expanded', String(isActive));
+        });
+
+        document.addEventListener('click', (event) => {
+            if (!selector.contains(event.target)) {
+                selector.classList.remove('active');
+                selector.querySelector('.mobile-course-selector-toggle').setAttribute('aria-expanded', 'false');
+            }
+        });
+
+        coursePanel.insertBefore(selector, courseNavigation);
+    }
+
+    setupMobileCourseSelector();
 
     // Добавляем обработчик для карточки создания курса
     const createCourseButton = document.getElementById('createCourseButton');
